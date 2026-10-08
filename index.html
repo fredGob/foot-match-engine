@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moteur de match</title>
+<style>
+  :root { color-scheme: dark; --bg: #11151a; --panel: #1a2028; --line: #2b3440; --text: #e8edf2; --muted: #93a0af; --blue: #2f6fdf; --red: #d8423a; --accent: #ffe45c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .app { max-width: 1520px; margin: 0 auto; padding: 12px 16px 24px; display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 12px 14px; }
+  .score { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 16px; font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .score .team { display: flex; align-items: center; gap: 8px; min-width: 110px; }
+  .score .team:first-child { justify-content: flex-end; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: none; }
+  .score .goals { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 2px 14px; }
+  .score .clock { color: var(--muted); font-size: 16px; font-weight: 500; min-width: 110px; }
+  main { min-width: 0; }
+  .stage { position: relative; }
+  canvas { display: block; width: 100%; aspect-ratio: 114 / 75; border-radius: 10px; cursor: pointer; }
+  .end, .busy { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(10, 14, 18, 0.72); border-radius: 10px; font-size: 26px; font-weight: 650; }
+  .end[hidden], .busy[hidden], .pre[hidden] { display: none; }
+  .pre { position: absolute; left: 0; right: 0; bottom: 7%; display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 16px; font-weight: 500; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
+  .pre > div { padding: 4px 14px; border-radius: 6px; background: rgba(10, 14, 18, 0.78); }
+  .pre button { font-size: 18px; padding: 10px 26px; }
+  .busy { font-size: 18px; font-weight: 500; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+
+  /* barre de temps : repères au-dessus, curseur dessous */
+  .timeline { margin-top: 8px; }
+  .marks { position: relative; height: 16px; margin: 0 8px; }
+  .mark { position: absolute; bottom: 1px; transform: translateX(-50%); padding: 0; border: 0; border-radius: 0; background: none; cursor: pointer; }
+  .mark.shot { width: 3px; height: 8px; opacity: 0.75; }
+  .mark.goal { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--accent); }
+  .mark.tactic { width: 9px; height: 9px; bottom: 3px; transform: translateX(-50%) rotate(45deg); border: 2px solid #fff; }
+  #time { display: block; width: 100%; margin: 0; accent-color: var(--accent); cursor: pointer; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 4px 8px 0; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; vertical-align: middle; margin-right: 5px; }
+
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 10px; color: var(--muted); }
+  button, input[type=number], select { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 6px 12px; }
+  button, select { cursor: pointer; }
+  button:hover, select:hover { border-color: #4a5868; }
+  button.on { background: #2a3a55; border-color: #46639a; }
+  button.main { background: #2a3a55; border-color: #46639a; font-weight: 600; }
+  input[type=number] { width: 86px; }
+  .group { display: flex; align-items: center; gap: 4px; }
+  label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  aside { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .card h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .muted { color: var(--muted); }
+  .small { font-size: 12.5px; }
+  .who { font-size: 16px; font-weight: 650; }
+  .doing { margin: 6px 0 10px; padding: 6px 10px; border-left: 3px solid var(--accent); background: rgba(255, 228, 92, 0.08); border-radius: 0 6px 6px 0; }
+  .doing .note { display: block; margin-top: 2px; font-size: 12.5px; color: var(--accent); }
+  .attrs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; font-size: 13px; }
+  .attr { display: flex; justify-content: space-between; gap: 8px; }
+  .attr b { font-variant-numeric: tabular-nums; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  td { padding: 2px 0; text-align: center; }
+  td:first-child { text-align: left; width: 24%; font-weight: 600; }
+  td:last-child { text-align: right; width: 24%; font-weight: 600; }
+  td.k { color: var(--muted); }
+  tr.g td { padding-top: 9px; text-align: center; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); }
+
+  /* consignes : une ligne par consigne, les Bleus à gauche, les Rouges à droite */
+  .tac th { padding: 0 0 6px; font-weight: 600; }
+  .tac th:first-child { text-align: left; } .tac th:last-child { text-align: right; }
+  .tac td { padding: 3px 0; }
+  .tac select { width: 100%; padding: 5px 6px; }
+  .tac td:first-child, .tac td:last-child { width: 31%; font-weight: 400; }
+  .tac td.k { font-size: 13px; cursor: help; }
+  .tac select.set { border-color: var(--accent); }
+
+  #log { height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+  #log div { display: flex; gap: 8px; }
+  #log time { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+  #log .goal { font-weight: 650; color: var(--accent); }
+  #log .tactic { color: #b9c6d6; font-style: italic; }
+
+  /* série de matchs */
+  .series { margin-top: 14px; }
+  .series .bar { margin-top: 0; }
+  .progress { height: 6px; margin-top: 10px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .progress div { height: 100%; width: 0; background: var(--accent); }
+  .progress[hidden] { display: none; }
+  .sides { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; margin: 12px 0 8px; }
+  .sides div:last-child { text-align: right; }
+  .wdl { display: flex; height: 26px; border-radius: 6px; overflow: hidden; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .wdl div { display: flex; align-items: center; justify-content: center; min-width: 0; overflow: hidden; }
+  .wdl .d { background: #46505c; }
+  .series table { max-width: 620px; margin: 6px auto 0; }
+  .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+  .chips button { padding: 3px 9px; font-size: 13px; }
+  @media (max-width: 980px) { .app { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="score">
+    <span class="team"><span id="name0"></span><span class="dot" style="background: var(--blue)"></span></span>
+    <span class="goals" id="goals">0 – 0</span>
+    <span class="team"><span class="dot" style="background: var(--red)"></span><span id="name1"></span></span>
+    <span class="clock" id="clock">00:00 / 10:00</span>
+  </div>
+
+  <main>
+    <div class="stage">
+      <canvas id="pitch"></canvas>
+      <div class="end" id="end" hidden><div id="endText"></div><div class="row"><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
+      <div class="pre" id="pre" hidden><div>Réglez vos consignes, puis donnez le coup d'envoi.</div><button id="kick" class="main">Lancer le match</button></div>
+      <div class="busy" id="busy" hidden>Calcul du match…</div>
+    </div>
+
+    <div class="timeline">
+      <div class="marks" id="marks"></div>
+      <input type="range" id="time" min="0" max="600" step="0.05" value="0" aria-label="Position dans le match">
+      <div class="legend">
+        <span><i class="mark goal" style="position: static; transform: none; background: var(--blue)"></i>but</span>
+        <span><i class="mark shot" style="position: static; transform: none; background: var(--blue)"></i>tir</span>
+        <span><i class="mark tactic" style="position: static; transform: rotate(45deg); background: var(--blue)"></i>changement de consigne</span>
+        <span>Faites glisser la barre, ou flèches ← → pour reculer et avancer de 5 secondes.</span>
+      </div>
+    </div>
+
+    <div class="bar">
+      <button id="play">Pause</button>
+      <span class="group"><button id="back" title="Reculer de 10 secondes">−10 s</button><button id="fwd" title="Avancer de 10 secondes">+10 s</button></span>
+      <span class="group">Vitesse
+        <button data-speed="1" class="on">×1</button><button data-speed="2">×2</button><button data-speed="4">×4</button><button data-speed="8">×8</button><button data-speed="16">×16</button>
+      </span>
+      <label><input type="checkbox" id="intents"> Montrer où chaque joueur veut aller</label>
+      <label title="Pendant un arrêt de jeu (touche, coup franc, sortie de but…), la lecture va six fois plus vite"><input type="checkbox" id="skip" checked> Passer vite les arrêts de jeu</label>
+      <span class="group" style="margin-left: auto">Durée
+        <select id="duration"><option value="5400" selected>90 min</option><option value="2700">45 min</option><option value="1200">20 min</option><option value="600">10 min (essais)</option></select>
+      </span>
+      <span class="group">Match n°<input type="number" id="seed" min="1" step="1"><button id="load">Rejouer ce match</button><button id="new">Nouveau match</button></span>
+    </div>
+
+    <div class="card series">
+      <h2>Série de matchs</h2>
+      <div class="bar">
+        <label>Nombre de matchs <input type="number" id="nSeries" min="1" max="5000" step="1" value="20"></label>
+        <button id="runSeries" class="main">Simuler la série</button>
+        <span class="muted" id="seriesHint">Avec les équipes et les consignes affichées à droite, et la durée choisie. Sert à voir ce qu'un réglage change en moyenne.</span>
+      </div>
+      <div class="progress" id="prog" hidden><div id="progFill"></div></div>
+      <div id="seriesOut"></div>
+    </div>
+  </main>
+
+  <aside>
+    <div class="card" id="squadCard">
+      <h2>Équipes</h2>
+      <table class="tac" id="squads"></table>
+      <div class="muted small" style="margin-top: 8px">Standard : tous les joueurs à 14. Les autres équipes viennent du fichier equipes.json. Changer d'équipe remet le match au coup d'envoi.</div>
+    </div>
+    <div class="card">
+      <h2>Consignes</h2>
+      <table class="tac" id="tactics"></table>
+      <div class="muted small" id="tacHint" style="margin-top: 8px"></div>
+      <div style="margin-top: 8px"><button id="neutral" class="small">Tout remettre au neutre</button></div>
+    </div>
+    <div class="card">
+      <h2>Joueur</h2>
+      <div id="player" class="muted">Cliquez sur un joueur pour voir ce qu'il est en train de faire.</div>
+    </div>
+    <div class="card">
+      <h2>Fil du match</h2>
+      <div id="log"></div>
+    </div>
+    <div class="card">
+      <h2>Statistiques</h2>
+      <table id="stats"></table>
+    </div>
+  </aside>
+</div>
+
+<script src="engine.js"></script>
+<script src="render.js"></script>
+<script src="stats.js"></script>
+<script>window.MatchTeams = /*EQUIPES*/null;</script>
+<script>
+(function () {
+  'use strict';
+  const E = MatchEngine, R = MatchRender, St = MatchStats, $ = id => document.getElementById(id);
+  const DT = E.DT, NP = 22, F = 8, TAC = E.TACTICS;
+  const cv = $('pitch'), ctx = cv.getContext('2d');
+  const CHASE = { chase: 1, receive: 1, claim: 1, press: 1 };
+
+  // Le match est calculé en entier d'un coup, puis lu comme une vidéo : on peut aller à n'importe quel instant.
+  // tac0 : consignes au coup d'envoi ; changes : changements faits en cours de match ({ tick, team, key, v }).
+  // pending : avant le coup d'envoi. Le terrain est en place, on règle les consignes, rien n'est encore calculé.
+  let seed = 1, duration = 5400, tac0 = [blank(), blank()], changes = [], pending = true;
+  let rec = null, view = null, cur = 0, end = 5400, playing = false, scrub = false, speed = 1, last = 0;
+  let selected = -1, shown = 0, W = 0, H = 0, nextHud = 0, series = null;
+  // équipes du fichier equipes.json (mises dans la page par build.js) ; squad : l'équipe choisie pour chaque camp, '' = équipe standard (tous à 14)
+  const TEAMS = (window.MatchTeams && window.MatchTeams.equipes) || [];
+  let squad = ['', ''];
+  const teamsOf = sq => sq.map(id => TEAMS.find(T => T.id === id) || null);
+  const clubOf = id => { const T = TEAMS.find(x => x.id === id); return T ? T.nom : ''; };
+  const buffers = {};
+
+  function blank() { const t = {}; for (const c of TAC) t[c.key] = 0; return t; }
+  const mmss = t => String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(Math.floor(t % 60)).padStart(2, '0');
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const tickOf = t => Math.round(t / DT);
+  // consignes en vigueur à un instant donné
+  function tacAt(tick) { const t = [Object.assign({}, tac0[0]), Object.assign({}, tac0[1])]; for (const c of changes) if (c.tick <= tick) t[c.team][c.key] = c.v; return t; }
+  function describe(t) { const on = TAC.filter(c => t[c.key]).map(c => c.label + ' : ' + c.options[t[c.key] + 1].toLowerCase()); return on.length ? on.join(' · ') : 'consignes neutres'; }
+
+  // ---------- calcul et enregistrement du match ----------
+  // full = false : seulement l'image du coup d'envoi (avant-match)
+  function simulate(full) {
+    const m = E.createMatch({ seed, duration, tactics: tac0, teams: teamsOf(squad) }), key = seed + '|' + squad.join('|');
+    const cap = full ? Math.round(duration / DT) + 4 : 1;
+    const buf = buffers[cap] || (buffers[cap] = { P: new Float32Array(cap * NP * F), B: new Float32Array(cap * 4), L: new Uint16Array(cap * NP), N: new Uint16Array(cap * NP), K: new Uint8Array(cap * NP), D: new Uint8Array(cap) });
+    const r = Object.assign({ n: 0, texts: [''], kinds: [], stats: [], events: m.events }, buf);
+    const textId = new Map([['', 0]]), kindId = new Map();
+    const id = (map, list, s) => { let i = map.get(s); if (i === undefined) { i = list.length; list.push(s); map.set(s, i); } return i; };
+    const capture = f => {
+      const b = m.ball, live = !b.owner && m.mode === 'play';
+      for (const p of m.players) {
+        const k = (f * NP + p.id) * F, it = p.intent; let tx = it.tx, ty = it.ty;
+        if (CHASE[it.type]) { const ic = live && m.icpt[p.id]; tx = ic ? ic.x : b.x; ty = ic ? ic.y : b.y; }
+        r.P[k] = p.x; r.P[k + 1] = p.y; r.P[k + 2] = p.face; r.P[k + 3] = tx; r.P[k + 4] = ty; r.P[k + 5] = Math.hypot(p.vx, p.vy); r.P[k + 6] = p.stam; r.P[k + 7] = p.dist;
+        r.K[f * NP + p.id] = id(kindId, r.kinds, it.type); r.L[f * NP + p.id] = id(textId, r.texts, it.label); r.N[f * NP + p.id] = id(textId, r.texts, it.note || '');
+      }
+      r.B[f * 4] = b.x; r.B[f * 4 + 1] = b.y; r.B[f * 4 + 2] = b.z; r.B[f * 4 + 3] = b.owner ? b.owner.id : -1;
+      r.D[f] = m.mode === 'dead' ? 1 : 0;                      // arrêt de jeu : la lecture pourra l'accélérer
+      if (f % 10 === 0) r.stats.push(m.teams.map(T => { const s = Object.assign({ dist: 0, fresh: 0 }, T.stats); for (const p of T.players) { s.dist += p.dist; if (p.role !== 'GK') s.fresh += p.stam; } return s; }));
+    };
+    let f = 0, ci = 0;
+    capture(0);
+    while (full && m.mode !== 'over' && f < cap - 1) {
+      for (; ci < changes.length && changes[ci].tick <= m.tick; ci++) E.setTactics(m, changes[ci].team, { [changes[ci].key]: changes[ci].v });
+      E.step(m); capture(++f);
+    }
+    r.n = f + 1;
+    rec = r; end = full ? f * DT : duration;
+    if (!view || view.key !== key) {
+      view = { seed, key, icpt: null, teams: m.teams.map(T => ({ name: T.name, club: T.club, color: T.color })), ball: { x: 0, y: 0, z: 0, px: 0, py: 0, pz: 0, owner: null },
+        players: m.players.map(p => ({ id: p.id, team: p.team, num: p.num, name: p.name, role: p.role, poste: p.poste, a: p.a, x: 0, y: 0, px: 0, py: 0, face: 0, v: 0, stam: 1, dist: 0, intent: { type: 'position', label: '', note: null, tx: 0, ty: 0 } })) };
+    }
+    $('time').max = end; $('time').disabled = !full; $('pre').hidden = full; $('name0').textContent = view.teams[0].name + (view.teams[0].club ? ' · ' + view.teams[0].club : ''); $('name1').textContent = (view.teams[1].club ? view.teams[1].club + ' · ' : '') + view.teams[1].name;
+    drawMarks(); shown = -1; nextHud = 0;
+  }
+
+  // place l'image du match à l'instant t dans « view » ; renvoie la part d'interpolation entre deux pas
+  function show(t) {
+    const fp = Math.min(Math.max(t, 0) / DT, rec.n - 1), f0 = Math.floor(fp), f1 = Math.min(f0 + 1, rec.n - 1), P = rec.P, B = rec.B;
+    for (let i = 0; i < NP; i++) {
+      const p = view.players[i], a = (f0 * NP + i) * F, b = (f1 * NP + i) * F, it = p.intent;
+      p.px = P[a]; p.py = P[a + 1]; p.x = P[b]; p.y = P[b + 1]; p.face = P[b + 2]; it.tx = P[b + 3]; it.ty = P[b + 4]; p.v = P[b + 5]; p.stam = P[b + 6]; p.dist = P[b + 7];
+      it.type = rec.kinds[rec.K[f1 * NP + i]]; it.label = rec.texts[rec.L[f1 * NP + i]]; it.note = rec.texts[rec.N[f1 * NP + i]] || null;
+    }
+    const q = view.ball, o = B[f1 * 4 + 3];
+    q.px = B[f0 * 4]; q.py = B[f0 * 4 + 1]; q.pz = B[f0 * 4 + 2]; q.x = B[f1 * 4]; q.y = B[f1 * 4 + 1]; q.z = B[f1 * 4 + 2]; q.owner = o >= 0 ? view.players[o] : null;
+    return f1 === f0 ? 1 : fp - f0;
+  }
+
+  // repères sur la barre de temps : buts, tirs, changements de consigne
+  function drawMarks() {
+    const box = $('marks'); box.innerHTML = '';
+    for (const e of rec.events) {
+      let cls = null, team = e.team;
+      if (e.kind === 'goal') cls = 'goal'; else if (e.kind === 'tactic') cls = 'tactic';
+      else if (e.kind === 'shot') cls = 'shot'; else if (e.kind === 'save' || e.kind === 'block') { cls = 'shot'; team = 1 - e.team; }      // l'événement est noté côté défenseur
+      if (!cls) continue;
+      const b = document.createElement('button');
+      b.className = 'mark ' + cls; b.title = mmss(e.t) + ' ' + e.text; b.style.left = (100 * e.t / end) + '%'; b.style.background = view.teams[team].color;
+      b.onclick = () => seek(e.t - (cls === 'tactic' ? 0 : 5));
+      box.appendChild(b);
+    }
+  }
+
+  // ---------- affichage ----------
+  function resize() {
+    const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    W = r.width; H = r.height; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  const ATTRS = [['pace', 'Vitesse'], ['passing', 'Passe'], ['firstTouch', 'Prise de balle'], ['vision', 'Vision du jeu'], ['dribbling', 'Dribble'], ['finishing', 'Finition'], ['tackling', 'Tacle'], ['positioning', 'Placement'], ['decisions', 'Lucidité'], ['workRate', 'Volume de course'], ['heading', 'Jeu de tête'], ['flair', 'Goût du risque']];
+  const attrsOf = p => p.role !== 'GK' ? ATTRS : ATTRS.map(k => k[0] === 'dribbling' ? ['reflexes', 'Réflexes'] : k[0] === 'finishing' ? ['handling', 'Jeu de mains'] : k);      // gardien : ses deux qualités propres
+  const statRows = rows => { let g = ''; return rows.map(r => (r.group !== g ? '<tr class="g"><td colspan="3">' + esc(g = r.group) + '</td></tr>' : '') + '<tr><td>' + r.a + '</td><td class="k">' + esc(r.label) + '</td><td>' + r.b + '</td></tr>').join(''); };
+
+  function hud() {
+    const tick = Math.min(tickOf(cur), rec.n - 1), ev = rec.events;
+    let n = 0, s0 = 0, s1 = 0;
+    for (; n < ev.length && ev[n].t <= cur + 1e-6; n++) if (ev[n].kind === 'goal') { if (ev[n].team === 0) s0++; else s1++; }
+    $('goals').textContent = s0 + ' – ' + s1;
+    $('clock').textContent = mmss(cur) + ' / ' + mmss(end);
+    if (!scrub) $('time').value = cur;
+    if (n !== shown) {                                       // le fil du match suit la barre de temps, y compris en arrière
+      const box = $('log');
+      if (shown < 0 || n < shown) { box.innerHTML = ''; shown = 0; }
+      for (; shown < n; shown++) {
+        const e = ev[shown], d = document.createElement('div');
+        if (e.kind === 'goal' || e.kind === 'tactic') d.className = e.kind;
+        d.innerHTML = '<time>' + mmss(e.t) + '</time><span>' + esc(e.text) + '</span>';
+        box.prepend(d);
+      }
+    }
+    const st = rec.stats[Math.min(Math.floor(tick / 10), rec.stats.length - 1)];
+    $('stats').innerHTML = statRows(St.rowsOf(st[0], st[1]));
+    // consignes en vigueur à cet instant
+    const t = tacAt(tick);
+    document.querySelectorAll('#tactics select').forEach(sel => { const v = String(t[+sel.dataset.team][sel.dataset.key]); if (sel.value !== v && document.activeElement !== sel) sel.value = v; sel.classList.toggle('set', v !== '0'); });
+    $('tacHint').textContent = pending ? 'Choisissez les consignes des deux équipes pour le coup d\'envoi. Vous pourrez les changer en cours de match.' : tick <= 0 ? 'Au coup d\'envoi : un changement vaut pour tout le match.' : 'Un changement s\'applique à partir de ' + mmss(cur) + ' et réécrit la suite du match.';
+    if (selected >= 0) {
+      const p = view.players[selected], T = view.teams[p.team];
+      $('player').className = '';
+      $('player').innerHTML = '<div class="who"><span class="dot" style="background:' + T.color + '"></span> n°' + p.num + ' ' + esc(p.name) + '</div>'
+        + '<div class="muted">' + p.poste + ' · ' + T.name + (T.club ? ' (' + esc(T.club) + ')' : '') + '</div>'
+        + '<div class="doing">' + esc(p.intent.label) + (p.intent.note ? '<span class="note">' + esc(p.intent.note) + '</span>' : '') + '</div>'
+        + '<div class="muted" style="margin-bottom:8px">' + (p.v * 3.6).toFixed(0) + ' km/h · fraîcheur ' + Math.round(100 * p.stam) + ' % · ' + (p.dist / 1000).toFixed(2) + ' km parcourus</div>'
+        + '<div class="attrs">' + attrsOf(p).map(k => '<div class="attr"><span>' + k[1] + '</span><b>' + Math.round(p.a[k[0]] * 20) + '</b></div>').join('') + '</div>';
+    }
+    const over = !pending && cur >= end - 1e-6 && !scrub;
+    if (over) $('endText').textContent = view.teams[0].name + ' ' + s0 + ' – ' + s1 + ' ' + view.teams[1].name;
+    $('end').hidden = !over;
+    $('play').textContent = pending ? 'Lancer le match' : playing ? 'Pause' : 'Lecture';
+  }
+
+  function frame(ts) {
+    const dt = Math.min(0.1, (ts - last) / 1000 || 0); last = ts;
+    if (rec) {
+      if (playing && !pending && !scrub && !series && $('busy').hidden) {
+        const dead = $('skip').checked && rec.D[Math.min(Math.floor(cur / DT), rec.n - 1)];
+        cur = Math.min(end, cur + dt * speed * (dead ? 6 : 1)); if (cur >= end) { playing = false; nextHud = 0; } }
+      R.drawMatch(ctx, W, H, view, show(cur), { intents: $('intents').checked, selected });
+      if (ts >= nextHud) { hud(); nextHud = ts + 150; }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- commandes ----------
+  function seek(t) { if (pending) return; cur = Math.min(end, Math.max(0, t)); nextHud = 0; }
+  // calcule le match en entier (coup d'envoi, ou suite réécrite après un changement de consigne)
+  function rebuild(then) {
+    const go = () => { simulate(true); $('busy').hidden = true; if (cur > end) cur = end; if (then) then(); };
+    if (duration > 1200) { $('busy').hidden = false; $('pre').hidden = true; setTimeout(go, 30); } else go();
+  }
+  // nouveau match : on revient à l'avant-match, terrain en place et match à l'arrêt
+  function newMatch(s) {
+    tac0 = rec ? tacAt(tickOf(cur)) : tac0; changes = [];           // les consignes affichées deviennent celles du coup d'envoi
+    seed = s; cur = 0; selected = -1; playing = false; pending = true;
+    $('seed').value = seed;
+    $('player').className = 'muted'; $('player').textContent = 'Cliquez sur un joueur pour voir ce qu\'il est en train de faire.';
+    simulate(false);
+  }
+  function launch() { if (!pending) return; pending = false; cur = 0; playing = true; rebuild(); }
+  function setTactic(team, key, v) {
+    if (!rec) return;
+    if (pending) { tac0[team][key] = v; simulate(false); return; }
+    const tick = Math.min(tickOf(cur), rec.n - 1);
+    if (tacAt(tick)[team][key] === v) return;
+    if (tick <= 0) { tac0[team][key] = v; changes = []; }
+    else { changes = changes.filter(c => c.tick < tick || (c.tick === tick && !(c.team === team && c.key === key))); changes.push({ tick, team, key, v }); }
+    rebuild();
+  }
+
+  // choix des équipes : changer d'équipe remet le match au coup d'envoi, avec les consignes affichées
+  if (TEAMS.length) {
+    const sel = team => '<select data-team="' + team + '" aria-label="Équipe des ' + (team ? 'Rouges' : 'Bleus') + '"><option value="">Standard</option>' + TEAMS.map(T => '<option value="' + esc(T.id) + '" title="' + esc(T.description || '') + '">' + esc(T.nom) + '</option>').join('') + '</select>';
+    $('squads').innerHTML = '<tr><th><span class="dot" style="background: var(--blue)"></span> Bleus</th><th></th><th>Rouges <span class="dot" style="background: var(--red)"></span></th></tr><tr><td>' + sel(0) + '</td><td class="k" style="cursor: default">Équipe</td><td>' + sel(1) + '</td></tr>';
+    document.querySelectorAll('#squads select').forEach(s => s.onchange = () => { squad[+s.dataset.team] = s.value; s.classList.toggle('set', s.value !== ''); s.blur(); if (rec) newMatch(seed); });
+  } else $('squadCard').hidden = true;
+  const showSquads = () => document.querySelectorAll('#squads select').forEach(s => { s.value = squad[+s.dataset.team]; s.classList.toggle('set', s.value !== ''); });
+
+  // tableau des consignes
+  $('tactics').innerHTML = '<tr><th><span class="dot" style="background: var(--blue)"></span> Bleus</th><th></th><th>Rouges <span class="dot" style="background: var(--red)"></span></th></tr>'
+    + TAC.map(c => { const sel = team => '<select data-team="' + team + '" data-key="' + c.key + '" aria-label="' + esc(c.label) + ' des ' + (team ? 'Rouges' : 'Bleus') + '">' + c.options.map((o, i) => '<option value="' + (i - 1) + '"' + (i === 1 ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';
+      return '<tr><td>' + sel(0) + '</td><td class="k" title="' + esc(c.help) + '">' + esc(c.label) + '</td><td>' + sel(1) + '</td></tr>'; }).join('');
+  document.querySelectorAll('#tactics select').forEach(sel => sel.onchange = () => { setTactic(+sel.dataset.team, sel.dataset.key, +sel.value); sel.blur(); });
+  $('neutral').onclick = () => {
+    if (!rec) return;
+    if (pending) { tac0 = [blank(), blank()]; simulate(false); return; }
+    const tick = Math.min(tickOf(cur), rec.n - 1), t = tacAt(tick);
+    if (!TAC.some(c => t[0][c.key] || t[1][c.key]) && !changes.some(c => c.tick >= tick)) return;      // tout est déjà neutre à partir d'ici
+    if (tick <= 0) { tac0 = [blank(), blank()]; changes = []; }
+    else {
+      changes = changes.filter(c => c.tick < tick);
+      const before = tacAt(tick);
+      for (let team = 0; team < 2; team++) for (const c of TAC) if (before[team][c.key] !== 0) changes.push({ tick, team, key: c.key, v: 0 });
+    }
+    rebuild();
+  };
+
+  $('play').onclick = () => { if (pending) return launch(); if (cur >= end - 1e-6) cur = 0; playing = !playing; nextHud = 0; };
+  $('kick').onclick = launch;
+  $('back').onclick = () => seek(cur - 10);
+  $('fwd').onclick = () => seek(cur + 10);
+  $('rewatch').onclick = () => { cur = 0; playing = true; nextHud = 0; };
+  const fresh = () => { rec = null; };                         // oublie le match en cours sans toucher aux consignes choisies
+  document.querySelectorAll('[data-speed]').forEach(b => b.onclick = () => { speed = +b.dataset.speed; document.querySelectorAll('[data-speed]').forEach(x => x.classList.toggle('on', x === b)); });
+  const randomSeed = () => 1 + Math.floor(Math.random() * 99999);
+  $('new').onclick = $('again').onclick = () => newMatch(randomSeed());
+  $('load').onclick = () => newMatch(Math.max(1, Math.floor(+$('seed').value) || 1));
+  $('duration').onchange = () => { duration = +$('duration').value; newMatch(seed); };
+  const time = $('time');
+  time.addEventListener('pointerdown', () => { scrub = true; });
+  time.addEventListener('input', () => { cur = +time.value; nextHud = 0; });
+  const release = () => { if (scrub) { scrub = false; nextHud = 0; } };
+  time.addEventListener('change', release); window.addEventListener('pointerup', release);
+  cv.onclick = ev => {
+    const r = cv.getBoundingClientRect(), w = R.toWorld(W, H, ev.clientX - r.left, ev.clientY - r.top);
+    let best = -1, bd = 3;
+    for (const p of view.players) { const d = Math.hypot(p.x - w.x, p.y - w.y); if (d < bd) { bd = d; best = p.id; } }
+    selected = best === selected ? -1 : best; nextHud = 0;
+    if (selected < 0) { $('player').className = 'muted'; $('player').textContent = 'Cliquez sur un joueur pour voir ce qu\'il est en train de faire.'; }
+  };
+  document.addEventListener('keydown', ev => {
+    const tag = ev.target.tagName, field = (tag === 'INPUT' && ev.target !== time && ev.target.type !== 'checkbox') || tag === 'SELECT';
+    if (field) return;
+    if (ev.code === 'Space' && tag !== 'BUTTON') { ev.preventDefault(); $('play').click(); }
+    else if (ev.code === 'ArrowLeft') { ev.preventDefault(); seek(cur - 5); }
+    else if (ev.code === 'ArrowRight') { ev.preventDefault(); seek(cur + 5); }
+  });
+  window.addEventListener('resize', resize);
+
+  // ---------- série de matchs : mêmes consignes, beaucoup de matchs, on regarde les moyennes ----------
+  function runSeries() {
+    if (series) { series.stop = true; return; }
+    const n = Math.min(5000, Math.max(1, Math.floor(+$('nSeries').value) || 1));
+    series = { n, done: 0, acc: St.create(), m: null, list: [], base: randomSeed(), tac: tacAt(pending ? 0 : tickOf(cur)), squad: squad.slice(), duration, stop: false, t0: performance.now() };
+    $('runSeries').textContent = 'Arrêter'; $('prog').hidden = false; $('progFill').style.width = '0';
+    $('seriesOut').innerHTML = '';
+    setTimeout(seriesStep, 0);
+  }
+  function seriesStep() {
+    const S = series, t0 = performance.now();
+    while (!S.stop && S.done < S.n && performance.now() - t0 < 30) {
+      if (!S.m) S.m = E.createMatch({ seed: S.base + S.done, duration: S.duration, tactics: S.tac, teams: teamsOf(S.squad) });
+      for (let k = 0; k < 300 && S.m.mode !== 'over'; k++) E.step(S.m);
+      if (S.m.mode === 'over') { St.add(S.acc, S.m); S.list.push({ seed: S.m.seed, a: S.m.teams[0].score, b: S.m.teams[1].score }); S.m = null; S.done++; }
+    }
+    $('progFill').style.width = (100 * S.done / S.n) + '%';
+    const left = S.done ? (performance.now() - S.t0) / S.done * (S.n - S.done) / 1000 : 0;
+    $('seriesHint').textContent = S.done + ' / ' + S.n + ' matchs simulés…' + (left > 3 ? ' encore ' + Math.round(left) + ' secondes environ' : '');
+    if (!S.stop && S.done < S.n) return setTimeout(seriesStep, 0);
+    series = null;
+    $('runSeries').textContent = 'Simuler la série'; $('prog').hidden = true;
+    $('seriesHint').textContent = 'Avec les équipes et les consignes affichées à droite, et la durée choisie. Sert à voir ce qu\'un réglage change en moyenne.';
+    if (S.done) showSeries(S);
+  }
+  function showSeries(S) {
+    const A = S.acc, w0 = A.teams[0].wins, w1 = A.teams[1].wins, n = A.n, part = (v, cls, col) => v ? '<div class="' + cls + '" style="flex:' + v + (col ? ';background:' + col : '') + '" title="' + v + ' sur ' + n + '">' + v + '</div>' : '';
+    const best = S.list.filter(x => x.a + x.b > 0).sort((x, y) => (y.a + y.b) - (x.a + x.b) || Math.abs(y.a - y.b) - Math.abs(x.a - x.b)).slice(0, 10);
+    $('seriesOut').innerHTML = '<div class="sides"><div><span class="dot" style="background: var(--blue)"></span> <b>Bleus</b> — ' + esc((clubOf(S.squad[0]) ? clubOf(S.squad[0]) + ' · ' : '') + describe(S.tac[0])) + '</div><div><b>Rouges</b> <span class="dot" style="background: var(--red)"></span> — ' + esc((clubOf(S.squad[1]) ? clubOf(S.squad[1]) + ' · ' : '') + describe(S.tac[1])) + '</div></div>'
+      + '<div class="wdl">' + part(w0, 'w', 'var(--blue)') + part(A.draws, 'd') + part(w1, 'w', 'var(--red)') + '</div>'
+      + '<div class="muted small" style="margin-top: 4px">' + n + ' matchs de ' + (S.duration / 60) + ' min : ' + w0 + ' victoire' + (w0 > 1 ? 's' : '') + ' des Bleus, ' + A.draws + ' nul' + (A.draws > 1 ? 's' : '') + ', ' + w1 + ' victoire' + (w1 > 1 ? 's' : '') + ' des Rouges. Moyennes par match :</div>'
+      + '<table>' + statRows(St.rows(A)) + '</table>'
+      + (best.length ? '<div class="chips"><span class="muted">Revoir un match de la série :</span>' + best.map(x => '<button data-seed="' + x.seed + '">n°' + x.seed + ' · ' + x.a + '–' + x.b + '</button>').join('') + '</div>' : '')
+      + '<div class="muted small" style="margin-top: 10px">À lire avec prudence : il y a peu de buts par match, donc le nombre de victoires change beaucoup d\'une série à l\'autre. Les lignes « avec le ballon », « sans le ballon » et « effort » sont fiables dès 30 à 50 matchs.</div>';
+    $('seriesOut').querySelectorAll('[data-seed]').forEach(b => b.onclick = () => {
+      tac0 = [Object.assign({}, S.tac[0]), Object.assign({}, S.tac[1])]; squad = S.squad.slice(); showSquads(); fresh();
+      if (duration !== S.duration) { duration = S.duration; $('duration').value = duration; }
+      newMatch(+b.dataset.seed); launch(); window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+  $('runSeries').onclick = runSeries;
+
+  newMatch(randomSeed());
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

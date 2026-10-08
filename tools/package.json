@@ -1,0 +1,9 @@
+{
+  "name": "match-engine-tools",
+  "private": true,
+  "description": "Outils de contrôle visuel et de test de la page (hors moteur)",
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.0",
+    "jsdom": "^26.0.0"
+  }
+}
