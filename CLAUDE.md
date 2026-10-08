@@ -59,6 +59,7 @@ Les arrêts de jeu ont une durée réaliste (une touche 17 secondes, une sortie 
 | `build.js` | Assemble le tout (page, moteur, dessin, statistiques, équipes) en un seul fichier `match.html`. |
 | `sim.js` | Simule beaucoup de matchs sans affichage et donne les moyennes. |
 | `check.js` | Vérifie que le moteur ne déraille pas : sans consignes, avec consignes, et entre équipes de niveaux différents. |
+| `README.md`, `docs/apercu.png` | La présentation du projet sur GitHub, avec une capture d'écran de la page. |
 | `tools/` | Outils de contrôle : test de la page, vrai navigateur, effet des consignes, tournoi entre les équipes, énergie, qui passe à qui, images. |
 
 ## Comment le moteur fonctionne
