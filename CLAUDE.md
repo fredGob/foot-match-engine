@@ -463,9 +463,15 @@ Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la pos
 | 55 | Faible voyait encore parfaitement les défenseurs qui coupent ses passes | Sous 14 de vision, il ne voit qu'une partie du danger d'interception (40 % à 8) | Faible : 83 % de passes au sol réussies, Élite 93 % |
 | 56 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 % (40 à 44 % avant). Entre niveaux proches : toujours environ 50 %. Équipe standard inchangée (3,2 buts, 1 265 passes, 86,7 %) |
 
+| 57 | Demande de Frédéric : un joueur fort réussit mieux son pressing. Nouvel outil `tools/duels.js` : le pressing de l'Élite reprenait le ballon 24 % du temps, celui de Faible 16 %. Ce sont surtout les attaquants qui pressent, et le moteur ne jugeait un duel que sur la note de tacle, leur point faible | Duel : tacle et anticipation contre dribble et sang-froid. Pression : un presseur vif, agressif et qui anticipe ferme mieux le porteur. Interception : un joueur qui anticipe coupe la passe d'un peu plus loin. Rien ne change à 14 (équipe standard identique au match près) | Pressing de l'Élite : 31 % de ballons repris, Faible : 14 %. Possession de l'Élite : 59 % |
+| 58 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 %. Entre niveaux voisins : toujours 48 à 52 %. Élite contre Faible : 10,2 à 0,05. Passes réussies : l'équipe forte n'en réussit toujours pas plus que l'autre contre le même adversaire |
+
 ## Ce qui ne va pas encore
 
 Après la sixième séance (à reprendre) :
+
+- **Entre niveaux voisins, la possession ne bouge pas** (48 à 52 %). La panique et la mauvaise lecture ne touchent que les joueurs sous 14 de vision : Élite et Élevé n'en ont presque pas.
+- **L'équipe forte ne réussit pas plus de passes que l'autre** contre le même adversaire (Élite 80,5 % contre Faible, Faible 80,0 % contre Élite) : elle tente beaucoup de longs ballons et de passes vers l'avant ratés.
 
 - **Possession encore trop faible pour l'équipe forte** : 56 à 59 % contre Faible, environ 50 % entre niveaux proches (objectif de Frédéric : 65 à 70 % quand l'écart est grand).
 - **Les écarts de score ont grandi** : Élite contre Faible 11,1 à 0,1 (8,3 à 0,4 avant). Faible contre Faible : 2,0 buts par match seulement.

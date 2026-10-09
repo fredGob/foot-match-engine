@@ -310,6 +310,9 @@ const BAD_LAT = 0.6, BAD_PASS = 0.25;      // passe mal ajustée : écart tolér
 const VISION = 2.5;        // poids de la vision : risque de ne pas voir un partenaire loin ou dans le dos
 const PANIC_V = 0.7, PANIC_R = 0.3;      // sous 14 de vision, un joueur pressé commence à paniquer ; à 8, il panique tout à fait
 const MISREAD = 0.6;       // vision 8 : il ne voit que 40 % du danger d'interception sur une passe
+const DUEL_MIND = 0.4;     // part de l'anticipation (défenseur) et du sang-froid (porteur) dans un duel
+const PRESS_Q = 5;         // presseur (moyenne démarrage, anticipation, agressivité) : pèse 0,75 m plus près à 17, 1,5 m plus loin à 8
+const READ = 0.6;          // lecture de la passe : allonge la portée de 9 % à 17, la réduit de 18 % à 8
 const CTRL = 0.6;        // poids de la pression sur la prise de balle (9,6 % de contrôles ratés sous pression pour un joueur à 14)
 const MASK = 0.22;      // coup franc par-dessus le mur : retard (s) du gardien, qui voit partir le ballon tard
 const DIP = 0.8;        // coup franc brossé : le ballon plonge comme si la pesanteur était 1,8 fois plus forte
@@ -577,9 +580,11 @@ function threat(m) {
 }
 function pressure(m, p) {
   let dmin = 99;
-  for (const o of m.teams[1 - p.team].players) { if (o.stunUntil > m.t) continue; const dd = hyp(o.x - p.x, o.y - p.y); if (dd < dmin) dmin = dd; }
+  for (const o of m.teams[1 - p.team].players) { if (o.stunUntil > m.t) continue; const dd = hyp(o.x - p.x, o.y - p.y) - closeIn(o); if (dd < dmin) dmin = dd; }
   return clamp(1 - (dmin - 1.3) / 4.5, 0, 1);
 }
+// un presseur vif, agressif et qui anticipe ferme mieux le porteur : il pèse comme s'il était plus près (rien à 14)
+const closeIn = o => PRESS_Q * ((o.a.accel - LEVEL) + (o.a.anticipation - LEVEL) + (o.a.aggression - LEVEL)) / 3;
 // pression ressentie au moment de frapper vers (gx, 0) : un adversaire dans le dos compte comme s'il était un tiers plus loin
 function shotPressure(m, p, gx) {
   let dmin = 99; const ux = gx - p.x, uy = -p.y;
@@ -1218,7 +1223,8 @@ function resolveFreeBall(m) {
   for (const p of m.players) {
     if (p.stunUntil > m.t || p.noControlUntil > m.t) continue;
     const keeper = p.role === 'GK' && inOwnBox(m.teams[p.team], p.x, p.y);
-    const R = keeper ? 1.3 : fast ? 0.65 : 0.85, zMax = keeper ? 2.6 : 2.3;
+    const reads = m.pass && m.pass.from.team !== p.team ? 1 + READ * (p.a.anticipation - LEVEL) : 1;      // il lit la passe adverse : il la coupe d'un peu plus loin
+    const R = (keeper ? 1.3 : fast ? 0.65 : 0.85) * (keeper ? 1 : reads), zMax = keeper ? 2.6 : 2.3;
     const u = L2 > 1e-9 ? clamp(((p.x - b.px) * sx + (p.y - b.py) * sy) / L2, 0, 1) : 0;
     const dd = hyp(p.x - b.px - sx * u, p.y - b.py - sy * u), z = b.pz + (b.z - b.pz) * u;
     if (dd > R || z > zMax) continue;
@@ -1229,6 +1235,9 @@ function resolveFreeBall(m) {
   if (best) touch(m, best, bz, bd);
 }
 
+// duel : le défenseur gagne par son tacle et par le moment où il s'engage (anticipation) ; le porteur résiste par son dribble et son sang-froid
+const duelDef = o => o.a.tackling + DUEL_MIND * (o.a.anticipation - o.a.tackling);
+const duelAtt = c => c.a.dribbling + DUEL_MIND * (c.a.composure - c.a.dribbling);
 function resolveTackles(m) {
   const b = m.ball, c = b.owner, rng = m.rng;
   if (c.hands || c.protectedUntil > m.t || c.shieldUntil > m.t) return;      // shieldUntil : il vient de réussir un contrôle orienté
@@ -1240,7 +1249,7 @@ function resolveTackles(m) {
     const lam = closing > 2.5 || (keeper && o.intent.type === 'claim') ? 5 : (o.intent.type === 'press' || keeper ? 0.6 : 0.25) * (0.6 + 0.8 * o.a.aggression) * (hyp(c.x + P.HL * T.dir, c.y) < 25 ? 2.2 : 1) * (o.intent.type === 'press' ? 1 + 0.5 * T.tac.press : 1);
     if (rng() > lam * DT) continue;
     const front = (rx * Math.cos(c.face) + ry * Math.sin(c.face)) / (hyp(rx, ry) || 1);      // 1 : de face, −1 : dans le dos
-    const pWin = clamp(0.46 * (0.8 + 0.2 * o.stam) + 0.55 * (o.a.tackling - c.a.dribbling) + 0.12 * front + (m.t < c.controlReadyAt ? 0.5 * (1 - c.a.firstTouch) : 0) + (keeper ? 0.2 : 0), 0.12, 0.85);      // pendant son contrôle, il est d'autant plus vulnérable que sa prise de balle est faible
+    const pWin = clamp(0.46 * (0.8 + 0.2 * o.stam) + 0.55 * (duelDef(o) - duelAtt(c)) + 0.12 * front + (m.t < c.controlReadyAt ? 0.5 * (1 - c.a.firstTouch) : 0) + (keeper ? 0.2 : 0), 0.12, 0.85);      // pendant son contrôle, il est d'autant plus vulnérable que sa prise de balle est faible
     const pFoul = (0.09 + 0.13 * o.a.aggression) * (front < -0.2 ? 1.6 : 1) * (keeper ? 0.4 : 1) * (inOwnBox(T, c.x, c.y) ? 0.1 : 1);      // dans sa surface, on se retient
     const r = rng();
     o.tackleReadyAt = m.t + 1.0 + 0.6 * rng();
