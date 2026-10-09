@@ -50,7 +50,7 @@ function drawMatch(ctx, W, H, m, alpha, opts) {
   const b = m.ball, bx = L(b.px, b.x), by = L(b.py, b.y), bz = L(b.pz, b.z);
 
   // intentions : un trait vers l'endroit où chaque joueur veut aller
-  if (opts.intents || opts.selected >= 0) {
+  if (opts.intents || (opts.selected >= 0 && !opts.hideMind)) {      // hideMind (mode Coach It) : on ne lit pas dans la tête des joueurs
     ctx.lineWidth = Math.max(1, 0.12 * s);
     for (const q of pos) {
       const p = q.p, it = p.intent, sel = p.id === opts.selected;
@@ -101,7 +101,7 @@ function drawMatch(ctx, W, H, m, alpha, opts) {
 
   // étiquette du joueur sélectionné : son nom et ce qu'il fait
   if (opts.selected >= 0) {
-    const q = pos[opts.selected], txt = q.p.name + ' · ' + q.p.intent.label;
+    const q = pos[opts.selected], txt = q.p.name + (opts.hideMind ? '' : ' · ' + q.p.intent.label);
     ctx.font = '600 ' + Math.max(11, Math.round(1.3 * s)) + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
     const tw = ctx.measureText(txt).width + 12, th = Math.max(16, 1.9 * s);
     const lx = Math.min(Math.max(X(q.x) - tw / 2, 4), W - tw - 4), ly = Math.max(4, Y(q.y) - r * 1.7 - th);

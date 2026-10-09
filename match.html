@@ -26,6 +26,9 @@
   .tip { position: absolute; pointer-events: none; padding: 6px 10px; border-radius: 6px; background: rgba(12, 16, 20, 0.92); border: 1px solid var(--line); font-size: 13px; white-space: nowrap; }
   .tip[hidden] { display: none; }
   .stage.stats .pre, .stage.stats .end { display: none; }
+  body.coach .godonly { display: none !important; }
+  .modehint { font-size: 12.5px; color: var(--muted); }
+  body:not(.coach) .coachonly { display: none !important; }
   .heatkey { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
   .heatkey i { display: inline-block; width: 90px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, rgba(255,236,179,0.4), #ffc466, #f2852e, #c94816, #8c1c0a); }
   .statsnote { margin: 6px 8px 0; font-size: 13px; color: var(--muted); }
@@ -42,6 +45,9 @@
   /* barre de temps : repères au-dessus, curseur dessous */
   .timeline { margin-top: 8px; }
   .marks { position: relative; height: 16px; margin: 0 8px; }
+  .timeline { position: relative; }
+  .future { position: absolute; right: 8px; top: 16px; height: 20px; background: repeating-linear-gradient(135deg, rgba(17, 21, 26, 0.75) 0 6px, rgba(17, 21, 26, 0.45) 6px 12px); pointer-events: none; border-left: 2px solid var(--accent); }
+  .future span { position: absolute; left: 4px; top: -15px; font-size: 11px; color: var(--accent); white-space: nowrap; }
   .mark { position: absolute; bottom: 1px; transform: translateX(-50%); padding: 0; border: 0; border-radius: 0; background: none; cursor: pointer; }
   .mark.shot { width: 3px; height: 8px; opacity: 0.75; }
   .mark.goal { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--accent); }
@@ -120,6 +126,7 @@
 
   <main>
     <div class="tabs">
+      <span class="group" title="Mode God : on règle les deux équipes, on voit les intentions et toute la suite du match. Mode Coach It : on dirige les Bleus seulement, comme un vrai entraîneur, sans voir la suite."><button data-mode="god" class="on">Mode God</button><button data-mode="coach">Mode Coach It</button></span>
       <span class="group"><button id="tabMatch" class="on">Match</button><button id="tabStats">Statistiques</button></span>
       <span id="statsCtl" hidden>
         <span class="group"><button data-st-team="0" class="on">Bleus</button><button data-st-team="1">Rouges</button></span>
@@ -139,12 +146,14 @@
     <div class="statsnote" id="statsNote" hidden></div>
     <div class="timeline">
       <div class="marks" id="marks"></div>
+      <div class="future coachonly" id="future"><span>direct</span></div>
       <input type="range" id="time" min="0" max="600" step="0.05" value="0" aria-label="Position dans le match">
       <div class="legend">
         <span><i class="mark goal" style="position: static; transform: none; background: var(--blue)"></i>but</span>
         <span><i class="mark shot" style="position: static; transform: none; background: var(--blue)"></i>tir</span>
         <span><i class="mark tactic" style="position: static; transform: rotate(45deg); background: var(--blue)"></i>changement de consigne</span>
         <span>Faites glisser la barre, ou flèches ← → pour reculer et avancer de 5 secondes.</span>
+        <span class="coachonly">Mode Coach It : on peut revoir le passé, jamais la suite du match.</span>
       </div>
     </div>
 
@@ -154,8 +163,8 @@
       <span class="group">Vitesse
         <button data-speed="1" class="on">×1</button><button data-speed="2">×2</button><button data-speed="4">×4</button><button data-speed="8">×8</button><button data-speed="16">×16</button>
       </span>
-      <label><input type="checkbox" id="intents"> Montrer où chaque joueur veut aller</label>
-      <label><input type="checkbox" id="labels"> Montrer l'intention de chaque joueur</label>
+      <label class="godonly"><input type="checkbox" id="intents"> Montrer où chaque joueur veut aller</label>
+      <label class="godonly"><input type="checkbox" id="labels"> Montrer l'intention de chaque joueur</label>
       <label title="Pendant un arrêt de jeu (touche, coup franc, sortie de but…), la lecture va six fois plus vite"><input type="checkbox" id="skip" checked> Passer vite les arrêts de jeu</label>
       <span class="group" style="margin-left: auto">Durée
         <select id="duration"><option value="5400" selected>90 min</option><option value="2700">45 min</option><option value="1200">20 min</option><option value="600">10 min (essais)</option></select>
@@ -163,7 +172,7 @@
       <span class="group">Match n°<input type="number" id="seed" min="1" step="1"><button id="load">Rejouer ce match</button><button id="new">Nouveau match</button></span>
     </div>
 
-    <div class="card series">
+    <div class="card series godonly">
       <h2>Série de matchs</h2>
       <div class="bar">
         <label>Nombre de matchs <input type="number" id="nSeries" min="1" max="5000" step="1" value="20"></label>
@@ -1609,7 +1618,7 @@ function drawMatch(ctx, W, H, m, alpha, opts) {
   const b = m.ball, bx = L(b.px, b.x), by = L(b.py, b.y), bz = L(b.pz, b.z);
 
   // intentions : un trait vers l'endroit où chaque joueur veut aller
-  if (opts.intents || opts.selected >= 0) {
+  if (opts.intents || (opts.selected >= 0 && !opts.hideMind)) {      // hideMind (mode Coach It) : on ne lit pas dans la tête des joueurs
     ctx.lineWidth = Math.max(1, 0.12 * s);
     for (const q of pos) {
       const p = q.p, it = p.intent, sel = p.id === opts.selected;
@@ -1660,7 +1669,7 @@ function drawMatch(ctx, W, H, m, alpha, opts) {
 
   // étiquette du joueur sélectionné : son nom et ce qu'il fait
   if (opts.selected >= 0) {
-    const q = pos[opts.selected], txt = q.p.name + ' · ' + q.p.intent.label;
+    const q = pos[opts.selected], txt = q.p.name + (opts.hideMind ? '' : ' · ' + q.p.intent.label);
     ctx.font = '600 ' + Math.max(11, Math.round(1.3 * s)) + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
     const tw = ctx.measureText(txt).width + 12, th = Math.max(16, 1.9 * s);
     const lx = Math.min(Math.max(X(q.x) - tw / 2, 4), W - tw - 4), ly = Math.max(4, Y(q.y) - r * 1.7 - th);
@@ -1844,6 +1853,9 @@ return { create, add, rows, rowsOf };
   let rec = null, view = null, cur = 0, end = 5400, playing = false, scrub = false, speed = 1, last = 0;
   let selected = -1, shown = 0, W = 0, H = 0, nextHud = 0, series = null;
   // page Statistiques : onglet, équipe, carte (chaleur ou réseau de passes), joueur de la carte de chaleur (-1 : toute l'équipe)
+  // mode God : tout voir, régler les deux équipes ; mode Coach It : les Bleus seulement, sans voir la suite (live : jusqu'où le match a été joué)
+  let mode = 'god', live = 0, marked = -1;
+  const coach = () => mode === 'coach';
   let tab = 'match', stTeam = 0, stMap = 'heat', stPlayer = -1, stData = null, stKey = '', stAt = 0, hoverNode = -1;
   // équipes du fichier equipes.json (mises dans la page par build.js) ; squad : l'équipe choisie pour chaque camp, '' = équipe standard (tous à 14)
   const TEAMS = (window.MatchTeams && window.MatchTeams.equipes) || [];
@@ -1922,6 +1934,7 @@ return { create, add, rows, rowsOf };
   function drawMarks() {
     const box = $('marks'); box.innerHTML = '';
     for (const e of rec.events) {
+      if (coach() && e.t > live + 1e-6) break;                       // Coach It : pas de repères dans le futur
       let cls = null, team = e.team;
       if (e.kind === 'goal') cls = 'goal'; else if (e.kind === 'tactic') cls = 'tactic';
       else if (e.kind === 'shot') cls = 'shot'; else if (e.kind === 'save' || e.kind === 'block') { cls = 'shot'; team = 1 - e.team; }      // l'événement est noté côté défenseur
@@ -1946,6 +1959,11 @@ return { create, add, rows, rowsOf };
 
   function hud() {
     const tick = Math.min(tickOf(cur), rec.n - 1), ev = rec.events;
+    if (coach()) {
+      let k = 0; while (k < ev.length && ev[k].t <= live + 1e-6) k++; if (k !== marked) { marked = k; drawMarks(); }
+      const fu = $('future'), w = $('marks').getBoundingClientRect().width;      // la suite du match, hors d'atteinte
+      fu.hidden = pending; fu.style.width = Math.max(0, w * (1 - live / end)) + 'px';
+    }
     let n = 0, s0 = 0, s1 = 0;
     for (; n < ev.length && ev[n].t <= cur + 1e-6; n++) if (ev[n].kind === 'goal') { if (ev[n].team === 0) s0++; else s1++; }
     $('goals').textContent = s0 + ' – ' + s1;
@@ -1964,15 +1982,16 @@ return { create, add, rows, rowsOf };
     const st = rec.stats[Math.min(Math.floor(tick / 10), rec.stats.length - 1)];
     $('stats').innerHTML = statRows(St.rowsOf(st[0], st[1]));
     // consignes en vigueur à cet instant
-    const t = tacAt(tick);
+    const t = tacAt(coach() ? Math.min(tickOf(live), rec.n - 1) : tick);      // Coach It : les consignes en vigueur au moment du direct
     document.querySelectorAll('#tactics select').forEach(sel => { const v = String(t[+sel.dataset.team][sel.dataset.key]); if (sel.value !== v && document.activeElement !== sel) sel.value = v; sel.classList.toggle('set', v !== '0'); });
-    $('tacHint').textContent = pending ? 'Choisissez les consignes des deux équipes pour le coup d\'envoi. Vous pourrez les changer en cours de match.' : tick <= 0 ? 'Au coup d\'envoi : un changement vaut pour tout le match.' : 'Un changement s\'applique à partir de ' + mmss(cur) + ' et réécrit la suite du match.';
+    if (coach()) $('tacHint').textContent = pending ? 'Choisissez les consignes de votre équipe (les Bleus). L\'adversaire joue avec des consignes neutres.' : 'Un changement s\'applique au moment du direct (' + mmss(live) + '), même si vous revoyez une action plus ancienne.';
+    else $('tacHint').textContent = pending ? 'Choisissez les consignes des deux équipes pour le coup d\'envoi. Vous pourrez les changer en cours de match.' : tick <= 0 ? 'Au coup d\'envoi : un changement vaut pour tout le match.' : 'Un changement s\'applique à partir de ' + mmss(cur) + ' et réécrit la suite du match.';
     if (selected >= 0) {
       const p = view.players[selected], T = view.teams[p.team];
       $('player').className = '';
       $('player').innerHTML = '<div class="who"><span class="dot" style="background:' + T.color + '"></span> n°' + p.num + ' ' + esc(p.name) + '</div>'
         + '<div class="muted">' + p.poste + ' · ' + T.name + (T.club ? ' (' + esc(T.club) + ')' : '') + '</div>'
-        + '<div class="doing">' + esc(p.intent.label) + (p.intent.note ? '<span class="note">' + esc(p.intent.note) + '</span>' : '') + '</div>'
+        + (coach() ? '' : '<div class="doing">' + esc(p.intent.label) + (p.intent.note ? '<span class="note">' + esc(p.intent.note) + '</span>' : '') + '</div>')
         + '<div class="muted" style="margin-bottom:8px">' + (p.v * 3.6).toFixed(0) + ' km/h · fraîcheur ' + Math.round(100 * p.stam) + ' % · ' + (p.dist / 1000).toFixed(2) + ' km parcourus</div>'
         + '<div class="attrs">' + attrsOf(p).map(k => '<div class="attr"><span>' + k[1] + '</span><b>' + Math.round(p.a[k[0]] * 20) + '</b></div>').join('') + '</div>';
     }
@@ -2063,10 +2082,11 @@ return { create, add, rows, rowsOf };
       if (playing && !pending && !scrub && !series && $('busy').hidden) {
         const dead = $('skip').checked && rec.D[Math.min(Math.floor(cur / DT), rec.n - 1)];
         cur = Math.min(end, cur + dt * speed * (dead ? 6 : 1)); if (cur >= end) { playing = false; nextHud = 0; } }
+      if (!pending && cur > live) live = cur;                        // le direct avance avec la lecture
       if (tab === 'stats') drawStats(ts);
       else {
       const stopped = !!rec.D[Math.min(Math.floor(cur / DT), rec.n - 1)];
-      R.drawMatch(ctx, W, H, view, show(cur), { intents: $('intents').checked, labels: $('labels').checked, selected, clock: { time: mmss(cur), score: $('goals').textContent, dead: stopped && cur > 0 && cur < end } });
+      R.drawMatch(ctx, W, H, view, show(cur), { intents: !coach() && $('intents').checked, labels: !coach() && $('labels').checked, hideMind: coach(), selected, clock: { time: mmss(cur), score: $('goals').textContent, dead: stopped && cur > 0 && cur < end } });
       }
       if (ts >= nextHud) { hud(); nextHud = ts + 150; }
     }
@@ -2074,7 +2094,7 @@ return { create, add, rows, rowsOf };
   }
 
   // ---------- commandes ----------
-  function seek(t) { if (pending) return; cur = Math.min(end, Math.max(0, t)); nextHud = 0; }
+  function seek(t) { if (pending) return; cur = Math.min(coach() ? live : end, Math.max(0, t)); nextHud = 0; }      // Coach It : pas au-delà du direct
   // calcule le match en entier (coup d'envoi, ou suite réécrite après un changement de consigne)
   function rebuild(then) {
     const go = () => { simulate(true); $('busy').hidden = true; if (cur > end) cur = end; if (then) then(); };
@@ -2083,16 +2103,17 @@ return { create, add, rows, rowsOf };
   // nouveau match : on revient à l'avant-match, terrain en place et match à l'arrêt
   function newMatch(s) {
     tac0 = rec ? tacAt(tickOf(cur)) : tac0; changes = [];           // les consignes affichées deviennent celles du coup d'envoi
-    seed = s; cur = 0; selected = -1; playing = false; pending = true;
+    seed = s; cur = 0; live = 0; marked = -1; selected = -1; playing = false; pending = true;
     $('seed').value = seed;
     $('player').className = 'muted'; $('player').textContent = 'Cliquez sur un joueur pour voir ce qu\'il est en train de faire.';
     simulate(false);
   }
-  function launch() { if (!pending) return; pending = false; cur = 0; playing = true; rebuild(); }
+  function launch() { if (!pending) return; pending = false; cur = 0; live = 0; marked = -1; playing = true; rebuild(); }
   function setTactic(team, key, v) {
     if (!rec) return;
+    if (coach() && team !== 0) return;                              // Coach It : l'adversaire garde ses consignes neutres
     if (pending) { tac0[team][key] = v; simulate(false); return; }
-    const tick = Math.min(tickOf(cur), rec.n - 1);
+    const tick = Math.min(tickOf(coach() ? live : cur), rec.n - 1);
     if (tacAt(tick)[team][key] === v) return;
     if (tick <= 0) { tac0[team][key] = v; changes = []; }
     else { changes = changes.filter(c => c.tick < tick || (c.tick === tick && !(c.team === team && c.key === key))); changes.push({ tick, team, key, v }); }
@@ -2115,7 +2136,7 @@ return { create, add, rows, rowsOf };
   $('neutral').onclick = () => {
     if (!rec) return;
     if (pending) { tac0 = [blank(), blank()]; simulate(false); return; }
-    const tick = Math.min(tickOf(cur), rec.n - 1), t = tacAt(tick);
+    const tick = Math.min(tickOf(coach() ? live : cur), rec.n - 1), t = tacAt(tick);
     if (!TAC.some(c => t[0][c.key] || t[1][c.key]) && !changes.some(c => c.tick >= tick)) return;      // tout est déjà neutre à partir d'ici
     if (tick <= 0) { tac0 = [blank(), blank()]; changes = []; }
     else {
@@ -2139,9 +2160,22 @@ return { create, add, rows, rowsOf };
   $('duration').onchange = () => { duration = +$('duration').value; newMatch(seed); };
   const time = $('time');
   time.addEventListener('pointerdown', () => { scrub = true; });
-  time.addEventListener('input', () => { cur = +time.value; nextHud = 0; });
+  time.addEventListener('input', () => { cur = +time.value; if (coach() && cur > live) { cur = live; time.value = cur; } nextHud = 0; });
   const release = () => { if (scrub) { scrub = false; nextHud = 0; } };
   time.addEventListener('change', release); window.addEventListener('pointerup', release);
+  function setMode(md) {
+    if (md === mode) return;
+    mode = md; document.body.classList.toggle('coach', coach());
+    document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+    document.querySelectorAll('#tactics select[data-team="1"]').forEach(sel => { sel.disabled = coach(); sel.title = coach() ? 'Mode Coach It : l\'adversaire joue avec des consignes neutres' : ''; });
+    const heads = document.querySelectorAll('#squads th, #tactics th');
+    heads.forEach(th => { const t = th.textContent.trim(); if (/Bleus|Votre équipe/.test(t)) th.lastChild.textContent = coach() ? ' Votre équipe' : ' Bleus'; if (/Rouges|Adversaire/.test(t)) th.firstChild.textContent = coach() ? 'Adversaire ' : 'Rouges '; });
+    if (coach()) { tac0 = [rec ? tacAt(tickOf(cur))[0] : tac0[0], blank()]; changes = []; }
+    newMatch(seed);
+    if (coach()) tac0[1] = blank();
+    simulate(false); nextHud = 0;
+  }
+  document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
   $('tabMatch').onclick = () => setTab('match');
   $('tabStats').onclick = () => setTab('stats');
   document.querySelectorAll('[data-st-team]').forEach(b => b.onclick = () => setStats({ team: +b.dataset.stTeam }));

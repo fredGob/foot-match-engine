@@ -33,7 +33,12 @@ Ce qu'il a dit et qu'il faut garder en tête :
 
 Le fichier à ouvrir est `match.html` : il contient tout et s'ouvre dans n'importe quel navigateur (double-clic, ou `xdg-open match.html`). Après une modification du moteur ou de la page, le refaire avec `node build.js`.
 
-Comment la page fonctionne :
+**Deux modes**, en haut à gauche (changer de mode ramène au coup d'envoi) :
+
+- **Mode God** (par défaut) : tout ce qui est décrit ci-dessous. On règle les deux équipes, on voit les intentions et toute la suite du match.
+- **Mode Coach It** : on dirige les Bleus (« Votre équipe ») ; on choisit son équipe et celle de l'adversaire, qui garde des consignes neutres (grisées). On voit le match comme un entraîneur : score, chrono, statistiques et cartes, fiche des joueurs (notes, fraîcheur), mais pas les intentions ni la série de matchs. **Pas de futur** : la page retient jusqu'où le match a été joué (le « direct », repère jaune sur la barre de temps, suite hachurée) ; on peut reculer pour revoir une action mais jamais dépasser le direct, et un changement de consigne s'applique toujours au direct. Les repères de la barre (buts, tirs) n'apparaissent qu'une fois joués. Capture `docs/coach-it.png`.
+
+Comment la page fonctionne (mode God) :
 
 1. **Avant-match.** Le terrain est en place, le match est à l'arrêt. On choisit les équipes (cadre « Équipes », à droite) et les consignes des deux camps (cadre « Consignes »). Rien n'est calculé. « Standard » : tous les joueurs à 14. Les autres choix sont les équipes de `equipes.json`. Changer d'équipe en cours de match remet le match au coup d'envoi.
 2. **« Lancer le match ».** La page calcule alors le match entier (environ 1,5 seconde pour 90 minutes), puis le lit comme une vidéo.
@@ -472,6 +477,7 @@ Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la pos
 | 57 | Demande de Frédéric : un joueur fort réussit mieux son pressing. Nouvel outil `tools/duels.js` : le pressing de l'Élite reprenait le ballon 24 % du temps, celui de Faible 16 %. Ce sont surtout les attaquants qui pressent, et le moteur ne jugeait un duel que sur la note de tacle, leur point faible | Duel : tacle et anticipation contre dribble et sang-froid. Pression : un presseur vif, agressif et qui anticipe ferme mieux le porteur. Interception : un joueur qui anticipe coupe la passe d'un peu plus loin. Rien ne change à 14 (équipe standard identique au match près) | Pressing de l'Élite : 31 % de ballons repris, Faible : 14 %. Possession de l'Élite : 59 % |
 | 58b | Demande de Frédéric (interface, pour déboguer) : voir l'intention de chaque joueur, et un chrono | Case « Montrer l'intention de chaque joueur » ; chrono façon télé au-dessus du terrain (le chrono du haut de page, petit et gris, passait inaperçu) | Vérifié dans Chromium et avec `tools/page.js` |
 | 63 | Demande de Frédéric : une page Statistiques avec carte de chaleur et réseau de passes (il a choisi : réseau de passes, carte d'équipe puis de joueur, onglet à la place du terrain) | Onglet « Statistiques » ; la page note chaque passe et son issue (le moteur garde l'issue de la passe, sans rien changer aux matchs) | Vérifié dans Chromium et avec `tools/page.js`. Premières lectures du moteur : le gardien et les défenseurs centraux touchent très peu le ballon (défaut déjà connu) ; un arrière latéral standard ne passe presque jamais la ligne médiane |
+| 64 | Demande de Frédéric : deux modes, God (l'actuel) et Coach It (une seule équipe, pas de futur). Ses choix : en Coach It on voit comme un vrai coach (pas les intentions), on peut revoir le passé sans le réécrire, on choisit aussi son équipe | Boutons « Mode God » / « Mode Coach It » ; direct sur la barre de temps ; consignes adverses neutres et grisées ; intentions et série cachées | Vérifié dans Chromium (barre et +10 s bloqués au direct, consigne appliquée au direct pendant qu'on revoit une action, retour au mode God) et avec `tools/page.js`. Techniquement, le match reste calculé d'avance, mais rien de la suite n'est montré |
 | 58 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 %. Entre niveaux voisins : toujours 48 à 52 %. Élite contre Faible : 10,2 à 0,05. Passes réussies : l'équipe forte n'en réussit toujours pas plus que l'autre contre le même adversaire |
 
 | 59 | Demande de Frédéric : l'équipe forte doit garder le ballon. Découverte : le « goût du risque » de Faible (7,8) la rendait plus prudente que l'Élite (13,9) | Prudence et patience dépendent aussi de la lucidité : un joueur lucide sait ce que coûte une passe forcée et attend avant de forcer (rien à 14) | Seul : +1 à 3 points de possession |
@@ -537,7 +543,7 @@ Rappel de méthode : les réglages ont été faits à la main, sur des moyennes.
 
 Après le point « l'équipe forte garde le ballon », pause sur le moteur et travail sur l'interface. Sa liste, en vrac :
 
-1. **Deux modes de jeu.**
+1. **Deux modes de jeu.** **Fait (n° 64).**
    - **Mode God** (la page actuelle) : on règle les deux équipes, on voit les intentions, et on voit « le futur » (le match est calculé d'avance, on peut aller aux minutes suivantes).
    - **Mode Coach It** : on dirige une seule équipe. L'adversaire est pour l'instant en consignes standard ; on choisit seulement son niveau. On ne voit pas le futur.
 2. **Tactiques prédéfinies** (des jeux de consignes prêts à l'emploi).
