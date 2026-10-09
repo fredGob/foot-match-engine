@@ -7,7 +7,7 @@ const sides = [Eq.side(process.argv[2]), Eq.side(process.argv[3])], n = +process
 const R = { n: 0, xg: 0, kind: {}, dist: {}, cover: {}, lineX: 0, lineN: 0, midGap: 0 };
 const add = (o, k, xg) => { const r = o[k] || (o[k] = [0, 0]); r[0]++; r[1] += xg; };
 for (let i = 0; i < n; i++) {
-  const m = E.createMatch({ seed: 1 + i, duration: 5400, tactics: sides.map(s => s.tactics), teams: sides.map(s => s.team) });
+  const m = E.createMatch({ seed: 1 + i, duration: 5400, tactics: sides.map(s => s.tactics), teams: sides.map(s => s.team), formations: sides.map(s => s.formation) });
   let lastPass = null, lastShot = null, f = 0;
   const B = m.teams[0];
   while (m.mode !== 'over') {

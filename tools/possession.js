@@ -12,7 +12,7 @@ const T = [0, 1].map(() => ({ poss: 0, possT: 0, ends: {}, passes: {}, byRating:
 const add = (o, k, ok) => { const r = o[k] || (o[k] = [0, 0]); r[0]++; if (ok) r[1]++; };
 
 for (let i = 0; i < n; i++) {
-  const m = E.createMatch({ seed: 1 + i, duration, tactics: sides.map(s => s.tactics), teams: sides.map(s => s.team) });
+  const m = E.createMatch({ seed: 1 + i, duration, tactics: sides.map(s => s.tactics), teams: sides.map(s => s.team), formations: sides.map(s => s.formation) });
   let holder = null, since = 0, lastKey = 'autre', lastPass = null;
   const open = [];                                   // passes parties, pas encore terminées
   const count = m.count;

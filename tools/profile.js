@@ -8,11 +8,11 @@ const path = require('path'), os = require('os');
 const E = require(path.join(__dirname, '..', 'engine.js')), Eq = require(path.join(__dirname, '..', 'equipes.js'));
 
 if (!isMainThread) {
-  const { tactics, seeds, ids } = workerData, teams = ids.map(id => id ? Eq.get(id) : null);
+  const { tactics, seeds, ids, formations } = workerData, teams = ids.map(id => id ? Eq.get(id) : null);
   const blank = () => ({ xg: [0, 0, 0], goals: 0, shots: 0, poss: 0, recov: 0, recovHigh: 0, fouls: 0, tackles: 0, wins: 0, stam: { DEF: 0, MID: 0, FWD: 0 }, low: 0, dist: 0, sprint: 0, pressT: 0 });
   const out = { teams: [blank(), blank()], draws: 0 };
   for (const seed of seeds) {
-    const m = E.createMatch({ seed, duration: 5400, tactics, teams });
+    const m = E.createMatch({ seed, duration: 5400, tactics, teams, formations });
     let third = 0, mark = [0, 0];
     while (m.mode !== 'over') {
       E.step(m);
@@ -30,10 +30,10 @@ if (!isMainThread) {
   }
   parentPort.postMessage(out);
 } else {
-  const sides = [Eq.side(process.argv[2]), Eq.side(process.argv[3])], tactics = sides.map(x => x.tactics), ids = sides.map(x => x.team && x.team.id), n = +process.argv[4] || 60;
-  const nw = Math.max(1, Math.min(n, os.cpus().length - 2)), chunks = Array.from({ length: nw }, () => []);
+  const sides = [Eq.side(process.argv[2]), Eq.side(process.argv[3])], tactics = sides.map(x => x.tactics), ids = sides.map(x => x.team && x.team.id), formations = sides.map(x => x.formation), n = +process.argv[4] || 60;
+  const nw = Math.max(1, Math.min(n, Math.max(os.cpus().length - 2, os.cpus().length > 4 ? 0 : os.cpus().length))), chunks = Array.from({ length: nw }, () => []);
   for (let i = 0; i < n; i++) chunks[i % nw].push(1000 + i);
-  const run = seeds => new Promise((res, rej) => { const w = new Worker(__filename, { workerData: { tactics, seeds, ids } }); w.on('message', res); w.on('error', rej); });
+  const run = seeds => new Promise((res, rej) => { const w = new Worker(__filename, { workerData: { tactics, seeds, ids, formations } }); w.on('message', res); w.on('error', rej); });
   const sum = (a, b) => { for (const k in b) { if (typeof b[k] === 'number') a[k] = (a[k] || 0) + b[k]; else a[k] = sum(a[k] || (Array.isArray(b[k]) ? [] : {}), b[k]); } return a; };
   Promise.all(chunks.map(run)).then(parts => {
     const R = parts.reduce(sum, {}), A = R.teams[0], B = R.teams[1];

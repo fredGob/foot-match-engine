@@ -8,7 +8,7 @@ const R = [0, 1].map(() => ({ n: 0, est: 0, first: {}, where: {}, z: {}, then: {
 const add = (o, k) => { o[k] = (o[k] || 0) + 1; };
 
 for (let i = 0; i < n; i++) {
-  const m = E.createMatch({ seed: 1 + i, duration, tactics: sides.map(s => s.tactics), teams: sides.map(s => s.team) });
+  const m = E.createMatch({ seed: 1 + i, duration, tactics: sides.map(s => s.tactics), teams: sides.map(s => s.team), formations: sides.map(s => s.formation) });
   let cur = null, last = null, lastTouch = null;
   while (m.mode !== 'over') {
     E.step(m);

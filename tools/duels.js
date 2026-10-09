@@ -14,7 +14,7 @@ const band = v => { const r = Math.round(v * 20); return r <= 9 ? '9 et moins' :
 const BANDS = ['9 et moins', '10 à 12', '13 et 14', '15 et plus'];
 
 for (let i = 0; i < n; i++) {
-  const m = E.createMatch({ seed: 1 + i, duration, tactics: sides.map(s => s.tactics), teams: sides.map(s => s.team) });
+  const m = E.createMatch({ seed: 1 + i, duration, tactics: sides.map(s => s.tactics), teams: sides.map(s => s.team), formations: sides.map(s => s.formation) });
   const ready = new Map(); for (const p of m.players) ready.set(p, p.tackleReadyAt || 0);
   let ep = null;
   while (m.mode !== 'over') {

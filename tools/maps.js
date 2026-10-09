@@ -14,7 +14,7 @@ const heat = [0, 1].map(() => new Float32Array(R.HEAT.cols * R.HEAT.rows)), shot
 const pos = [0, 1].map(() => Array.from({ length: 11 }, () => [0, 0, 0])), made = [0, 1].map(() => new Array(11).fill(0)), got = [0, 1].map(() => new Array(11).fill(0)), okp = [0, 1].map(() => new Array(11).fill(0)), pair = [new Map(), new Map()];
 let names = null, nums = null, roles = null;
 for (let i = 0; i < n; i++) {
-  const m = E.createMatch({ seed: 1 + i, duration: 5400, tactics: sides.map(s => s.tactics), teams: sides.map(s => s.team) });
+  const m = E.createMatch({ seed: 1 + i, duration: 5400, tactics: sides.map(s => s.tactics), teams: sides.map(s => s.team), formations: sides.map(s => s.formation) });
   if (!names) { names = m.players.map(p => p.name); nums = m.players.map(p => p.num); roles = m.players.map(p => p.poste); }
   const open = []; let lastQ = null, lastShot = null, f = 0;
   while (m.mode !== 'over') {

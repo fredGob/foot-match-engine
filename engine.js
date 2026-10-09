@@ -432,7 +432,7 @@ function intercept(m, p) {
 function setIntent(m, p, type, label, tx, ty, urg) {
   const it = p.intent;
   if (it.type !== type) it.since = m.t;
-  it.type = type; it.label = label; it.tx = tx; it.ty = ty; it.urg = urg; it.note = null; it.hunt = false;
+  it.type = type; it.label = label; it.tx = tx; it.ty = ty; it.urg = urg; it.note = null; it.hunt = false; it.cover = null;
 }
 // ce que la fiche du joueur affichera : il suit une consigne de son entraîneur, ou il s'en écarte
 function note(p, key, v, against) { p.intent.note = (against ? 'Malgré la consigne : ' : 'Consigne : ') + tacNote(key, v); }
@@ -552,6 +552,16 @@ function thinkDefend(m, p, noPress) {
       if (!T.players.some(q => q !== p && q.role === 'DEF' && timeToCover(m, q, hyp(kx - q.x, ky - q.y), kx, ky) < mine))
         return setIntent(m, p, 'press', 'Ferme l\'axe du but face au n°' + c.num, th.x, th.y, 1);
     }
+  }
+  // ombre de l'attaquant : l'adversaire construit chez lui ; l'attaquant qui ne presse pas se place entre le porteur et le milieu adverse libre le plus proche
+  if (!noPress && p.role === 'FWD' && c && b.owner === c && c.team !== p.team && th.x * d > 5) {
+    let tgt = null, td = 14;
+    for (const o of O.players) {
+      if (o === c || o.role !== 'MID' || (o.x - p.ax) * d > 3 || (p.ax - o.x) * d > 16) continue;
+      const dd = hyp(o.x - p.ax, o.y - p.ay);
+      if (dd < td && !T.players.some(q => q !== p && (q.intent.cover === o || (q.role === 'MID' && hyp(q.x - o.x, q.y - o.y) < 4)))) { td = dd; tgt = o; }
+    }
+    if (tgt) { setIntent(m, p, 'position', 'Coupe la passe vers le n°' + tgt.num, tgt.x + (c.x - tgt.x) * 0.35, tgt.y + (c.y - tgt.y) * 0.35, 0.6); p.intent.cover = tgt; return; }
   }
   // marquage : l'adversaire le plus dangereux de ma zone
   const kHunt = Math.max(0, T.tac.press) * clamp((th.x * d + 25) / 20, 0, 1) * (0.5 + 0.5 * p.stam); let hunting = false;      // fatigué, on harcèle moins
