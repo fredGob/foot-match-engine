@@ -111,14 +111,26 @@ const TACTICS = [
   { key: 'press', label: 'Pressing', options: ['Attendre', 'Normal', 'Harceler'], notes: ['attendre l\'adversaire', '', 'harceler le porteur'],
     help: 'Attendre : on garde ses positions et on laisse venir ; les attaquants ne courent pas après le ballon et restent frais. Harceler : on va chercher le porteur loin, à deux s\'il le faut, au prix de beaucoup d\'énergie.' },
 ];
+// tactiques prédéfinies : un jeu des cinq consignes, prêt à l'emploi (passing, tempo, width, line, press)
+const PRESETS = [
+  { id: 'equilibre', name: 'Équilibré', t: { passing: 0, tempo: 0, width: 0, line: 0, press: 0 }, help: 'Toutes les consignes au neutre.' },
+  { id: 'possession', name: 'Possession', t: { passing: -1, tempo: -1, width: 1, line: 0, press: 0 }, help: 'Garder le ballon : passes courtes, on prend son temps, on écarte le jeu.' },
+  { id: 'pressing', name: 'Pressing haut', t: { passing: 0, tempo: 1, width: 0, line: 1, press: 1 }, help: 'Reprendre le ballon loin de son but : bloc haut, on harcèle le porteur, on joue vite. Coûte beaucoup d\'énergie.' },
+  { id: 'contre', name: 'Contre-attaque', t: { passing: 1, tempo: 1, width: 0, line: -1, press: -1 }, help: 'Laisser venir, puis partir vite dans le dos de la défense.' },
+  { id: 'blocbas', name: 'Bloc bas', t: { passing: 1, tempo: -1, width: -1, line: -1, press: -1 }, help: 'Défendre le score : bloc bas et compact, on ne prend aucun risque, on dégage loin.' },
+  { id: 'direct', name: 'Jeu direct', t: { passing: 1, tempo: 1, width: 1, line: 0, press: 0 }, help: 'Aller vite vers l\'avant : longs ballons, ailes et centres.' },
+  { id: 'attaque', name: 'Tout pour l\'attaque', t: { passing: 0, tempo: 1, width: 1, line: 1, press: 1 }, help: 'Courir après le score : tout le monde monte, on presse et on écarte. Laisse de l\'espace derrière.' },
+];
 // change les consignes d'une équipe, avant ou pendant le match (un changement en cours de match est noté dans le fil du match)
-function setTactics(m, team, tac) {
-  const T = m.teams[team];
+// label : nom d'une tactique prédéfinie ; le fil du match note alors une seule ligne au lieu d'une par consigne
+function setTactics(m, team, tac, label) {
+  const T = m.teams[team]; let changed = false;
   for (const c of TACTICS) if (tac && tac[c.key] != null) {
     const v = clamp(+tac[c.key] || 0, -1, 1);
-    if (v !== T.tac[c.key] && m.tick > 0) log(m, 'tactic', team, 'Consigne des ' + T.name + ' : ' + c.label.toLowerCase() + ' → ' + c.options[Math.round(v) + 1].toLowerCase());
+    if (v !== T.tac[c.key] && m.tick > 0) { changed = true; if (!label) log(m, 'tactic', team, 'Consigne des ' + T.name + ' : ' + c.label.toLowerCase() + ' → ' + c.options[Math.round(v) + 1].toLowerCase()); }
     T.tac[c.key] = v;
   }
+  if (label && changed) log(m, 'tactic', team, 'Tactique des ' + T.name + ' : ' + label);
 }
 const tacNote = (key, v) => TACTICS.find(c => c.key === key).notes[v < 0 ? 0 : 2];
 
@@ -1348,5 +1360,5 @@ function step(m) {
 }
 
 // restart : met en scène un arrêt de jeu (penalty, coup franc, corner…), pour les outils de mesure
-return { createMatch, step, setTactics, restart: setRestart, readTeam, TACTICS, QUALITIES, PLACES, DT, PITCH: P, valueAt };
+return { createMatch, step, setTactics, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt };
 });

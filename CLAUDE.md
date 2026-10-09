@@ -175,6 +175,7 @@ node tools/profile.js press=-1 "" 120                 # duel avec profil dans le
 node tools/energy.js press=-1 16                      # où part l'énergie des Bleus : par activité, par allure, par moment du jeu, par ligne
 node tools/tactics.js 60 5400                       # effet de chaque consigne, une par une (60 matchs de 90 min par réglage)
 node sim.js 100 1 5400 passing=-1,line=1 press=1    # Bleus : jeu court + bloc haut, contre Rouges : pressing « harceler »
+node sim.js 30 1 5400 tactique=contre tactique=equilibre   # une tactique prédéfinie contre une autre
 node tools/passes.js 100                            # qui passe à qui (part des passes par ligne)
 node tools/depth.js passing=1 line=1 20             # ballons joués dans le dos de la défense : qui les reçoit, y a-t-il un tir ensuite ?
 node tools/press.js press=1 30                      # pressing : que devient un porteur pressé, que se passe-t-il quand le pressing est battu, coût en fatigue
@@ -478,6 +479,7 @@ Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la pos
 | 58b | Demande de Frédéric (interface, pour déboguer) : voir l'intention de chaque joueur, et un chrono | Case « Montrer l'intention de chaque joueur » ; chrono façon télé au-dessus du terrain (le chrono du haut de page, petit et gris, passait inaperçu) | Vérifié dans Chromium et avec `tools/page.js` |
 | 63 | Demande de Frédéric : une page Statistiques avec carte de chaleur et réseau de passes (il a choisi : réseau de passes, carte d'équipe puis de joueur, onglet à la place du terrain) | Onglet « Statistiques » ; la page note chaque passe et son issue (le moteur garde l'issue de la passe, sans rien changer aux matchs) | Vérifié dans Chromium et avec `tools/page.js`. Premières lectures du moteur : le gardien et les défenseurs centraux touchent très peu le ballon (défaut déjà connu) ; un arrière latéral standard ne passe presque jamais la ligne médiane |
 | 64 | Demande de Frédéric : deux modes, God (l'actuel) et Coach It (une seule équipe, pas de futur). Ses choix : en Coach It on voit comme un vrai coach (pas les intentions), on peut revoir le passé sans le réécrire, on choisit aussi son équipe | Boutons « Mode God » / « Mode Coach It » ; direct sur la barre de temps ; consignes adverses neutres et grisées ; intentions et série cachées | Vérifié dans Chromium (barre et +10 s bloqués au direct, consigne appliquée au direct pendant qu'on revoit une action, retour au mode God) et avec `tools/page.js`. Techniquement, le match reste calculé d'avance, mais rien de la suite n'est montré |
+| 65 | Demande de Frédéric : des tactiques prédéfinies | Sept tactiques dans `engine.js` (`PRESETS`) : Équilibré, Possession, Pressing haut, Contre-attaque, Bloc bas, Jeu direct, Tout pour l'attaque. Ligne « Tactique » en tête du cadre Consignes ; la page reconnaît une tactique quand les cinq consignes correspondent, sinon « Personnalisée ». Un changement de tactique fait une seule ligne dans le fil du match. Outils : `tactique=contre` | Contre « Équilibré » (30 matchs, standard) : **aucune tactique ne gagne**. Possession 9-8-13, Pressing haut 8-5-17, Tout pour l'attaque 7-7-16, Jeu direct 5-3-22, Bloc bas 3-6-21 (31 tirs concédés), Contre-attaque 2-2-26 (35 tirs concédés) |
 | 58 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 %. Entre niveaux voisins : toujours 48 à 52 %. Élite contre Faible : 10,2 à 0,05. Passes réussies : l'équipe forte n'en réussit toujours pas plus que l'autre contre le même adversaire |
 
 | 59 | Demande de Frédéric : l'équipe forte doit garder le ballon. Découverte : le « goût du risque » de Faible (7,8) la rendait plus prudente que l'Élite (13,9) | Prudence et patience dépendent aussi de la lucidité : un joueur lucide sait ce que coûte une passe forcée et attend avant de forcer (rien à 14) | Seul : +1 à 3 points de possession |
@@ -489,6 +491,7 @@ Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la pos
 
 Après la sixième séance (à reprendre) :
 
+- **Les tactiques défensives se font écraser (n° 65)** : en bloc bas, on concède 31 à 35 tirs par match contre une équipe neutre. Aucune tactique ne bat « Équilibré ».
 - **Élite contre Élevé : toujours 50 % de possession.** Entre deux niveaux voisins, l'écart reste faible (50 à 54 %).
 - **Équipe standard un peu plus prolifique** depuis l'amorti des ballons aériens : 3,5 buts par match pour 3,1 occasions (3,2 avant).
 
@@ -546,7 +549,7 @@ Après le point « l'équipe forte garde le ballon », pause sur le moteur et tr
 1. **Deux modes de jeu.** **Fait (n° 64).**
    - **Mode God** (la page actuelle) : on règle les deux équipes, on voit les intentions, et on voit « le futur » (le match est calculé d'avance, on peut aller aux minutes suivantes).
    - **Mode Coach It** : on dirige une seule équipe. L'adversaire est pour l'instant en consignes standard ; on choisit seulement son niveau. On ne voit pas le futur.
-2. **Tactiques prédéfinies** (des jeux de consignes prêts à l'emploi).
+2. **Tactiques prédéfinies** (des jeux de consignes prêts à l'emploi). **Fait (n° 65).**
 3. **Une page Statistiques** : les chiffres (comme aujourd'hui), plus une **carte de chaleur** et une **carte des passes** (pass map). Frédéric pense, à raison, qu'elles serviront aussi à corriger le moteur. **Fait (n° 63)** : onglet « Statistiques ». À faire peut-être : mettre aussi les chiffres dans l'onglet, cartes sur une série de matchs.
 
 ## Ce qui n'existe pas encore

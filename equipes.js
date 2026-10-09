@@ -14,8 +14,9 @@ function side(str) {
   for (const kv of (str || '').split(',')) {
     const [k, v] = kv.split('='); if (!k) continue;
     if (k === 'equipe') out.team = get(v);
+    else if (k === 'tactique') { const P = E.PRESETS.find(x => x.id === v); if (!P) { console.error('tactique inconnue : ' + v + ' (tactiques : ' + E.PRESETS.map(x => x.id).join(', ') + ')'); process.exit(1); } Object.assign(out.tactics, P.t); }
     else if (E.TACTICS.some(c => c.key === k)) out.tactics[k] = +v;
-    else { console.error('réglage inconnu : ' + k + ' (réglages : equipe, ' + E.TACTICS.map(c => c.key).join(', ') + ')'); process.exit(1); }
+    else { console.error('réglage inconnu : ' + k + ' (réglages : equipe, tactique, ' + E.TACTICS.map(c => c.key).join(', ') + ')'); process.exit(1); }
   }
   return out;
 }

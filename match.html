@@ -91,6 +91,8 @@
   .tac td:first-child, .tac td:last-child { width: 31%; font-weight: 400; }
   .tac td.k { font-size: 13px; cursor: help; }
   .tac select.set { border-color: var(--accent); }
+  .tac tr.presets td { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .tac select.preset { font-weight: 600; }
 
   #log { height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
   #log div { display: flex; gap: 8px; }
@@ -325,14 +327,26 @@ const TACTICS = [
   { key: 'press', label: 'Pressing', options: ['Attendre', 'Normal', 'Harceler'], notes: ['attendre l\'adversaire', '', 'harceler le porteur'],
     help: 'Attendre : on garde ses positions et on laisse venir ; les attaquants ne courent pas après le ballon et restent frais. Harceler : on va chercher le porteur loin, à deux s\'il le faut, au prix de beaucoup d\'énergie.' },
 ];
+// tactiques prédéfinies : un jeu des cinq consignes, prêt à l'emploi (passing, tempo, width, line, press)
+const PRESETS = [
+  { id: 'equilibre', name: 'Équilibré', t: { passing: 0, tempo: 0, width: 0, line: 0, press: 0 }, help: 'Toutes les consignes au neutre.' },
+  { id: 'possession', name: 'Possession', t: { passing: -1, tempo: -1, width: 1, line: 0, press: 0 }, help: 'Garder le ballon : passes courtes, on prend son temps, on écarte le jeu.' },
+  { id: 'pressing', name: 'Pressing haut', t: { passing: 0, tempo: 1, width: 0, line: 1, press: 1 }, help: 'Reprendre le ballon loin de son but : bloc haut, on harcèle le porteur, on joue vite. Coûte beaucoup d\'énergie.' },
+  { id: 'contre', name: 'Contre-attaque', t: { passing: 1, tempo: 1, width: 0, line: -1, press: -1 }, help: 'Laisser venir, puis partir vite dans le dos de la défense.' },
+  { id: 'blocbas', name: 'Bloc bas', t: { passing: 1, tempo: -1, width: -1, line: -1, press: -1 }, help: 'Défendre le score : bloc bas et compact, on ne prend aucun risque, on dégage loin.' },
+  { id: 'direct', name: 'Jeu direct', t: { passing: 1, tempo: 1, width: 1, line: 0, press: 0 }, help: 'Aller vite vers l\'avant : longs ballons, ailes et centres.' },
+  { id: 'attaque', name: 'Tout pour l\'attaque', t: { passing: 0, tempo: 1, width: 1, line: 1, press: 1 }, help: 'Courir après le score : tout le monde monte, on presse et on écarte. Laisse de l\'espace derrière.' },
+];
 // change les consignes d'une équipe, avant ou pendant le match (un changement en cours de match est noté dans le fil du match)
-function setTactics(m, team, tac) {
-  const T = m.teams[team];
+// label : nom d'une tactique prédéfinie ; le fil du match note alors une seule ligne au lieu d'une par consigne
+function setTactics(m, team, tac, label) {
+  const T = m.teams[team]; let changed = false;
   for (const c of TACTICS) if (tac && tac[c.key] != null) {
     const v = clamp(+tac[c.key] || 0, -1, 1);
-    if (v !== T.tac[c.key] && m.tick > 0) log(m, 'tactic', team, 'Consigne des ' + T.name + ' : ' + c.label.toLowerCase() + ' → ' + c.options[Math.round(v) + 1].toLowerCase());
+    if (v !== T.tac[c.key] && m.tick > 0) { changed = true; if (!label) log(m, 'tactic', team, 'Consigne des ' + T.name + ' : ' + c.label.toLowerCase() + ' → ' + c.options[Math.round(v) + 1].toLowerCase()); }
     T.tac[c.key] = v;
   }
+  if (label && changed) log(m, 'tactic', team, 'Tactique des ' + T.name + ' : ' + label);
 }
 const tacNote = (key, v) => TACTICS.find(c => c.key === key).notes[v < 0 ? 0 : 2];
 
@@ -1562,7 +1576,7 @@ function step(m) {
 }
 
 // restart : met en scène un arrêt de jeu (penalty, coup franc, corner…), pour les outils de mesure
-return { createMatch, step, setTactics, restart: setRestart, readTeam, TACTICS, QUALITIES, PLACES, DT, PITCH: P, valueAt };
+return { createMatch, step, setTactics, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt };
 });
 </script>
 <script>
@@ -1904,7 +1918,11 @@ return { create, add, rows, rowsOf };
     let f = 0, ci = 0;
     capture(0);
     while (full && m.mode !== 'over' && f < cap - 1) {
-      for (; ci < changes.length && changes[ci].tick <= m.tick; ci++) E.setTactics(m, changes[ci].team, { [changes[ci].key]: changes[ci].v });
+      for (; ci < changes.length && changes[ci].tick <= m.tick; ci++) {
+        const c = changes[ci];
+        if (c.preset) { const grp = {}; let cj = ci; for (; cj < changes.length && changes[cj].tick === c.tick && changes[cj].team === c.team && changes[cj].preset === c.preset; cj++) grp[changes[cj].key] = changes[cj].v; E.setTactics(m, c.team, grp, c.preset); ci = cj - 1; }
+        else E.setTactics(m, c.team, { [c.key]: c.v });
+      }
       E.step(m); capture(++f); trackPasses();
     }
     r.n = f + 1;
@@ -1983,7 +2001,8 @@ return { create, add, rows, rowsOf };
     $('stats').innerHTML = statRows(St.rowsOf(st[0], st[1]));
     // consignes en vigueur à cet instant
     const t = tacAt(coach() ? Math.min(tickOf(live), rec.n - 1) : tick);      // Coach It : les consignes en vigueur au moment du direct
-    document.querySelectorAll('#tactics select').forEach(sel => { const v = String(t[+sel.dataset.team][sel.dataset.key]); if (sel.value !== v && document.activeElement !== sel) sel.value = v; sel.classList.toggle('set', v !== '0'); });
+    document.querySelectorAll('#tactics select[data-preset]').forEach(sel => { const id = presetOf(t[+sel.dataset.preset]); if (sel.value !== id && document.activeElement !== sel) sel.value = id; const P = PRE.find(P => P.id === id); sel.title = P ? P.help : 'Consignes réglées à la main'; });
+    document.querySelectorAll('#tactics select[data-key]').forEach(sel => { const v = String(t[+sel.dataset.team][sel.dataset.key]); if (sel.value !== v && document.activeElement !== sel) sel.value = v; sel.classList.toggle('set', v !== '0'); });
     if (coach()) $('tacHint').textContent = pending ? 'Choisissez les consignes de votre équipe (les Bleus). L\'adversaire joue avec des consignes neutres.' : 'Un changement s\'applique au moment du direct (' + mmss(live) + '), même si vous revoyez une action plus ancienne.';
     else $('tacHint').textContent = pending ? 'Choisissez les consignes des deux équipes pour le coup d\'envoi. Vous pourrez les changer en cours de match.' : tick <= 0 ? 'Au coup d\'envoi : un changement vaut pour tout le match.' : 'Un changement s\'applique à partir de ' + mmss(cur) + ' et réécrit la suite du match.';
     if (selected >= 0) {
@@ -2109,14 +2128,16 @@ return { create, add, rows, rowsOf };
     simulate(false);
   }
   function launch() { if (!pending) return; pending = false; cur = 0; live = 0; marked = -1; playing = true; rebuild(); }
-  function setTactic(team, key, v) {
+  function setTactic(team, key, v) { setTactics(team, { [key]: v }); }
+  // plusieurs consignes d'un coup (tactique prédéfinie) : un seul recalcul
+  function setTactics(team, obj, preset) {
     if (!rec) return;
-    if (coach() && team !== 0) return;                              // Coach It : l'adversaire garde ses consignes neutres
-    if (pending) { tac0[team][key] = v; simulate(false); return; }
-    const tick = Math.min(tickOf(coach() ? live : cur), rec.n - 1);
-    if (tacAt(tick)[team][key] === v) return;
-    if (tick <= 0) { tac0[team][key] = v; changes = []; }
-    else { changes = changes.filter(c => c.tick < tick || (c.tick === tick && !(c.team === team && c.key === key))); changes.push({ tick, team, key, v }); }
+    if (coach() && team !== 0) return;
+    if (pending) { Object.assign(tac0[team], obj); simulate(false); nextHud = 0; return; }
+    const tick = Math.min(tickOf(coach() ? live : cur), rec.n - 1), now = tacAt(tick), keys = Object.keys(obj).filter(k => now[team][k] !== obj[k]);
+    if (!keys.length) return;
+    if (tick <= 0) { for (const k of keys) tac0[team][k] = obj[k]; changes = []; }
+    else for (const k of keys) { changes = changes.filter(c => c.tick < tick || (c.tick === tick && !(c.team === team && c.key === k))); changes.push({ tick, team, key: k, v: obj[k], preset }); }
     rebuild();
   }
 
@@ -2129,10 +2150,15 @@ return { create, add, rows, rowsOf };
   const showSquads = () => document.querySelectorAll('#squads select').forEach(s => { s.value = squad[+s.dataset.team]; s.classList.toggle('set', s.value !== ''); });
 
   // tableau des consignes
+  const PRE = E.PRESETS || [];
+  const presetOf = t => { const P = PRE.find(P => TAC.every(c => (P.t[c.key] || 0) === t[c.key])); return P ? P.id : ''; };
+  const preSel = team => '<select class="preset" data-preset="' + team + '" aria-label="Tactique des ' + (team ? 'Rouges' : 'Bleus') + '"><option value="">Personnalisée</option>' + PRE.map(P => '<option value="' + P.id + '" title="' + esc(P.help) + '">' + esc(P.name) + '</option>').join('') + '</select>';
   $('tactics').innerHTML = '<tr><th><span class="dot" style="background: var(--blue)"></span> Bleus</th><th></th><th>Rouges <span class="dot" style="background: var(--red)"></span></th></tr>'
+    + '<tr class="presets"><td>' + preSel(0) + '</td><td class="k" title="Une tactique règle les cinq consignes d\'un coup. Vous pouvez ensuite changer une consigne : la tactique devient « Personnalisée ».">Tactique</td><td>' + preSel(1) + '</td></tr>'
     + TAC.map(c => { const sel = team => '<select data-team="' + team + '" data-key="' + c.key + '" aria-label="' + esc(c.label) + ' des ' + (team ? 'Rouges' : 'Bleus') + '">' + c.options.map((o, i) => '<option value="' + (i - 1) + '"' + (i === 1 ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';
       return '<tr><td>' + sel(0) + '</td><td class="k" title="' + esc(c.help) + '">' + esc(c.label) + '</td><td>' + sel(1) + '</td></tr>'; }).join('');
-  document.querySelectorAll('#tactics select').forEach(sel => sel.onchange = () => { setTactic(+sel.dataset.team, sel.dataset.key, +sel.value); sel.blur(); });
+  document.querySelectorAll('#tactics select[data-key]').forEach(sel => sel.onchange = () => { setTactic(+sel.dataset.team, sel.dataset.key, +sel.value); sel.blur(); });
+  document.querySelectorAll('#tactics select[data-preset]').forEach(sel => sel.onchange = () => { const P = PRE.find(P => P.id === sel.value); if (P) setTactics(+sel.dataset.preset, P.t, P.name); sel.blur(); nextHud = 0; });
   $('neutral').onclick = () => {
     if (!rec) return;
     if (pending) { tac0 = [blank(), blank()]; simulate(false); return; }
@@ -2167,7 +2193,7 @@ return { create, add, rows, rowsOf };
     if (md === mode) return;
     mode = md; document.body.classList.toggle('coach', coach());
     document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
-    document.querySelectorAll('#tactics select[data-team="1"]').forEach(sel => { sel.disabled = coach(); sel.title = coach() ? 'Mode Coach It : l\'adversaire joue avec des consignes neutres' : ''; });
+    document.querySelectorAll('#tactics select[data-team="1"], #tactics select[data-preset="1"]').forEach(sel => { sel.disabled = coach(); sel.title = coach() ? 'Mode Coach It : l\'adversaire joue avec des consignes neutres' : ''; });
     const heads = document.querySelectorAll('#squads th, #tactics th');
     heads.forEach(th => { const t = th.textContent.trim(); if (/Bleus|Votre équipe/.test(t)) th.lastChild.textContent = coach() ? ' Votre équipe' : ' Bleus'; if (/Rouges|Adversaire/.test(t)) th.firstChild.textContent = coach() ? 'Adversaire ' : 'Rouges '; });
     if (coach()) { tac0 = [rec ? tacAt(tickOf(cur))[0] : tac0[0], blank()]; changes = []; }
