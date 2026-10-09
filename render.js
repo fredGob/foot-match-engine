@@ -144,13 +144,13 @@ function heatColor(t) {
   const u = Math.min(0.9999, Math.max(0, t)) * (HEAT_RAMP.length - 1), i = Math.floor(u), f = u - i, A = HEAT_RAMP[i], B = HEAT_RAMP[i + 1];
   return [A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f, A[2] + (B[2] - A[2]) * f];
 }
-let heatCanvas = null;
+let heatCanvas = null, makeCanvas = null;      // makeCanvas : pour dessiner hors navigateur (outils en ligne de commande)
 function drawHeat(ctx, W, H, grid) {
   const v = view(W, H), s = v.s;
   drawPitch(ctx, W, H);
   const g = smooth(grid); let max = 0; for (const x of g) if (x > max) max = x;
   if (max <= 0) return;
-  if (!heatCanvas) { heatCanvas = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(HEAT.cols, HEAT.rows) : document.createElement('canvas'); heatCanvas.width = HEAT.cols; heatCanvas.height = HEAT.rows; }
+  if (!heatCanvas) { heatCanvas = makeCanvas ? makeCanvas(HEAT.cols, HEAT.rows) : typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(HEAT.cols, HEAT.rows) : document.createElement('canvas'); heatCanvas.width = HEAT.cols; heatCanvas.height = HEAT.rows; }
   const hc = heatCanvas.getContext('2d'), img = hc.createImageData(HEAT.cols, HEAT.rows);
   for (let i = 0; i < g.length; i++) {
     const t = g[i] / max; if (t < 0.04) continue;
@@ -198,5 +198,5 @@ function drawNetwork(ctx, W, H, nodes, edges, color, hover) {
 }
 const nodeAt = (W, H, nodes, px, py) => { const v = view(W, H); let best = -1, bd = 1e9; nodes.forEach((q, i) => { const d = Math.hypot(v.ox + q.x * v.s - px, v.oy + q.y * v.s - py), r = (0.9 + 1.1 * q.size) * v.s + 4; if (d < r && d < bd) { bd = d; best = i; } }); return best; };
 
-return { drawMatch, drawPitch, toWorld, HEAT, heatCell, drawHeat, drawNetwork, nodeAt };
+return { drawMatch, drawPitch, toWorld, HEAT, heatCell, drawHeat, drawNetwork, nodeAt, view, setMakeCanvas: f => { makeCanvas = f; heatCanvas = null; } };
 });

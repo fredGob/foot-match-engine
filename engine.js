@@ -145,6 +145,7 @@ const MISREAD = 0.6;       // vision 8 : il ne voit que 40 % du danger d'interce
 const DUEL_MIND = 0.4;     // part de l'anticipation (défenseur) et du sang-froid (porteur) dans un duel
 const PRESS_Q = 10;        // presseur (moyenne démarrage, anticipation, agressivité) : pèse 1,5 m plus près à 17, 3 m plus loin à 8
 const AMORTI_FREE = 2.5;   // sans adversaire à moins de 2,5 m, un ballon aérien s'amortit au lieu de se jouer de la tête
+const CROSS_MARK = 1;      // centre possible : marquage serré dans la surface
 const READ = 1.2;          // lecture de la passe : allonge la portée de 18 % à 17, la réduit de 36 % à 8
 const LUCID = 2;           // lucidité : prudence face à une passe risquée (+30 % à 17, −60 % à 8)
 const PATIENCE = 3;        // lucidité : attente avant de s'impatienter (8 s à 14, 11,6 s à 17, 0,8 s à 8)
@@ -524,6 +525,9 @@ function thinkDefend(m, p, noPress) {
   if (best) {
     const og = hyp(best.x - gx, best.y) || 1;
     let tight = clamp(1.1 - og / 45, 0.25, 1) * (p.role === 'DEF' ? 1 : p.role === 'MID' ? 0.7 : 0.3);
+    // centre possible (ballon sur un côté près de sa surface) : défenseurs et milieux serrent les attaquants présents dans la surface
+    const crossing = th.x * d < -P.HL + 30 && Math.abs(th.y) > 13 && inOwnBox(T, best.x, best.y) && p.role !== 'FWD';
+    if (crossing) tight = Math.max(tight, CROSS_MARK);
     if (kHunt && hyp(best.x - th.x, best.y - th.y) < 20) { tight = Math.max(tight, 0.45 + 0.25 * kHunt); hunting = true; }      // « harceler » : on colle les solutions de passe proches
     const md = 1.2 + 2.5 * (1 - tight);
     const ob = hyp(b.x - best.x, b.y - best.y) || 1;
@@ -997,7 +1001,7 @@ function header(m, p0, z) {
   const b = m.ball, rng = m.rng, pass = m.pass;
   let p = p0;
   for (const o of m.teams[1 - p.team].players) {                          // duel aérien
-    if (o.stunUntil > m.t || o.role === 'GK' || hyp(o.x - b.x, o.y - b.y) > 1.5) continue;
+    if (o.stunUntil > m.t || o.noControlUntil > m.t || o.role === 'GK' || hyp(o.x - b.x, o.y - b.y) > 1.5) continue;      // celui qui vient de toucher le ballon ne dispute pas le duel suivant
     if (rng() > clamp(0.5 + 0.6 * (p.a.heading - o.a.heading) + (pass && pass.to === p ? 0.08 : 0), 0.15, 0.85)) p = o;
     break;
   }

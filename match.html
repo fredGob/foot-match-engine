@@ -361,6 +361,7 @@ const MISREAD = 0.6;       // vision 8 : il ne voit que 40 % du danger d'interce
 const DUEL_MIND = 0.4;     // part de l'anticipation (défenseur) et du sang-froid (porteur) dans un duel
 const PRESS_Q = 10;        // presseur (moyenne démarrage, anticipation, agressivité) : pèse 1,5 m plus près à 17, 3 m plus loin à 8
 const AMORTI_FREE = 2.5;   // sans adversaire à moins de 2,5 m, un ballon aérien s'amortit au lieu de se jouer de la tête
+const CROSS_MARK = 1;      // centre possible : marquage serré dans la surface
 const READ = 1.2;          // lecture de la passe : allonge la portée de 18 % à 17, la réduit de 36 % à 8
 const LUCID = 2;           // lucidité : prudence face à une passe risquée (+30 % à 17, −60 % à 8)
 const PATIENCE = 3;        // lucidité : attente avant de s'impatienter (8 s à 14, 11,6 s à 17, 0,8 s à 8)
@@ -740,6 +741,9 @@ function thinkDefend(m, p, noPress) {
   if (best) {
     const og = hyp(best.x - gx, best.y) || 1;
     let tight = clamp(1.1 - og / 45, 0.25, 1) * (p.role === 'DEF' ? 1 : p.role === 'MID' ? 0.7 : 0.3);
+    // centre possible (ballon sur un côté près de sa surface) : défenseurs et milieux serrent les attaquants présents dans la surface
+    const crossing = th.x * d < -P.HL + 30 && Math.abs(th.y) > 13 && inOwnBox(T, best.x, best.y) && p.role !== 'FWD';
+    if (crossing) tight = Math.max(tight, CROSS_MARK);
     if (kHunt && hyp(best.x - th.x, best.y - th.y) < 20) { tight = Math.max(tight, 0.45 + 0.25 * kHunt); hunting = true; }      // « harceler » : on colle les solutions de passe proches
     const md = 1.2 + 2.5 * (1 - tight);
     const ob = hyp(b.x - best.x, b.y - best.y) || 1;
@@ -1213,7 +1217,7 @@ function header(m, p0, z) {
   const b = m.ball, rng = m.rng, pass = m.pass;
   let p = p0;
   for (const o of m.teams[1 - p.team].players) {                          // duel aérien
-    if (o.stunUntil > m.t || o.role === 'GK' || hyp(o.x - b.x, o.y - b.y) > 1.5) continue;
+    if (o.stunUntil > m.t || o.noControlUntil > m.t || o.role === 'GK' || hyp(o.x - b.x, o.y - b.y) > 1.5) continue;      // celui qui vient de toucher le ballon ne dispute pas le duel suivant
     if (rng() > clamp(0.5 + 0.6 * (p.a.heading - o.a.heading) + (pass && pass.to === p ? 0.08 : 0), 0.15, 0.85)) p = o;
     break;
   }
@@ -1726,13 +1730,13 @@ function heatColor(t) {
   const u = Math.min(0.9999, Math.max(0, t)) * (HEAT_RAMP.length - 1), i = Math.floor(u), f = u - i, A = HEAT_RAMP[i], B = HEAT_RAMP[i + 1];
   return [A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f, A[2] + (B[2] - A[2]) * f];
 }
-let heatCanvas = null;
+let heatCanvas = null, makeCanvas = null;      // makeCanvas : pour dessiner hors navigateur (outils en ligne de commande)
 function drawHeat(ctx, W, H, grid) {
   const v = view(W, H), s = v.s;
   drawPitch(ctx, W, H);
   const g = smooth(grid); let max = 0; for (const x of g) if (x > max) max = x;
   if (max <= 0) return;
-  if (!heatCanvas) { heatCanvas = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(HEAT.cols, HEAT.rows) : document.createElement('canvas'); heatCanvas.width = HEAT.cols; heatCanvas.height = HEAT.rows; }
+  if (!heatCanvas) { heatCanvas = makeCanvas ? makeCanvas(HEAT.cols, HEAT.rows) : typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(HEAT.cols, HEAT.rows) : document.createElement('canvas'); heatCanvas.width = HEAT.cols; heatCanvas.height = HEAT.rows; }
   const hc = heatCanvas.getContext('2d'), img = hc.createImageData(HEAT.cols, HEAT.rows);
   for (let i = 0; i < g.length; i++) {
     const t = g[i] / max; if (t < 0.04) continue;
@@ -1780,7 +1784,7 @@ function drawNetwork(ctx, W, H, nodes, edges, color, hover) {
 }
 const nodeAt = (W, H, nodes, px, py) => { const v = view(W, H); let best = -1, bd = 1e9; nodes.forEach((q, i) => { const d = Math.hypot(v.ox + q.x * v.s - px, v.oy + q.y * v.s - py), r = (0.9 + 1.1 * q.size) * v.s + 4; if (d < r && d < bd) { bd = d; best = i; } }); return best; };
 
-return { drawMatch, drawPitch, toWorld, HEAT, heatCell, drawHeat, drawNetwork, nodeAt };
+return { drawMatch, drawPitch, toWorld, HEAT, heatCell, drawHeat, drawNetwork, nodeAt, view, setMakeCanvas: f => { makeCanvas = f; heatCanvas = null; } };
 });
 </script>
 <script>
