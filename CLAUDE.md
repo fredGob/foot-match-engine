@@ -60,7 +60,7 @@ Les arrêts de jeu ont une durée réaliste (une touche 17 secondes, une sortie 
 | `sim.js` | Simule beaucoup de matchs sans affichage et donne les moyennes. |
 | `check.js` | Vérifie que le moteur ne déraille pas : sans consignes, avec consignes, et entre équipes de niveaux différents. |
 | `README.md`, `docs/apercu.png` | La présentation du projet sur GitHub, avec une capture d'écran de la page. |
-| `tools/` | Outils de contrôle : test de la page, vrai navigateur, effet des consignes, tournoi entre les équipes, énergie, qui passe à qui, images. |
+| `tools/` | Outils de contrôle : test de la page, vrai navigateur, effet des consignes, tournoi entre les équipes, énergie, qui passe à qui, possession (comment chaque équipe perd le ballon), images. |
 
 ## Comment le moteur fonctionne
 
@@ -151,6 +151,7 @@ node build.js              # refait match.html
 Mesurer les équipes de `equipes.json` :
 
 ```
+node tools/possession.js equipe=elite equipe=faible 20    # comment chaque équipe perd le ballon, passes réussies selon la note et la pression
 node tools/levels.js 60                                   # tournoi : chaque équipe contre chaque autre, 60 matchs de 90 min par affiche (1 min 30)
 node sim.js 100 1 5400 equipe=elite equipe=faible         # une affiche en détail : toutes les statistiques des deux équipes
 node tools/profile.js equipe=faible,line=-1 equipe=elite 60   # la même chose avec des consignes, et le détail par demi-heure
@@ -449,7 +450,30 @@ Cinquième séance (8 octobre 2026) : « attendre », puis les équipes de nivea
 | 47 | Premier tournoi entre les quatre équipes (`tools/levels.js`, 60 matchs par affiche) | — | L'ordre des niveaux est respecté, mais l'écart pèse beaucoup trop (Élite – Faible : 8,3 à 0,4), la possession est à l'envers, et il y a trop de buts à niveau égal. Voir « Les quatre équipes : premiers tests » |
 | 48 | Essai : l'équipe faible en bloc bas et « attendre » contre l'élite | — | Pire qu'au neutre : 0,3 à 9,8 |
 
+Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la possession. Règle de Frédéric : une équipe nettement plus forte a 65 à 70 % du ballon, quelles que soient les consignes, parce qu'elle réussit ses passes ; un joueur qui lit mal le jeu ne voit pas qui est libre et panique.
+
+| N° | Constat | Changement | Résultat (Élite contre Faible, possession de l'Élite) |
+|---|---|---|---|
+| 49 | Nouvel outil `tools/possession.js` : un passeur noté 7 réussissait 95 % de ses passes, un passeur à 16 en réussissait 79 %. Sous pression, Faible réussissait 90 % de ses passes. La vision ne servait presque à rien | — | 40 % (point de départ) |
+| 50 | La note de passe pesait peu sur le geste (écart ×1,6 entre 8 et 17) | Écart qui grandit vite quand la note baisse (×1 à 14, ×1,8 à 8, ×0,7 à 17), sur la direction et le dosage | 42 % : le receveur rattrape les passes imprécises |
+| 51 | Une passe à côté ou mal dosée ne gênait pas le receveur | Une passe mal ajustée est plus dure à contrôler, surtout sous pression | 42 % ; Faible tombe à 86 % de passes au sol réussies |
+| 52 | Essai : le porteur croit réussir 30 à 50 % de ses longs ballons, il en réussit environ 10 % ; l'Élite en tente 50 par match | Estimation corrigée, à l'essai seulement | +2 à 3 points seulement. Pas gardé : touche aussi « jeu long », c'est un chantier de l'axe B |
+| 53 | Idée de Frédéric : la vision | Un partenaire loin, dans le dos ou de l'autre côté peut passer inaperçu (selon la vision et la pression ; fiche « Ne voit pas … ») | Seul : 44 % |
+| 54 | Idée de Frédéric : la panique | Sous 14 de vision, un joueur pressé garde moins le ballon, choisit moins bien et se débarrasse du ballon (« Pressé, se débarrasse du ballon ») | Seule : 55 % ; avec la vision : 58 % |
+| 55 | Faible voyait encore parfaitement les défenseurs qui coupent ses passes | Sous 14 de vision, il ne voit qu'une partie du danger d'interception (40 % à 8) | Faible : 83 % de passes au sol réussies, Élite 93 % |
+| 56 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 % (40 à 44 % avant). Entre niveaux proches : toujours environ 50 %. Équipe standard inchangée (3,2 buts, 1 265 passes, 86,7 %) |
+
 ## Ce qui ne va pas encore
+
+Après la sixième séance (à reprendre) :
+
+- **Possession encore trop faible pour l'équipe forte** : 56 à 59 % contre Faible, environ 50 % entre niveaux proches (objectif de Frédéric : 65 à 70 % quand l'écart est grand).
+- **Les écarts de score ont grandi** : Élite contre Faible 11,1 à 0,1 (8,3 à 0,4 avant). Faible contre Faible : 2,0 buts par match seulement.
+- **Trop de contrôles ratés pour les équipes faibles** : 40 à 49 par match pour Faible (une quinzaine en vrai). L'effet « passe mal ajustée » est sans doute trop fort pour elles.
+- L'équipe forte rend encore beaucoup de ballons par de longs ballons ratés (voir n° 52).
+- Personne n'a encore regardé en mouvement la panique et les « Ne voit pas … ».
+
+Avant la sixième séance :
 
 Les niveaux (découvert à la cinquième séance, rien n'est encore corrigé) :
 
