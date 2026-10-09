@@ -150,6 +150,17 @@ Les joueurs gardent leur rang dans l'effectif du 4-4-2 (`equipes.json`) et prenn
 
 Le choix du joueur poste par poste viendra avec la construction d'équipe. En 4-4-2, les matchs sont exactement ceux d'avant.
 
+**Principe (Frédéric)** : aucune formation n'est meilleure en soi ; elle change le placement des joueurs, et chacune a ses forces et ses faiblesses selon l'adversaire.
+
+Tournoi après le n° 79 (`tools/profile.js formation=A formation=B 40`, équipes standard, consignes neutres). Se lit : formation de la ligne contre formation de la colonne ; victoires-nuls-défaites, puis occasions pour – contre. Sur 40 matchs, un écart d'occasions de moins de 0,2 ne veut rien dire.
+
+| | 4-3-3 | 4-2-3-1 | 3-5-2 | 5-3-2 |
+|---|---|---|---|---|
+| 4-4-2 | 11-10-19 · 1,17 – 1,20 | 17-7-16 · 1,16 – 1,59 | 19-14-7 · 1,23 – 1,09 | 12-3-25 · 1,02 – 1,59 |
+| 4-3-3 | | 9-10-21 · 1,29 – 1,37 | 20-12-8 · 1,31 – 0,83 | 13-12-15 · 1,24 – 1,15 |
+| 4-2-3-1 | | | 19-8-13 · 1,30 – 1,07 | 11-12-17 · 1,30 – 1,24 |
+| 3-5-2 | | | | 12-12-16 · 0,97 – 0,99 |
+
 ## Les consignes
 
 Chaque équipe a cinq consignes à trois positions. Dans le moteur, une consigne vaut −1, 0 ou +1 ; 0 est le neutre. Les noms entre parenthèses sont ceux utilisés dans `engine.js` et sur la ligne de commande.
@@ -517,6 +528,8 @@ Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la pos
 | 76 | Remarque de Frédéric : en cliquant sur Statistiques, le menu Chiffres / Carte de chaleur / Réseau de passes passait en partie en haut, à côté de Match / Statistiques | Ce menu a sa propre ligne, toujours sous Match / Statistiques, et il est en premier sur cette ligne (il ne glisse plus quand les boutons d'équipe apparaissent ou disparaissent) | Vérifié dans Chromium à 1 000 et 1 500 pixels de large : le menu reste au même endroit dans les trois choix |
 | 77 | Remarque de Frédéric : quand un attaquant arrive sur les centraux, ils suivent l'appel d'un autre joueur au lieu de le contenir, et ouvrent le but. « Défendre l'axe ballon-but est un principe de base. » Mesuré : porteur adverse à moins de 20 m du but, aucun défenseur entre lui et le but 80 % du temps ; les centraux « gardent leur zone » (48 %), suivent un appel ou marquent, et ne sortent que 12 % du temps. Cause : un seul joueur sort sur le porteur (souvent un milieu qui revient dans son dos), les autres marquent, et le marquage privilégie les appels | À moins de 35 m du but, si personne n'est entre le porteur et le but, le défenseur le mieux placé ferme l'axe (il contient ou presse ; fiche « Ferme l'axe du but face au n°… ») ; il peut toujours rater son tacle ou sa sortie (`AXIS_D`) | Axe ouvert à moins de 20 m : 80 → 71 %. Tirs concédés sans défenseur entre le tireur et le but : 5,4 → 4,4 par match. Standard (60 matchs) : 3,1 buts (vrai 3,3), 27 tirs. Bloc bas contre Équilibré : 2-6-12 (2-1-17 avant), 2,38 occasions concédées (2,83) |
 | 78 | Demande de Frédéric : le choix des formations, « un choix important pour le moteur » | Cinq formations (place, rôle et côté de chaque joueur) ; choix dans la page avant et pendant le match ; `formation=` dans les outils | 4-4-2 identique au match près. Contre un 4-4-2 (20 matchs, standard, consignes neutres) : **4-3-3 14-5-1** (occasions 1,48 – 0,98), 5-3-2 10-5-5, 3-5-2 9-8-3, 4-2-3-1 8-7-5. Toutes battent le 4-4-2 : à étudier. Vérifié dans Chromium et avec `tools/page.js` |
+| 79 | Principe de Frédéric : aucune formation n'est meilleure en soi, chacune a ses forces et ses faiblesses selon l'adversaire. Mesuré (40 matchs par côté, `tools/profile.js formation=433 formation=442`) : 4-3-3 contre 4-4-2, 41 victoires, 21 nuls, 18 défaites. Le 4-3-3 fait tourner le ballon par ses centraux et son milieu défensif (46 et 40 passes reçues par central, contre 19 pour le 4-4-2) : les deux attaquants du 4-4-2 laissent le milieu à trois libre | L'attaquant qui ne presse pas, quand l'adversaire construit chez lui, se place entre le porteur et le milieu adverse libre le plus proche (fiche « Coupe la passe vers le n°… »). Essai abandonné : l'arrière latéral qui monte quand son couloir est libre (aucun effet) | 4-3-3 contre 4-4-2 : occasions 1,38 – 1,07 → 1,20 – 1,17. 4-4-2 contre 4-4-2 : 1,30 occasions par équipe (1,36 avant) |
+| 80 | Tournoi des formations après ce changement (40 matchs par affiche, standard, consignes neutres) | — | Voir « Les formations ». 4-2-3-1 et 4-3-3 restent les plus fortes, 3-5-2 perd contre toutes, 5-3-2 bat nettement le 4-4-2 |
 | 58 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 %. Entre niveaux voisins : toujours 48 à 52 %. Élite contre Faible : 10,2 à 0,05. Passes réussies : l'équipe forte n'en réussit toujours pas plus que l'autre contre le même adversaire |
 
 | 59 | Demande de Frédéric : l'équipe forte doit garder le ballon. Découverte : le « goût du risque » de Faible (7,8) la rendait plus prudente que l'Élite (13,9) | Prudence et patience dépendent aussi de la lucidité : un joueur lucide sait ce que coûte une passe forcée et attend avant de forcer (rien à 14) | Seul : +1 à 3 points de possession |
@@ -530,7 +543,7 @@ Après la sixième séance (à reprendre) :
 
 - **Les tactiques défensives se font écraser (n° 65, 71)** : la tactique « Bloc bas » concède encore 30 tirs par match contre une équipe neutre et perd 17 matchs sur 20. Cause trouvée (n° 67) : avec « attendre » et un bloc bas, l'adversaire remonte sans être gêné et centre deux fois plus. Le marquage sur centre (n° 69) n'a corrigé qu'une partie. Pistes : défendre les côtés (empêcher le centre), mieux repousser les centres de la tête ; et le jeu long de la tactique fait perdre le ballon vite. Pressing haut est la seule tactique à égalité avec « Équilibré ».
 - **Élite contre Élevé : toujours 50 % de possession.** Entre deux niveaux voisins, l'écart reste faible (50 à 54 %).
-- **Toutes les formations battent le 4-4-2 (n° 78)**, le 4-3-3 nettement (14 victoires sur 20). Probablement le milieu à trois contre deux. Pas encore étudié : affiches entre autres formations, et ce que chaque formation change sur les cartes.
+- **Les formations ne sont pas encore équilibrées (n° 79, 80)** : l'écart 4-3-3 – 4-4-2 est corrigé, mais 4-2-3-1 et 4-3-3 restent les plus fortes, 3-5-2 perd contre toutes (0,83 occasion contre 1,31 face au 4-3-3), et 5-3-2 bat nettement le 4-4-2 (1,59 – 1,02). À étudier affiche par affiche avec les cartes (`tools/maps.js formation=…`).
 - **L'axe ballon-but reste encore souvent ouvert** près du but (71 % du temps à moins de 20 m, n° 77) : la règle n'agit qu'à la réflexion suivante du défenseur, et un défenseur loin met du temps à revenir. À regarder en mouvement.
 
 - **Les écarts de score restent énormes** : Élite contre Faible 10,8 à 0,02, contre Moyen 6,5 à 0,15. Un cran d'écart donne 82 à 90 % de victoires.
@@ -602,7 +615,7 @@ Après le point « l'équipe forte garde le ballon », pause sur le moteur et tr
 
 ## Ce qui n'existe pas encore
 
-- Une seule formation (4-4-2). Onze joueurs par équipe, pas de remplaçants.
+- Pas de 4-5-1 ni de 3-4-3 (cités par Frédéric). Onze joueurs par équipe, pas de remplaçants.
 - Pas de consigne par joueur ou par ligne, pas de consigne de prise de risque (« mentalité »).
 - Pas de cartons, de remplacements, de blessures, de mi-temps (les équipes ne changent pas de côté), de règle de l'avantage.
 - Touches jouées comme des passes courtes, pas de pied fort.
