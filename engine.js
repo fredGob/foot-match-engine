@@ -375,6 +375,12 @@ function computeAnchors(m, T) {
       }
       if (f > 0.3) ax = Math.min(ax, T.offLine - (s.role === 'FWD' ? 3 : 1));      // rester en jeu, avec un peu d'élan devant soi
     }
+    // « harceler » + bloc haut : on presse la relance adverse ; les milieux de côté montent sur les défenseurs excentrés, les attaquants serrent l'axe
+    if (tac.press > 0 && tac.line > 0 && f < 0.5 && bx > 0) {
+      const w = Math.min(tac.press, tac.line) * (1 - 2 * f) * clamp(bx / 15, 0, 1);
+      if (s.role === 'MID' && s.side !== 0) { ax = lerp(ax, Math.max(ax, bx - 5), w); ay = lerp(ay, s.side * 15, 0.5 * w); }
+      if (s.role === 'FWD') ay = lerp(ay, ay * 0.5, w);
+    }
     // consigne « défendre la surface » : ballon adverse sur un côté près de notre but, les milieux rentrent garnir la surface
     if (p.role === 'MID' && tac.cross < 0 && f < 0.5 && bx < -P.HL + 35 && Math.abs(by) > 13) { const w = -tac.cross * (1 - 2 * f); ax = lerp(ax, Math.min(ax, -P.HL + 17), w); ay = lerp(ay, ay * 0.6, w); }
     if (corner) { const c = cornerSpot(p, T, corner); if (c) { ax = c[0]; ay = c[1]; } }
@@ -512,6 +518,12 @@ function pressCost(m, q, th, gx) {
   if (q.role === 'DEF' && q.side === 0 && n > 30) c += 1.0;      // un central ne sort pas au milieu de terrain
   if (q.role === 'GK') c += 99;
   if (q.intent.type === 'press') c -= 0.4;
+  // « harceler » + bloc haut : un porteur excentré chez lui est pris par le joueur de côté de son couloir ; les attaquants axiaux gardent l'axe
+  const T = m.teams[q.team], k = Math.min(Math.max(0, T.tac.press), Math.max(0, T.tac.line));
+  if (k && th.x * T.dir > 0 && Math.abs(th.y) > 8) {
+    if (q.role === 'FWD' && q.side === 0) c += 1.0 * k;
+    else if (q.role === 'MID' && q.side === Math.sign(th.y * T.dir)) c -= 0.8 * k;
+  }
   return c;
 }
 
