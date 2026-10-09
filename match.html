@@ -1077,7 +1077,7 @@ function thinkCarrier(m, p) {
   const vHere = valueAt(T, p.x, p.y), lossHere = valueAt(O, p.x, p.y) + TURNOVER, risk = (1.15 - 0.4 * a.flair) * (1 + LUCID * (a.decisions - LEVEL));      // un joueur lucide sait ce que coûte une passe forcée : il est plus prudent (rien à 14)
   const opts = [];
   if (sp === 'freekick') { if (dGoal < 31) { const xg = clamp(0.085 - 0.004 * (dGoal - 18), 0.03, 0.085) * clamp(1.5 - Math.abs(p.y) / 12, 0.25, 1); opts.push({ kind: 'shot', u: xg, xg }); } }      // coup franc direct
-  else if ((!sp || sp === 'penalty') && !hands && dGoal < 28) { const xg = shotXg(m, p, sp ? 0 : shotPressure(m, p, gx)); opts.push({ kind: 'shot', u: sp === 'penalty' ? 9 : xg * (dGoal > 17 ? 1.35 : 1), xg }); }      // de loin, on tente sa chance un peu plus que ne le dit le calcul
+  else if ((!sp || sp === 'penalty') && !hands && dGoal < 28) { const xg = shotXg(m, p, sp ? 0 : shotPressure(m, p, gx)); opts.push({ kind: 'shot', u: sp === 'penalty' ? 9 : xg * (dGoal > 17 ? 1.15 : 1), xg }); }      // de loin, on tente sa chance un peu plus que ne le dit le calcul
   const groups = [], rest = [];
   // vision : un partenaire loin, dans le dos ou de l'autre côté peut passer inaperçu, surtout sous pression
   const blind = [];
@@ -1217,7 +1217,7 @@ function executePlan(m, p) {
     vz += v * (0.075 + 0.10 * (1 - a.finishing)) * (1 + 0.5 * pr) * still * far * g();
     if (vz < 0) vz = 0;
     m.shot = { by: p, team: p.team, xg: pl.xg, t0: m.t, done: false, masked, sp, d0: sp ? 99 : hyp(gx - p.x, p.y) };
-    T.stats.shots++; T.stats.xg += sp === 'penalty' ? 0.76 : pl.xg * 1.1;      // statistique recalée sur les buts réellement marqués
+    const d0 = m.shot.d0; T.stats.shots++; T.stats.xg += sp === 'penalty' ? 0.76 : pl.xg * 1.1 * (d0 <= 11 ? 1.85 : d0 >= 14 ? 0.58 : lerp(1.85, 0.58, (d0 - 11) / 3));      // statistique recalée sur les buts réellement marqués (le tireur sous-estime ses chances de près et les surestime de loin)
   } else {
     const v = 24 + 4 * rng(), e = 38 * Math.PI / 180; ang = pl.ang; vh = v * Math.cos(e); vz = v * Math.sin(e);
   }
@@ -1294,8 +1294,8 @@ function catchBall(m, p) {
 }
 function keeperSave(m, p, z, stretch, sp3) {
   const b = m.ball, T = m.teams[p.team], a = p.a, rng = m.rng, shot = m.shot;
-  const quick = clamp((9 - (shot.d0 || 99)) / 5, 0, 1);                // frappe à bout portant : il n'a presque pas le temps de réagir
-  const pStop = clamp(0.995 - 0.55 * stretch * stretch * (1.5 - a.reflexes) - 0.5 * quick - (z > 1.9 ? 0.1 : 0), 0.3, 0.995);
+  const quick = clamp((12 - (shot.d0 || 99)) / 6, 0, 1);                // frappe de près (moins de 12 m) : il a d'autant moins le temps de réagir
+  const pStop = clamp(0.995 - 0.55 * stretch * stretch * (1.5 - a.reflexes) - 0.75 * quick - (z > 1.9 ? 0.1 : 0), 0.15, 0.995);
   if (rng() >= pStop) { const sh = m.shot; deflect(m, p, 0.6, 0.35); m.shot = sh; p.noControlUntil = m.t + 0.8; return; }     // touché, pas arrêté
   shot.done = true; m.teams[shot.team].stats.onTarget++; T.stats.saves++;
   if (sp3 < 15 || rng() < 0.2 + 0.5 * a.handling - 0.35 * stretch) { log(m, 'save', p.team, 'Tir de ' + shot.by.name + ', arrêt de ' + p.name); return catchBall(m, p); }
