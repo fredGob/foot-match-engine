@@ -497,6 +497,7 @@ Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la pos
 | 74 | Demande de Frédéric : le tableau de statistiques dans l'onglet Statistiques, et plus dans la colonne de droite | Choix « Chiffres » (par défaut) à côté des deux cartes ; le tableau prend la place du terrain | Vérifié dans Chromium et avec `tools/page.js` |
 | 75 | Demande de Frédéric : les cartes sur une série de matchs | Pendant la série, la page cumule positions et passes poste par poste ; choix « Ce match / Série » dans l'onglet Statistiques, pour les chiffres et les deux cartes | Vérifié dans Chromium (série de 6 matchs en bloc bas) et avec `tools/page.js` |
 | 76 | Remarque de Frédéric : en cliquant sur Statistiques, le menu Chiffres / Carte de chaleur / Réseau de passes passait en partie en haut, à côté de Match / Statistiques | Ce menu a sa propre ligne, toujours sous Match / Statistiques, et il est en premier sur cette ligne (il ne glisse plus quand les boutons d'équipe apparaissent ou disparaissent) | Vérifié dans Chromium à 1 000 et 1 500 pixels de large : le menu reste au même endroit dans les trois choix |
+| 77 | Remarque de Frédéric : quand un attaquant arrive sur les centraux, ils suivent l'appel d'un autre joueur au lieu de le contenir, et ouvrent le but. « Défendre l'axe ballon-but est un principe de base. » Mesuré : porteur adverse à moins de 20 m du but, aucun défenseur entre lui et le but 80 % du temps ; les centraux « gardent leur zone » (48 %), suivent un appel ou marquent, et ne sortent que 12 % du temps. Cause : un seul joueur sort sur le porteur (souvent un milieu qui revient dans son dos), les autres marquent, et le marquage privilégie les appels | À moins de 35 m du but, si personne n'est entre le porteur et le but, le défenseur le mieux placé ferme l'axe (il contient ou presse ; fiche « Ferme l'axe du but face au n°… ») ; il peut toujours rater son tacle ou sa sortie (`AXIS_D`) | Axe ouvert à moins de 20 m : 80 → 71 %. Tirs concédés sans défenseur entre le tireur et le but : 5,4 → 4,4 par match. Standard (60 matchs) : 3,1 buts (vrai 3,3), 27 tirs. Bloc bas contre Équilibré : 2-6-12 (2-1-17 avant), 2,38 occasions concédées (2,83) |
 | 58 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 %. Entre niveaux voisins : toujours 48 à 52 %. Élite contre Faible : 10,2 à 0,05. Passes réussies : l'équipe forte n'en réussit toujours pas plus que l'autre contre le même adversaire |
 
 | 59 | Demande de Frédéric : l'équipe forte doit garder le ballon. Découverte : le « goût du risque » de Faible (7,8) la rendait plus prudente que l'Élite (13,9) | Prudence et patience dépendent aussi de la lucidité : un joueur lucide sait ce que coûte une passe forcée et attend avant de forcer (rien à 14) | Seul : +1 à 3 points de possession |
@@ -510,7 +511,7 @@ Après la sixième séance (à reprendre) :
 
 - **Les tactiques défensives se font écraser (n° 65, 71)** : la tactique « Bloc bas » concède encore 30 tirs par match contre une équipe neutre et perd 17 matchs sur 20. Cause trouvée (n° 67) : avec « attendre » et un bloc bas, l'adversaire remonte sans être gêné et centre deux fois plus. Le marquage sur centre (n° 69) n'a corrigé qu'une partie. Pistes : défendre les côtés (empêcher le centre), mieux repousser les centres de la tête ; et le jeu long de la tactique fait perdre le ballon vite. Pressing haut est la seule tactique à égalité avec « Équilibré ».
 - **Élite contre Élevé : toujours 50 % de possession.** Entre deux niveaux voisins, l'écart reste faible (50 à 54 %).
-- **Équipe standard un peu plus prolifique** depuis l'amorti des ballons aériens : 3,5 buts par match pour 3,1 occasions (3,2 avant).
+- **L'axe ballon-but reste encore souvent ouvert** près du but (71 % du temps à moins de 20 m, n° 77) : la règle n'agit qu'à la réflexion suivante du défenseur, et un défenseur loin met du temps à revenir. À regarder en mouvement.
 
 - **Les écarts de score restent énormes** : Élite contre Faible 10,8 à 0,02, contre Moyen 6,5 à 0,15. Un cran d'écart donne 82 à 90 % de victoires.
 - **Trop de contrôles ratés pour les équipes faibles** : 28 à 48 par match pour Faible, 20 à 40 pour Moyen (une quinzaine en vrai). L'effet « passe mal ajustée » est sans doute trop fort pour elles.
@@ -573,6 +574,11 @@ Après le point « l'équipe forte garde le ballon », pause sur le moteur et tr
 
 1. **Conduire le ballon sous pression** (n° 73) : un joueur pressé conduit le ballon seulement s'il est fort en prise de balle (pour le contrôle), en dribble (pour conduire) et physiquement (pour résister à la pression). Sinon, la plupart du temps, il fait une passe en retrait.
 2. **Les centres ne sont pas une question de bloc bas ou haut**, mais un choix : défendre sa surface ou sortir sur le centreur. Presque une **consigne en plus** : sortir sur le centreur, c'est risquer d'être éliminé ; laisser centrer, c'est risquer de subir les centres. À ajouter comme consigne.
+
+## Développement futur du jeu (idée de Frédéric, 9 octobre 2026)
+
+- **Construire son équipe avec un budget.** Le joueur reçoit un budget de départ et achète ses joueurs dans une base de données (des joueurs inventés pour commencer). Plus un joueur est fort, plus il coûte cher : le budget oblige à faire des choix.
+- **À l'ouverture du jeu**, deux choix : « Construire mon équipe » ou « Match rapide ». Le premier mène à une page de construction d'équipe.
 
 ## Ce qui n'existe pas encore
 

@@ -365,6 +365,7 @@ const DUEL_MIND = 0.4;     // part de l'anticipation (défenseur) et du sang-fro
 const PRESS_Q = 10;        // presseur (moyenne démarrage, anticipation, agressivité) : pèse 1,5 m plus près à 17, 3 m plus loin à 8
 const AMORTI_FREE = 2.5;   // sans adversaire à moins de 2,5 m, un ballon aérien s'amortit au lieu de se jouer de la tête
 const CROSS_MARK = 1;      // centre possible : marquage serré dans la surface
+const AXIS_D = 35;         // à moins de 35 m du but, un défenseur ferme l'axe ballon-but s'il est ouvert
 const READ = 1.2;          // lecture de la passe : allonge la portée de 18 % à 17, la réduit de 36 % à 8
 const LUCID = 2;           // lucidité : prudence face à une passe risquée (+30 % à 17, −60 % à 8)
 const PATIENCE = 3;        // lucidité : attente avant de s'impatienter (8 s à 14, 11,6 s à 17, 0,8 s à 8)
@@ -727,6 +728,17 @@ function thinkDefend(m, p, noPress) {
     if (rank === 1 && dGoalTh < 42 && dAnch < zone + 6) {
       const ux = gx - th.x, uy = -th.y, n = hyp(ux, uy) || 1;
       return setIntent(m, p, 'position', 'Couvre son coéquipier', lerp(ax, th.x + ux / n * 6.5, 0.6), lerp(ay, th.y + uy / n * 6.5, 0.6), 0.75);
+    }
+  }
+  // l'axe ballon-but : un porteur adverse approche du but et personne n'est entre lui et le but ?
+  // Le défenseur le mieux placé pour fermer cet axe y va (il contient ou presse) au lieu de suivre un appel.
+  if (!noPress && p.role === 'DEF' && c && b.owner === c && c.team !== p.team && dGoalTh < AXIS_D) {
+    const ux = (gx - th.x) / dGoalTh, uy = -th.y / dGoalTh;
+    const guards = q => { const rx = q.x - th.x, ry = q.y - th.y, s = rx * ux + ry * uy; return s > 0.3 && s < Math.min(12, dGoalTh) && Math.abs(rx * uy - ry * ux) < 1.5 + 0.25 * s; };
+    if (!T.players.some(q => q !== p && q.role !== 'GK' && guards(q))) {
+      const kx = th.x + ux * 3, ky = th.y + uy * 3, mine = timeToCover(m, p, hyp(kx - p.x, ky - p.y), kx, ky);
+      if (!T.players.some(q => q !== p && q.role === 'DEF' && timeToCover(m, q, hyp(kx - q.x, ky - q.y), kx, ky) < mine))
+        return setIntent(m, p, 'press', 'Ferme l\'axe du but face au n°' + c.num, th.x, th.y, 1);
     }
   }
   // marquage : l'adversaire le plus dangereux de ma zone
