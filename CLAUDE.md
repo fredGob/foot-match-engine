@@ -153,7 +153,7 @@ Les joueurs gardent leur rang dans l'effectif du 4-4-2 (`equipes.json`) et prenn
 
 Le choix du joueur poste par poste viendra avec la construction d'équipe. En 4-4-2, les matchs sont exactement ceux d'avant.
 
-**Principe (Frédéric)** : aucune formation n'est meilleure en soi ; elle change le placement des joueurs, et chacune a ses forces et ses faiblesses selon l'adversaire.
+**Principe (Frédéric)** : aucune formation n'est meilleure en soi ; elle change le placement des joueurs, et chacune a ses forces et ses faiblesses selon l'adversaire. Elle sert à mettre ses joueurs dans les meilleures dispositions : deux pistons forts et des attaquants forts de la tête rendent un 3-5-2 fort contre n'importe quelle formation. Tout dépend aussi de l'adaptation : un 4-4-2 souffre contre un 3-5-2 qui fixe dans l'axe puis lance ses pistons (ses milieux doivent descendre très bas), mais il peut presser haut les centraux avec ses milieux de côté et fermer l'axe avec ses attaquants. **Consigne de travail (9 octobre 2026) : ne pas chercher à équilibrer les formations à la main ; l'équilibre viendra avec de meilleurs comportements, qui sont la priorité.** Le tableau ci-dessous sert seulement de repère.
 
 Tournoi après les n° 79 et 82 (`tools/profile.js formation=A formation=B 40`, équipes standard, consignes neutres). Se lit : formation de la ligne contre formation de la colonne ; victoires-nuls-défaites, puis occasions pour – contre. Sur 40 matchs, un écart d'occasions de moins de 0,2 ne veut rien dire.
 
@@ -579,7 +579,7 @@ Après la sixième séance (à reprendre) :
 
 - **Les tactiques défensives se font écraser (n° 65, 71)** : la tactique « Bloc bas » concède encore 30 tirs par match contre une équipe neutre et perd 17 matchs sur 20. Cause trouvée (n° 67) : avec « attendre » et un bloc bas, l'adversaire remonte sans être gêné et centre deux fois plus. Le marquage sur centre (n° 69) n'a corrigé qu'une partie. Pistes : défendre les côtés (empêcher le centre), mieux repousser les centres de la tête ; et le jeu long de la tactique fait perdre le ballon vite. Pressing haut est la seule tactique à égalité avec « Équilibré ».
 - **Élite contre Élevé : toujours 50 % de possession.** Entre deux niveaux voisins, l'écart reste faible (50 à 54 %).
-- **Les formations ne sont pas encore équilibrées (n° 79, 80, 82)** : 4-3-3 – 4-4-2 et le 3-5-2 sont corrigés, mais le 4-4-2 reste en dessous : 4-2-3-1 (1,59 – 1,16) et 5-3-2 (1,59 – 1,02) le battent nettement. À étudier affiche par affiche avec les cartes (`tools/maps.js formation=…`).
+- **Les formations ne sont pas encore équilibrées (n° 79, 80, 82)** : 4-3-3 – 4-4-2 et le 3-5-2 sont corrigés, mais le 4-4-2 reste en dessous : 4-2-3-1 (1,59 – 1,16) et 5-3-2 (1,59 – 1,02) le battent nettement. Pas à corriger directement (consigne de Frédéric) : à remesurer après chaque amélioration des comportements.
 - **L'axe ballon-but reste encore souvent ouvert** près du but (71 % du temps à moins de 20 m, n° 77) : la règle n'agit qu'à la réflexion suivante du défenseur, et un défenseur loin met du temps à revenir. À regarder en mouvement.
 
 - **Les écarts de score restent énormes** : Élite contre Faible 10,8 à 0,02, contre Moyen 6,5 à 0,15. Un cran d'écart donne 82 à 90 % de victoires.
