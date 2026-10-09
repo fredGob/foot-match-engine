@@ -36,7 +36,7 @@ Le fichier à ouvrir est `match.html` : il contient tout et s'ouvre dans n'impor
 **Deux modes**, en haut à gauche (changer de mode ramène au coup d'envoi) :
 
 - **Mode God** (par défaut) : tout ce qui est décrit ci-dessous. On règle les deux équipes, on voit les intentions et toute la suite du match.
-- **Mode Coach It** : on dirige les Bleus (« Votre équipe ») ; on choisit son équipe et celle de l'adversaire, qui garde des consignes neutres (grisées). On voit le match comme un entraîneur : score, chrono, statistiques et cartes, fiche des joueurs (notes, fraîcheur), mais pas les intentions ni la série de matchs. **Pas de futur** : la page retient jusqu'où le match a été joué (le « direct », repère jaune sur la barre de temps, suite hachurée) ; on peut reculer pour revoir une action mais jamais dépasser le direct, et un changement de consigne s'applique toujours au direct. Les repères de la barre (buts, tirs) n'apparaissent qu'une fois joués. Capture `docs/coach-it.png`.
+- **Mode Coach It** : on dirige les Bleus (« Votre équipe ») ; on choisit son équipe et celle de l'adversaire, qui garde des consignes neutres (grisées). On voit le match comme un entraîneur : score, chrono, statistiques (onglet), fiche des joueurs (notes, fraîcheur), mais pas les intentions ni la série de matchs. **Pas de futur** : la page retient jusqu'où le match a été joué (le « direct », repère jaune sur la barre de temps, suite hachurée) ; on peut reculer pour revoir une action mais jamais dépasser le direct, et un changement de consigne s'applique toujours au direct. Les repères de la barre (buts, tirs) n'apparaissent qu'une fois joués. Capture `docs/coach-it.png`.
 
 Comment la page fonctionne (mode God) :
 
@@ -49,11 +49,12 @@ Comment la page fonctionne (mode God) :
 
 Aussi dans la page : chrono façon télé dans le coin du terrain (temps, score, « Arrêt de jeu »), vitesse ×1 à ×16, clic sur un joueur pour lire ce qu'il fait (s'il suit ou non une consigne, sa fraîcheur, ses notes), case pour voir où chaque joueur veut aller, case pour écrire sous chaque joueur son intention (« Presse le n°7 », « Se démarque »… ; capture `docs/intentions.png`), choix de la durée (90, 45, 20 ou 10 minutes). Les statistiques ont une ligne « Fraîcheur des joueurs » : c'est là qu'on voit ce que coûte un pressing.
 
-**Onglet « Statistiques »** (au-dessus du terrain, à côté de « Match ») : il remplace le terrain par une carte, calculée jusqu'à l'instant affiché par la barre de temps.
+**Onglet « Statistiques »** (au-dessus du terrain, à côté de « Match ») : il remplace le terrain par les chiffres ou par une carte, calculés jusqu'à l'instant affiché par la barre de temps.
+
+- **Chiffres** (choix par défaut) : le tableau des statistiques des deux équipes, en grand (il était avant dans la colonne de droite). Capture `docs/chiffres.png`.
 
 - **Carte de chaleur** : où l'équipe (sans le gardien) ou un joueur choisi a passé son temps, ballon en jeu. Une seule teinte, du clair (peu) au foncé (beaucoup). Capture `docs/carte-chaleur.png`.
 - **Réseau de passes** : chaque joueur à sa position moyenne quand son équipe a le ballon ; rond d'autant plus gros qu'il touche le ballon ; trait d'autant plus épais que les deux joueurs se passent le ballon (passes réussies, seuls les liens d'au moins 15 % du plus fort sont tracés). Survol d'un joueur : ses passes données, réussies, reçues. Clic : sa carte de chaleur. Sous la carte, les associations les plus fréquentes. Capture `docs/reseau-passes.png`.
-- Les chiffres restent dans le cadre « Statistiques » à droite.
 
 Les arrêts de jeu ont une durée réaliste (une touche 17 secondes, une sortie de but 30, un corner 34…). Pour ne pas attendre, la case « Passer vite les arrêts de jeu » (cochée par défaut) les lit six fois plus vite.
 
@@ -492,6 +493,7 @@ Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la pos
 | 71 | Tactiques contre « Équilibré » après ces corrections (20 matchs) | — | Pressing haut 8-6-6, Jeu direct 7-4-9, Tout pour l'attaque 7-2-11, Possession 6-4-10, Contre-attaque 4-6-10, **Bloc bas 2-1-17 (30 tirs concédés)** |
 | 72 | Centraux et gardien presque jamais servis (`tools/passes.js` : centraux 9,5 % des passes reçues, 0,1 % entre eux ; gardien 0,4 %). Point d'écoute ajouté au moteur (`m.onChoice`, sans effet sur le match) pour lire les choix du porteur. Un milieu ou latéral libre dans son camp conduit le ballon 85 fois sur 100 ; la passe au central a une valeur négative : il croit la rater 11 fois sur 100, parce qu'une passe vers un partenaire dans son dos était pénalisée, en plus du risque de ne pas le voir (vision, n° 53) | Pénalité en double retirée | Centraux 9,5 → 10,7 %. Standard (60 matchs) : 3,4 buts, 27,5 tirs (30 avant, vrai 26), 88,4 % de passes réussies. Élite contre Faible inchangé |
 | 73 | Sous pression dans son camp, un milieu ou un latéral conduit encore le ballon une fois sur deux ; la passe au central n'est choisie qu'une fois sur cinq | Pas corrigé : réglage profond de la tête du porteur, à décider avec Frédéric | — |
+| 74 | Demande de Frédéric : le tableau de statistiques dans l'onglet Statistiques, et plus dans la colonne de droite | Choix « Chiffres » (par défaut) à côté des deux cartes ; le tableau prend la place du terrain | Vérifié dans Chromium et avec `tools/page.js` |
 | 58 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 %. Entre niveaux voisins : toujours 48 à 52 %. Élite contre Faible : 10,2 à 0,05. Passes réussies : l'équipe forte n'en réussit toujours pas plus que l'autre contre le même adversaire |
 
 | 59 | Demande de Frédéric : l'équipe forte doit garder le ballon. Découverte : le « goût du risque » de Faible (7,8) la rendait plus prudente que l'Élite (13,9) | Prudence et patience dépendent aussi de la lucidité : un joueur lucide sait ce que coûte une passe forcée et attend avant de forcer (rien à 14) | Seul : +1 à 3 points de possession |
@@ -563,6 +565,11 @@ Après le point « l'équipe forte garde le ballon », pause sur le moteur et tr
    - **Mode Coach It** : on dirige une seule équipe. L'adversaire est pour l'instant en consignes standard ; on choisit seulement son niveau. On ne voit pas le futur.
 2. **Tactiques prédéfinies** (des jeux de consignes prêts à l'emploi). **Fait (n° 65).**
 3. **Une page Statistiques** : les chiffres (comme aujourd'hui), plus une **carte de chaleur** et une **carte des passes** (pass map). Frédéric pense, à raison, qu'elles serviront aussi à corriger le moteur. **Fait (n° 63)** : onglet « Statistiques ». À faire peut-être : mettre aussi les chiffres dans l'onglet, cartes sur une série de matchs.
+
+## Pour la prochaine séance sur le moteur (réponses de Frédéric, 9 octobre 2026)
+
+1. **Conduire le ballon sous pression** (n° 73) : un joueur pressé conduit le ballon seulement s'il est fort en prise de balle (pour le contrôle), en dribble (pour conduire) et physiquement (pour résister à la pression). Sinon, la plupart du temps, il fait une passe en retrait.
+2. **Les centres ne sont pas une question de bloc bas ou haut**, mais un choix : défendre sa surface ou sortir sur le centreur. Presque une **consigne en plus** : sortir sur le centreur, c'est risquer d'être éliminé ; laisser centrer, c'est risquer de subir les centres. À ajouter comme consigne.
 
 ## Ce qui n'existe pas encore
 

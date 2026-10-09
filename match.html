@@ -26,6 +26,11 @@
   .tip { position: absolute; pointer-events: none; padding: 6px 10px; border-radius: 6px; background: rgba(12, 16, 20, 0.92); border: 1px solid var(--line); font-size: 13px; white-space: nowrap; }
   .tip[hidden] { display: none; }
   .stage.stats .pre, .stage.stats .end { display: none; }
+  .numbers { position: absolute; inset: 0; overflow: auto; padding: 14px 18px; background: var(--panel); border-radius: 10px; }
+  .numbers[hidden] { display: none; }
+  .numbers .sides { display: flex; justify-content: space-between; max-width: 640px; margin: 0 auto 4px; font-weight: 600; }
+  .numbers table { max-width: 640px; margin: 0 auto; font-size: 15px; }
+  .numbers td { padding: 3px 8px; }
   body.coach .godonly { display: none !important; }
   .modehint { font-size: 12.5px; color: var(--muted); }
   body:not(.coach) .coachonly { display: none !important; }
@@ -131,8 +136,8 @@
       <span class="group" title="Mode God : on règle les deux équipes, on voit les intentions et toute la suite du match. Mode Coach It : on dirige les Bleus seulement, comme un vrai entraîneur, sans voir la suite."><button data-mode="god" class="on">Mode God</button><button data-mode="coach">Mode Coach It</button></span>
       <span class="group"><button id="tabMatch" class="on">Match</button><button id="tabStats">Statistiques</button></span>
       <span id="statsCtl" hidden>
-        <span class="group"><button data-st-team="0" class="on">Bleus</button><button data-st-team="1">Rouges</button></span>
-        <span class="group"><button data-st-map="heat" class="on">Carte de chaleur</button><button data-st-map="net">Réseau de passes</button></span>
+        <span class="group" id="stTeams"><button data-st-team="0" class="on">Bleus</button><button data-st-team="1">Rouges</button></span>
+        <span class="group"><button data-st-map="num" class="on">Chiffres</button><button data-st-map="heat">Carte de chaleur</button><button data-st-map="net">Réseau de passes</button></span>
         <select id="stPlayer" aria-label="Joueur de la carte de chaleur"></select>
         <span class="heatkey" id="heatKey">peu <i></i> beaucoup de temps</span>
       </span>
@@ -143,6 +148,7 @@
       <div class="pre" id="pre" hidden><div>Réglez vos consignes, puis donnez le coup d'envoi.</div><button id="kick" class="main">Lancer le match</button></div>
       <div class="busy" id="busy" hidden>Calcul du match…</div>
       <div class="tip" id="tip" hidden></div>
+      <div class="numbers" id="numbers" hidden><div class="sides" id="numSides"></div><table id="stats"></table></div>
     </div>
 
     <div class="statsnote" id="statsNote" hidden></div>
@@ -205,10 +211,6 @@
     <div class="card">
       <h2>Fil du match</h2>
       <div id="log"></div>
-    </div>
-    <div class="card">
-      <h2>Statistiques</h2>
-      <table id="stats"></table>
     </div>
   </aside>
 </div>
@@ -1875,7 +1877,7 @@ return { create, add, rows, rowsOf };
   // mode God : tout voir, régler les deux équipes ; mode Coach It : les Bleus seulement, sans voir la suite (live : jusqu'où le match a été joué)
   let mode = 'god', live = 0, marked = -1;
   const coach = () => mode === 'coach';
-  let tab = 'match', stTeam = 0, stMap = 'heat', stPlayer = -1, stData = null, stKey = '', stAt = 0, hoverNode = -1;
+  let tab = 'match', stTeam = 0, stMap = 'num', stPlayer = -1, stData = null, stKey = '', stAt = 0, hoverNode = -1;
   // équipes du fichier equipes.json (mises dans la page par build.js) ; squad : l'équipe choisie pour chaque camp, '' = équipe standard (tous à 14)
   const TEAMS = (window.MatchTeams && window.MatchTeams.equipes) || [];
   let squad = ['', ''];
@@ -2061,6 +2063,13 @@ return { create, add, rows, rowsOf };
     return { nodes, edges, cut };
   }
   function drawStats(ts) {
+    if (stMap === 'num') {                                           // les chiffres : le tableau remplace le terrain
+      R.drawPitch(ctx, W, H);
+      const sides = '<span><span class="dot" style="background: var(--blue)"></span> ' + esc(teamName(0)) + '</span><span>' + esc(teamName(1)) + ' <span class="dot" style="background: var(--red)"></span></span>';
+      if ($('numSides').innerHTML !== sides) $('numSides').innerHTML = sides;
+      $('statsNote').textContent = rec.n <= 1 ? 'Lancez le match pour voir les statistiques.' : 'Statistiques du match de 00:00 à ' + mmss(Math.min(tickOf(cur), rec.n - 1) * DT) + '.';
+      return;
+    }
     const f1 = Math.min(tickOf(cur), rec.n - 1), key = [stTeam, stMap, stPlayer, rec.n, view.key].join('|');
     if (key !== stKey || (f1 !== stData.f1 && ts - stAt > 250)) {
       stKey = key; stAt = ts;
@@ -2089,6 +2098,7 @@ return { create, add, rows, rowsOf };
     $('statsCtl').hidden = t !== 'stats'; $('statsNote').hidden = t !== 'stats'; document.querySelector('.stage').classList.toggle('stats', t === 'stats');
     $('tip').hidden = true; hoverNode = -1; stKey = ''; nextHud = 0;
     if (t === 'stats') fillPlayers();
+    setStats({});
   }
   function setStats(o) {
     if (o.team !== undefined && o.team !== stTeam) { stTeam = o.team; stPlayer = -1; fillPlayers(); }
@@ -2096,7 +2106,8 @@ return { create, add, rows, rowsOf };
     if (o.player !== undefined) { stPlayer = o.player; $('stPlayer').value = String(stPlayer); }
     document.querySelectorAll('[data-st-team]').forEach(b => b.classList.toggle('on', +b.dataset.stTeam === stTeam));
     document.querySelectorAll('[data-st-map]').forEach(b => b.classList.toggle('on', b.dataset.stMap === stMap));
-    $('stPlayer').hidden = stMap !== 'heat'; $('heatKey').hidden = stMap !== 'heat';
+    $('stPlayer').hidden = stMap !== 'heat'; $('heatKey').hidden = stMap !== 'heat'; $('stTeams').hidden = stMap === 'num';
+    $('numbers').hidden = !(tab === 'stats' && stMap === 'num');
     $('tip').hidden = true; hoverNode = -1; stKey = '';
   }
 
