@@ -136,6 +136,7 @@
       <span class="group" title="Mode God : on règle les deux équipes, on voit les intentions et toute la suite du match. Mode Coach It : on dirige les Bleus seulement, comme un vrai entraîneur, sans voir la suite."><button data-mode="god" class="on">Mode God</button><button data-mode="coach">Mode Coach It</button></span>
       <span class="group"><button id="tabMatch" class="on">Match</button><button id="tabStats">Statistiques</button></span>
       <span id="statsCtl" hidden>
+        <span class="group" id="stSrc" hidden><button data-st-src="match" class="on">Ce match</button><button data-st-src="series" id="stSrcSeries">Série</button></span>
         <span class="group" id="stTeams"><button data-st-team="0" class="on">Bleus</button><button data-st-team="1">Rouges</button></span>
         <span class="group"><button data-st-map="num" class="on">Chiffres</button><button data-st-map="heat">Carte de chaleur</button><button data-st-map="net">Réseau de passes</button></span>
         <select id="stPlayer" aria-label="Joueur de la carte de chaleur"></select>
@@ -148,7 +149,7 @@
       <div class="pre" id="pre" hidden><div>Réglez vos consignes, puis donnez le coup d'envoi.</div><button id="kick" class="main">Lancer le match</button></div>
       <div class="busy" id="busy" hidden>Calcul du match…</div>
       <div class="tip" id="tip" hidden></div>
-      <div class="numbers" id="numbers" hidden><div class="sides" id="numSides"></div><table id="stats"></table></div>
+      <div class="numbers" id="numbers" hidden><div class="sides" id="numSides"></div><table id="stats"></table><table id="statsSeries" hidden></table></div>
     </div>
 
     <div class="statsnote" id="statsNote" hidden></div>
@@ -237,6 +238,7 @@
   // mode God : tout voir, régler les deux équipes ; mode Coach It : les Bleus seulement, sans voir la suite (live : jusqu'où le match a été joué)
   let mode = 'god', live = 0, marked = -1;
   const coach = () => mode === 'coach';
+  let lastSeries = null, stSrc = 'match';
   let tab = 'match', stTeam = 0, stMap = 'num', stPlayer = -1, stData = null, stKey = '', stAt = 0, hoverNode = -1;
   // équipes du fichier equipes.json (mises dans la page par build.js) ; squad : l'équipe choisie pour chaque camp, '' = équipe standard (tous à 14)
   const TEAMS = (window.MatchTeams && window.MatchTeams.equipes) || [];
@@ -296,7 +298,7 @@
     rec = r; end = full ? f * DT : duration;
     if (!view || view.key !== key) {
       view = { seed, key, icpt: null, teams: m.teams.map(T => ({ name: T.name, club: T.club, color: T.color, dir: T.dir })), ball: { x: 0, y: 0, z: 0, px: 0, py: 0, pz: 0, owner: null },
-        players: m.players.map(p => ({ id: p.id, team: p.team, num: p.num, name: p.name, role: p.role, poste: p.poste, a: p.a, x: 0, y: 0, px: 0, py: 0, face: 0, v: 0, stam: 1, dist: 0, intent: { type: 'position', label: '', note: null, tx: 0, ty: 0 } })) };
+        players: m.players.map(p => ({ id: p.id, idx: p.idx, team: p.team, num: p.num, name: p.name, role: p.role, poste: p.poste, a: p.a, x: 0, y: 0, px: 0, py: 0, face: 0, v: 0, stam: 1, dist: 0, intent: { type: 'position', label: '', note: null, tx: 0, ty: 0 } })) };
     }
     $('time').max = end; $('time').disabled = !full; $('pre').hidden = full; $('name0').textContent = view.teams[0].name + (view.teams[0].club ? ' · ' + view.teams[0].club : ''); $('name1').textContent = (view.teams[1].club ? view.teams[1].club + ' · ' : '') + view.teams[1].name;
     drawMarks(); shown = -1; nextHud = 0;
@@ -422,7 +424,51 @@
     edges.sort((x, y) => y.n - x.n);
     return { nodes, edges, cut };
   }
+  // cartes de la série : même dessin, données cumulées sur tous les matchs de la série
+  function seriesData() {
+    const S = lastSeries, M = S.maps, n = S.done, team = view.players.filter(p => p.team === stTeam).sort((a, b) => a.idx - b.idx);
+    if (stMap === 'heat') {
+      const g = new Float32Array(R.HEAT.cols * R.HEAT.rows), one = stPlayer >= 0 ? view.players[stPlayer].idx : -1;
+      M.heat[stTeam].forEach((h, i) => { if (one >= 0 ? i === one : i !== 0) for (let c = 0; c < g.length; c++) g[c] += h[c]; });
+      return { grid: g, n };
+    }
+    const inv = M.made[stTeam].map((x, i) => x + M.got[stTeam][i]), maxInv = Math.max(1, ...inv);
+    const nodes = team.map(p => { const P = M.pos[stTeam][p.idx]; return { x: P[2] ? P[0] / P[2] : 0, y: P[2] ? P[1] / P[2] : 0, num: p.num, name: p.poste || p.name, size: inv[p.idx] / maxInv, made: Math.round(M.made[stTeam][p.idx] / n), ok: Math.round(M.ok[stTeam][p.idx] / n), got: Math.round(M.got[stTeam][p.idx] / n) }; });
+    const at = new Map(team.map((p, k) => [p.idx, k]));
+    let maxPair = 0; for (const v of M.pair[stTeam].values()) maxPair = Math.max(maxPair, v);
+    const cut = Math.max(1, Math.round(0.15 * maxPair)), edges = [];
+    for (const [k, v] of M.pair[stTeam]) if (v >= cut) { const [a, b] = k.split('-').map(Number); edges.push({ a: at.get(a), b: at.get(b), n: v }); }
+    edges.sort((x, y) => y.n - x.n);
+    return { nodes, edges, cut: Math.round(cut / n * 10) / 10, n, perMatch: true };
+  }
   function drawStats(ts) {
+    const ser = stSrc === 'series' && lastSeries;
+    $('stats').hidden = !!ser; $('statsSeries').hidden = !ser;
+    if (ser) {
+      const S = lastSeries, desc = t => (clubOf(S.squad[t]) ? clubOf(S.squad[t]) + ' · ' : '') + describe(S.tac[t]);
+      if (stMap === 'num') {
+        R.drawPitch(ctx, W, H);
+        const sides = '<span><span class="dot" style="background: var(--blue)"></span> Bleus</span><span>Rouges <span class="dot" style="background: var(--red)"></span></span>';
+        if ($('numSides').innerHTML !== sides) $('numSides').innerHTML = sides;
+        if ($('statsSeries').dataset.n !== String(S.done)) { $('statsSeries').innerHTML = statRows(St.rows(S.acc)); $('statsSeries').dataset.n = S.done; }
+        $('statsNote').textContent = 'Moyennes par match sur la série de ' + S.done + ' matchs. Bleus : ' + desc(0) + '. Rouges : ' + desc(1) + '.';
+        return;
+      }
+      const key = ['série', S.done, stTeam, stMap, stPlayer].join('|');
+      if (key !== stKey) {
+        stKey = key; stData = seriesData();
+        const who = stPlayer >= 0 ? 'n°' + view.players[stPlayer].num + ' (' + (view.players[stPlayer].poste || '') + ')' : 'toute l\'équipe (sans le gardien)';
+        if (stMap === 'heat') $('statsNote').innerHTML = '<b>Carte de chaleur</b> — série de ' + S.done + ' matchs, ' + (stTeam ? 'Rouges' : 'Bleus') + ' (' + esc(desc(stTeam)) + '), ' + esc(who) + ', ballon en jeu. Les ' + (stTeam ? 'Rouges' : 'Bleus') + ' ' + way(stTeam) + '.';
+        else {
+          const N = stData.nodes, top = stData.edges.slice(0, 5).map(e => 'n°' + N[e.a].num + ' ↔ n°' + N[e.b].num + ' : ' + Math.round(e.n / S.done)).join(' · ');
+          const tot = N.reduce((a, q) => a + q.made, 0), okT = N.reduce((a, q) => a + q.ok, 0);
+          $('statsNote').innerHTML = '<b>Réseau de passes</b> — série de ' + S.done + ' matchs, ' + (stTeam ? 'Rouges' : 'Bleus') + ' (' + esc(desc(stTeam)) + ') : ' + tot + ' passes par match, ' + (tot ? Math.round(100 * okT / tot) : 0) + ' % réussies. Positions moyennes quand l\'équipe a le ballon. Les ' + (stTeam ? 'Rouges' : 'Bleus') + ' ' + way(stTeam) + '.' + (top ? '<br>Associations les plus fréquentes (passes réussies par match) : ' + esc(top) + '.' : '');
+        }
+      }
+      if (stMap === 'heat') R.drawHeat(ctx, W, H, stData.grid);
+      else R.drawNetwork(ctx, W, H, stData.nodes, stData.edges, view.teams[stTeam].color, hoverNode);
+      return;
+    }
     if (stMap === 'num') {                                           // les chiffres : le tableau remplace le terrain
       R.drawPitch(ctx, W, H);
       const sides = '<span><span class="dot" style="background: var(--blue)"></span> ' + esc(teamName(0)) + '</span><span>' + esc(teamName(1)) + ' <span class="dot" style="background: var(--red)"></span></span>';
@@ -450,7 +496,7 @@
     else R.drawNetwork(ctx, W, H, stData.nodes, stData.edges, view.teams[stTeam].color, hoverNode);
   }
   function fillPlayers() {
-    const sel = $('stPlayer'); sel.innerHTML = '<option value="-1">Toute l\'équipe</option>' + view.players.filter(p => p.team === stTeam).map(p => '<option value="' + p.id + '">n°' + p.num + ' ' + esc(p.name) + (p.poste ? ' (' + esc(p.poste) + ')' : '') + '</option>').join('');
+    const sel = $('stPlayer'); sel.innerHTML = '<option value="-1">Toute l\'équipe</option>' + view.players.filter(p => p.team === stTeam).map(p => '<option value="' + p.id + '">n°' + p.num + (stSrc === 'series' && lastSeries ? '' : ' ' + esc(p.name)) + (p.poste ? ' (' + esc(p.poste) + ')' : '') + '</option>').join('');
     sel.value = String(stPlayer);
   }
   function setTab(t) {
@@ -461,6 +507,8 @@
     setStats({});
   }
   function setStats(o) {
+    if (o.src) { stSrc = o.src; stKey = ''; fillPlayers(); }
+    document.querySelectorAll('[data-st-src]').forEach(b => b.classList.toggle('on', b.dataset.stSrc === stSrc));
     if (o.team !== undefined && o.team !== stTeam) { stTeam = o.team; stPlayer = -1; fillPlayers(); }
     if (o.map) stMap = o.map;
     if (o.player !== undefined) { stPlayer = o.player; $('stPlayer').value = String(stPlayer); }
@@ -582,6 +630,7 @@
   $('tabStats').onclick = () => setTab('stats');
   document.querySelectorAll('[data-st-team]').forEach(b => b.onclick = () => setStats({ team: +b.dataset.stTeam }));
   document.querySelectorAll('[data-st-map]').forEach(b => b.onclick = () => setStats({ map: b.dataset.stMap }));
+  document.querySelectorAll('[data-st-src]').forEach(b => b.onclick = () => setStats({ src: b.dataset.stSrc }));
   $('stPlayer').onchange = () => setStats({ player: +$('stPlayer').value });
   // réseau de passes : survol d'un joueur = sa bulle ; clic = sa carte de chaleur
   cv.addEventListener('mousemove', ev => {
@@ -590,7 +639,8 @@
     hoverNode = i;
     if (i < 0) { tip.hidden = true; return; }
     const q = stData.nodes[i];
-    tip.innerHTML = '<b>n°' + q.num + ' ' + esc(q.name) + '</b><br>' + q.made + ' passes données, ' + (q.made ? Math.round(100 * q.ok / q.made) : 0) + ' % réussies<br>' + q.got + ' passes reçues<br><span class="muted">Clic : sa carte de chaleur</span>';
+    const pm = stData.perMatch ? ' par match' : '';
+    tip.innerHTML = '<b>n°' + q.num + ' ' + esc(q.name) + '</b><br>' + q.made + ' passes données' + pm + ', ' + (q.made ? Math.round(100 * q.ok / q.made) : 0) + ' % réussies<br>' + q.got + ' passes reçues' + pm + '<br><span class="muted">Clic : sa carte de chaleur</span>';
     tip.hidden = false; tip.style.left = Math.min(px + 14, r.width - tip.offsetWidth - 4) + 'px'; tip.style.top = Math.max(4, py - tip.offsetHeight - 10) + 'px';
   });
   cv.addEventListener('mouseleave', () => { hoverNode = -1; $('tip').hidden = true; });
@@ -618,7 +668,9 @@
   function runSeries() {
     if (series) { series.stop = true; return; }
     const n = Math.min(5000, Math.max(1, Math.floor(+$('nSeries').value) || 1));
-    series = { n, done: 0, acc: St.create(), m: null, list: [], base: randomSeed(), tac: tacAt(pending ? 0 : tickOf(cur)), squad: squad.slice(), duration, stop: false, t0: performance.now() };
+    const grid = () => new Float32Array(R.HEAT.cols * R.HEAT.rows), eleven = f => Array.from({ length: 11 }, f);
+    series = { n, done: 0, acc: St.create(), m: null, list: [], base: randomSeed(),
+      maps: { heat: [eleven(grid), eleven(grid)], pos: [eleven(() => [0, 0, 0]), eleven(() => [0, 0, 0])], made: [eleven(() => 0), eleven(() => 0)], ok: [eleven(() => 0), eleven(() => 0)], got: [eleven(() => 0), eleven(() => 0)], pair: [new Map(), new Map()] }, tac: tacAt(pending ? 0 : tickOf(cur)), squad: squad.slice(), duration, stop: false, t0: performance.now() };
     $('runSeries').textContent = 'Arrêter'; $('prog').hidden = false; $('progFill').style.width = '0';
     $('seriesOut').innerHTML = '';
     setTimeout(seriesStep, 0);
@@ -627,8 +679,8 @@
     const S = series, t0 = performance.now();
     while (!S.stop && S.done < S.n && performance.now() - t0 < 30) {
       if (!S.m) S.m = E.createMatch({ seed: S.base + S.done, duration: S.duration, tactics: S.tac, teams: teamsOf(S.squad) });
-      for (let k = 0; k < 300 && S.m.mode !== 'over'; k++) E.step(S.m);
-      if (S.m.mode === 'over') { St.add(S.acc, S.m); S.list.push({ seed: S.m.seed, a: S.m.teams[0].score, b: S.m.teams[1].score }); S.m = null; S.done++; }
+      for (let k = 0; k < 300 && S.m.mode !== 'over'; k++) { E.step(S.m); mapStep(S); }
+      if (S.m.mode === 'over') { S.open = []; St.add(S.acc, S.m); S.list.push({ seed: S.m.seed, a: S.m.teams[0].score, b: S.m.teams[1].score }); S.m = null; S.done++; }
     }
     $('progFill').style.width = (100 * S.done / S.n) + '%';
     const left = S.done ? (performance.now() - S.t0) / S.done * (S.n - S.done) / 1000 : 0;
@@ -639,15 +691,34 @@
     $('seriesHint').textContent = 'Avec les équipes et les consignes affichées à droite, et la durée choisie. Sert à voir ce qu\'un réglage change en moyenne.';
     if (S.done) showSeries(S);
   }
+  // cartes de la série : on cumule les positions (carte de chaleur) et les passes (réseau), poste par poste
+  function mapStep(S) {
+    const m = S.m, M = S.maps;
+    if (m.mode === 'play' && m.tick % 4 === 0) {
+      for (const p of m.players) { const c = R.heatCell(p.x, p.y); if (c >= 0) M.heat[p.team][p.idx][c]++; }
+      const o = m.ball.owner;
+      if (o && m.tick % 8 === 0) for (const p of m.teams[o.team].players) { const P = M.pos[o.team][p.idx]; P[0] += p.x; P[1] += p.y; P[2]++; }
+    }
+    const q = m.pass, open = S.open || (S.open = []);
+    if (q && q !== S.lastQ && q.kind === 'pass' && q.type !== 'tete' && q.from) open.push(q);
+    S.lastQ = q;
+    for (let j = open.length - 1; j >= 0; j--) if (open[j].ended) {
+      const x = open.splice(j, 1)[0], t = x.from.team, a = x.from.idx; M.made[t][a]++;
+      if (x.how === 'ok' && x.to && x.to.team === t) { const b = x.to.idx; M.ok[t][a]++; M.got[t][b]++; const k = Math.min(a, b) + '-' + Math.max(a, b); M.pair[t].set(k, (M.pair[t].get(k) || 0) + 1); }
+    }
+  }
   function showSeries(S) {
+    lastSeries = S; $('stSrc').hidden = false; $('stSrcSeries').textContent = 'Série (' + S.done + ' matchs)';
     const A = S.acc, w0 = A.teams[0].wins, w1 = A.teams[1].wins, n = A.n, part = (v, cls, col) => v ? '<div class="' + cls + '" style="flex:' + v + (col ? ';background:' + col : '') + '" title="' + v + ' sur ' + n + '">' + v + '</div>' : '';
     const best = S.list.filter(x => x.a + x.b > 0).sort((x, y) => (y.a + y.b) - (x.a + x.b) || Math.abs(y.a - y.b) - Math.abs(x.a - x.b)).slice(0, 10);
     $('seriesOut').innerHTML = '<div class="sides"><div><span class="dot" style="background: var(--blue)"></span> <b>Bleus</b> — ' + esc((clubOf(S.squad[0]) ? clubOf(S.squad[0]) + ' · ' : '') + describe(S.tac[0])) + '</div><div><b>Rouges</b> <span class="dot" style="background: var(--red)"></span> — ' + esc((clubOf(S.squad[1]) ? clubOf(S.squad[1]) + ' · ' : '') + describe(S.tac[1])) + '</div></div>'
       + '<div class="wdl">' + part(w0, 'w', 'var(--blue)') + part(A.draws, 'd') + part(w1, 'w', 'var(--red)') + '</div>'
       + '<div class="muted small" style="margin-top: 4px">' + n + ' matchs de ' + (S.duration / 60) + ' min : ' + w0 + ' victoire' + (w0 > 1 ? 's' : '') + ' des Bleus, ' + A.draws + ' nul' + (A.draws > 1 ? 's' : '') + ', ' + w1 + ' victoire' + (w1 > 1 ? 's' : '') + ' des Rouges. Moyennes par match :</div>'
       + '<table>' + statRows(St.rows(A)) + '</table>'
+      + '<div style="margin-top: 8px"><button id="seriesMaps">Voir les cartes de la série</button></div>'
       + (best.length ? '<div class="chips"><span class="muted">Revoir un match de la série :</span>' + best.map(x => '<button data-seed="' + x.seed + '">n°' + x.seed + ' · ' + x.a + '–' + x.b + '</button>').join('') + '</div>' : '')
       + '<div class="muted small" style="margin-top: 10px">À lire avec prudence : il y a peu de buts par match, donc le nombre de victoires change beaucoup d\'une série à l\'autre. Les lignes « avec le ballon », « sans le ballon » et « effort » sont fiables dès 30 à 50 matchs.</div>';
+    $('seriesMaps').onclick = () => { setTab('stats'); setStats({ src: 'series', map: 'heat' }); window.scrollTo({ top: 0, behavior: 'smooth' }); };
     $('seriesOut').querySelectorAll('[data-seed]').forEach(b => b.onclick = () => {
       tac0 = [Object.assign({}, S.tac[0]), Object.assign({}, S.tac[1])]; squad = S.squad.slice(); showSquads(); fresh();
       if (duration !== S.duration) { duration = S.duration; $('duration').value = duration; }
