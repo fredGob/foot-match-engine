@@ -241,7 +241,7 @@ function accepte(pl) {
 
 // ---------- état ----------
 const byId = {}; for (const j of D.joueurs) byId[j.id] = j;
-const S = { squad: [], lineup: null, bench: [], formation: '442', tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0 }, nom: '' };
+const S = { squad: [], lineup: null, bench: [], formation: '442', tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0 }, nom: '' };
 const UI = { poste: 'tous', sort: 'note', afford: false, sel: null };
 const $ = id => document.getElementById(id);
 const fmt = (x, d) => x.toFixed(d == null ? 1 : d).replace('.', ',');
@@ -399,7 +399,7 @@ function drawTac() {
   $('teamInfo').textContent = 'Titulaires : note globale moyenne ' + fmt(moy) + ' · ' + (offs.length ? offs.length + ' joueur' + (offs.length > 1 ? 's' : '') + ' hors poste' : 'tout le monde à son poste') + ' · effectif ' + euros(depense()) + ' sur ' + D.budget + ' M€';
   // consignes
   const preset = D.presets.find(p => D.tactics.every(c => p.t[c.key] === S.tac[c.key]));
-  $('cons').innerHTML = '<span class="k" title="Un jeu des cinq consignes prêt à l\'emploi">Tactique</span><select class="preset" id="preset">' + D.presets.map(p => '<option value="' + p.id + '"' + (preset === p ? ' selected' : '') + ' title="' + esc(p.help) + '">' + esc(p.name) + '</option>').join('') + (preset ? '' : '<option selected value="">Personnalisée</option>') + '</select>' +
+  $('cons').innerHTML = '<span class="k" title="Un jeu des six consignes prêt à l\'emploi">Tactique</span><select class="preset" id="preset">' + D.presets.map(p => '<option value="' + p.id + '"' + (preset === p ? ' selected' : '') + ' title="' + esc(p.help) + '">' + esc(p.name) + '</option>').join('') + (preset ? '' : '<option selected value="">Personnalisée</option>') + '</select>' +
     D.tactics.map(c => '<span class="k" title="' + esc(c.help) + '">' + c.label + '</span><select data-tac="' + c.key + '" class="' + (S.tac[c.key] ? 'set' : '') + '">' + c.options.map((o, k) => '<option value="' + (k - 1) + '"' + (S.tac[c.key] === k - 1 ? ' selected' : '') + '>' + o + '</option>').join('') + '</select>').join('');
   $('nom').value = S.nom;
 }

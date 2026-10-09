@@ -25,7 +25,7 @@ Le numéro de match fixe le hasard : même numéro, mêmes équipes et mêmes co
 
 ## Les consignes
 
-Chaque équipe a cinq consignes à trois positions. Une consigne est une **intention**, pas une règle : une équipe qui « joue court » tente encore un long ballon quand c'est nettement la meilleure solution.
+Chaque équipe a six consignes à trois positions. Une consigne est une **intention**, pas une règle : une équipe qui « joue court » tente encore un long ballon quand c'est nettement la meilleure solution.
 
 | Consigne | Positions |
 |---|---|
@@ -85,7 +85,7 @@ Ce qui marche :
 
 - un match de 90 minutes entre deux équipes en 4-4-2, calculé en une seconde et demie ;
 - entre deux équipes standard, les buts et les tirs sont proches du vrai football (3,2 buts par match, 15 % de buts sur les tirs dans la surface) ;
-- les cinq consignes changent le jeu de façon mesurable ;
+- les six consignes changent le jeu de façon mesurable ;
 - prise de balle qui peut rater sous pression, fatigue, coups francs avec mur.
 
 Ce qui ne va pas encore :
