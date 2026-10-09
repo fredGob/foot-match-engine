@@ -89,6 +89,36 @@ const SLOTS = [
   { slot: 'LF',  role: 'FWD', num: 10, side: 0,  yD: -8,   yA: -9,  dD: 22,   dA: 40 },
   { slot: 'RF',  role: 'FWD', num: 9,  side: 0,  yD: 8,    yA: 9,   dD: 21,   dA: 36 },
 ];
+// formations : pour chacun des onze joueurs (dans l'ordre de l'effectif du 4-4-2), son rôle, son côté, sa place et son nom de poste.
+// Les joueurs gardent leur rang dans l'effectif : en 4-3-3, le milieu gauche devient ailier gauche, l'attaquant mobile milieu intérieur, etc.
+const F = (role, side, yD, yA, dD, dA, poste) => ({ role, side, yD, yA, dD, dA, poste });
+const FORMATIONS = [
+  { id: '442', name: '4-4-2', slots: null },
+  { id: '433', name: '4-3-3', slots: [null, null, null, null, null,
+      F('FWD', -1, -20, -27, 19, 38, 'Ailier gauche'), F('MID', 0, 0, 0, 5, 11, 'Milieu défensif'), F('MID', 0, 9, 12, 11, 24, 'Milieu intérieur droit'),
+      F('FWD', 1, 20, 27, 19, 38, 'Ailier droit'), F('MID', 0, -9, -12, 11, 24, 'Milieu intérieur gauche'), F('FWD', 0, 0, 0, 22, 39, 'Avant-centre')] },
+  { id: '4231', name: '4-2-3-1', slots: [null, null, null, null, null,
+      F('MID', -1, -20, -27, 14, 33, 'Milieu offensif gauche'), F('MID', 0, -5, -7, 7, 14, 'Milieu défensif gauche'), F('MID', 0, 5, 7, 7, 15, 'Milieu défensif droit'),
+      F('MID', 1, 20, 27, 14, 33, 'Milieu offensif droit'), F('MID', 0, 0, 0, 15, 29, 'Milieu offensif axial'), F('FWD', 0, 0, 0, 23, 39, 'Avant-centre')] },
+  { id: '352', name: '3-5-2', slots: [null,
+      F('MID', -1, -24, -30, 7, 28, 'Piston gauche'), F('DEF', 0, -10, -16, 0, 0, 'Défenseur central gauche'), F('DEF', 0, 10, 16, 0, 0, 'Défenseur central droit'), F('MID', 1, 24, 30, 7, 28, 'Piston droit'),
+      F('MID', 0, -10, -13, 11, 22, 'Milieu gauche'), F('DEF', 0, 0, 0, 0, 0, 'Défenseur central'), F('MID', 0, 0, 0, 9, 18, 'Milieu axial'),
+      F('MID', 0, 10, 13, 11, 22, 'Milieu droit'), null, null] },
+  { id: '532', name: '5-3-2', slots: [null,
+      F('DEF', -1, -22, -29, 1, 20, 'Piston gauche'), F('DEF', 0, -10, -16, 0, 0, 'Défenseur central gauche'), F('DEF', 0, 10, 16, 0, 0, 'Défenseur central droit'), F('DEF', 1, 22, 29, 1, 20, 'Piston droit'),
+      F('MID', 0, -11, -14, 10, 20, 'Milieu gauche'), F('DEF', 0, 0, 0, 0, 0, 'Défenseur central'), F('MID', 0, 0, 0, 9, 18, 'Milieu axial'),
+      F('MID', 0, 11, 14, 10, 20, 'Milieu droit'), null, null] },
+];
+// place du joueur n° i dans la formation de son équipe (null dans une formation : comme en 4-4-2)
+function slotOf(T, i) { const f = FORMATIONS.find(x => x.id === T.form), s = f && f.slots && f.slots[i]; return s ? Object.assign({}, SLOTS[i], s) : SLOTS[i]; }
+// change la formation d'une équipe, avant ou pendant le match
+function setFormation(m, team, id) {
+  const T = m.teams[team], f = FORMATIONS.find(x => x.id === id);
+  if (!f || T.form === id) return;
+  const was = T.form; T.form = id;
+  for (const p of T.players) { const s = slotOf(T, p.idx); p.role = s.role; p.side = s.side; p.poste = s.poste || POSTE[s.slot]; }
+  if (was && m.tick > 0) log(m, 'tactic', team, 'Formation des ' + T.name + ' : ' + f.name);
+}
 const POSTE = { GK: 'Gardien', LB: 'Arrière gauche', LCB: 'Défenseur central', RCB: 'Défenseur central', RB: 'Arrière droit', LM: 'Milieu gauche', LCM: 'Milieu axial', RCM: 'Milieu axial', RM: 'Milieu droit', LF: 'Attaquant', RF: 'Attaquant' };
 // hauteur de la ligne défensive (x relatif) selon la position du ballon (x relatif)
 const DEF_LINE = [[-52.5, -47.5], [-40, -44], [-25, -37], [-10, -29], [5, -21], [25, -12], [52.5, -6]];
@@ -228,6 +258,7 @@ function createMatch(opts) {
     for (let i = 0; i < 11; i++) { const p = makePlayer(m, T, i, names[t * 11 + i], squads[t] && squads[t][i]); T.players.push(p); m.players.push(p); }
     m.teams.push(T);
   }
+  for (let t = 0; t < 2; t++) setFormation(m, t, (opts.formations && opts.formations[t]) || '442');
   if (opts.tactics) for (let t = 0; t < 2; t++) setTactics(m, t, opts.tactics[t]);
   m.ball = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, px: 0, py: 0, pz: 0, dip: 0, owner: null, lastTouch: null };
   setRestart(m, 'kickoff', 0, 0, 0, 2);
@@ -312,7 +343,7 @@ function computeAnchors(m, T) {
   const ballSide = by > 6 ? 1 : by < -6 ? -1 : 0;
   const corner = m.corner && (m.mode === 'dead' || m.t < m.corner.until) ? m.corner : null;
   for (const p of T.players) {
-    const s = SLOTS[p.idx];
+    const s = slotOf(T, p.idx);
     let ax, ay;
     if (p.role === 'GK') {
       const gbx = b.x * d + P.HL, gby = b.y * d, dg = hyp(gbx, gby) || 1;
@@ -1377,5 +1408,5 @@ function step(m) {
 }
 
 // restart : met en scène un arrêt de jeu (penalty, coup franc, corner…), pour les outils de mesure
-return { createMatch, step, setTactics, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt };
+return { createMatch, step, setTactics, setFormation, FORMATIONS, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt };
 });

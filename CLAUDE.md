@@ -4,7 +4,7 @@
 
 Frédéric veut créer un jeu d'entraîneur de football centré sur la tactique : pas de simulation du monde du foot ni du temps qui passe, seulement un match où le joueur gagne par ses choix tactiques. Il faut pour cela un moteur de match réaliste, où chaque footballeur réfléchit par lui-même et ne ressemble pas à un robot.
 
-Étape actuelle (9 octobre 2026, sixième séance : les niveaux pèsent sur la possession, la passe, la vision et le pressing ; prochaine étape : l'interface) : un moteur qui simule un match de 90 minutes entre deux équipes en 4-4-2, avec **cinq consignes tactiques réglables par équipe**, avant et pendant le match. Il y a deux sortes d'équipes :
+Étape actuelle (9 octobre 2026, sixième séance : les niveaux pèsent sur la possession, la passe, la vision et le pressing ; interface : modes, tactiques, statistiques, formations) : un moteur qui simule un match de 90 minutes entre deux équipes, avec **cinq formations au choix** (4-4-2, 4-3-3, 4-2-3-1, 3-5-2, 5-3-2) et **cinq consignes tactiques réglables par équipe**, avant et pendant le match. Il y a deux sortes d'équipes :
 
 - l'équipe **standard**, où tous les joueurs ont 14 sur 20 partout. Elle sert à comparer les consignes entre deux équipes strictement égales ;
 - **quatre équipes de niveaux différents** (élite, élevé, moyen, faible), avec des notes selon le poste, gardées dans le fichier `equipes.json`.
@@ -131,6 +131,24 @@ Comment les quatre équipes ont été construites (première version, à ajuster
 | Faible | autour de 11 | 8,8 |
 
 Chaque poste a ses points forts (par exemple tacle, placement, anticipation et jeu de tête pour un défenseur central ; finition, appels et sang-froid pour un avant-centre) et ses points faibles, de 1 à 9 points plus bas (la finition d'un défenseur, le tacle d'un attaquant). Le milieu axial gauche récupère, le droit organise ; l'attaquant gauche est mobile, le droit est un avant-centre. Chaque note varie ensuite d'un point en plus ou en moins d'un joueur à l'autre. Un joueur de champ a 5 en réflexes et en jeu de mains.
+
+## Les formations
+
+Cinq formations dans `engine.js` (`FORMATIONS`) : 4-4-2, 4-3-3, 4-2-3-1, 3-5-2, 5-3-2. Choix « Formation » en tête du cadre Consignes, avant et pendant le match (noté dans le fil : « Formation des Rouges : 3-5-2 »). Outils : `formation=433`.
+
+Les joueurs gardent leur rang dans l'effectif du 4-4-2 (`equipes.json`) et prennent la place correspondante :
+
+| Effectif (4-4-2) | 4-3-3 | 4-2-3-1 | 3-5-2 | 5-3-2 |
+|---|---|---|---|---|
+| AG, AD | arrières | arrières | pistons (milieux) | pistons (défenseurs) |
+| DCG, DCD | centraux | centraux | centraux gauche et droit | centraux gauche et droit |
+| MG, MD | ailiers (attaquants) | milieux offensifs de côté | milieux gauche, droit | milieux gauche, droit |
+| MCG (récupérateur) | milieu défensif | milieu défensif gauche | défenseur central | défenseur central |
+| MCD (organisateur) | milieu intérieur droit | milieu défensif droit | milieu axial | milieu axial |
+| ATG (mobile) | milieu intérieur gauche | milieu offensif axial | attaquant | attaquant |
+| ATD (avant-centre) | avant-centre | avant-centre | attaquant | attaquant |
+
+Le choix du joueur poste par poste viendra avec la construction d'équipe. En 4-4-2, les matchs sont exactement ceux d'avant.
 
 ## Les consignes
 
@@ -498,6 +516,7 @@ Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la pos
 | 75 | Demande de Frédéric : les cartes sur une série de matchs | Pendant la série, la page cumule positions et passes poste par poste ; choix « Ce match / Série » dans l'onglet Statistiques, pour les chiffres et les deux cartes | Vérifié dans Chromium (série de 6 matchs en bloc bas) et avec `tools/page.js` |
 | 76 | Remarque de Frédéric : en cliquant sur Statistiques, le menu Chiffres / Carte de chaleur / Réseau de passes passait en partie en haut, à côté de Match / Statistiques | Ce menu a sa propre ligne, toujours sous Match / Statistiques, et il est en premier sur cette ligne (il ne glisse plus quand les boutons d'équipe apparaissent ou disparaissent) | Vérifié dans Chromium à 1 000 et 1 500 pixels de large : le menu reste au même endroit dans les trois choix |
 | 77 | Remarque de Frédéric : quand un attaquant arrive sur les centraux, ils suivent l'appel d'un autre joueur au lieu de le contenir, et ouvrent le but. « Défendre l'axe ballon-but est un principe de base. » Mesuré : porteur adverse à moins de 20 m du but, aucun défenseur entre lui et le but 80 % du temps ; les centraux « gardent leur zone » (48 %), suivent un appel ou marquent, et ne sortent que 12 % du temps. Cause : un seul joueur sort sur le porteur (souvent un milieu qui revient dans son dos), les autres marquent, et le marquage privilégie les appels | À moins de 35 m du but, si personne n'est entre le porteur et le but, le défenseur le mieux placé ferme l'axe (il contient ou presse ; fiche « Ferme l'axe du but face au n°… ») ; il peut toujours rater son tacle ou sa sortie (`AXIS_D`) | Axe ouvert à moins de 20 m : 80 → 71 %. Tirs concédés sans défenseur entre le tireur et le but : 5,4 → 4,4 par match. Standard (60 matchs) : 3,1 buts (vrai 3,3), 27 tirs. Bloc bas contre Équilibré : 2-6-12 (2-1-17 avant), 2,38 occasions concédées (2,83) |
+| 78 | Demande de Frédéric : le choix des formations, « un choix important pour le moteur » | Cinq formations (place, rôle et côté de chaque joueur) ; choix dans la page avant et pendant le match ; `formation=` dans les outils | 4-4-2 identique au match près. Contre un 4-4-2 (20 matchs, standard, consignes neutres) : **4-3-3 14-5-1** (occasions 1,48 – 0,98), 5-3-2 10-5-5, 3-5-2 9-8-3, 4-2-3-1 8-7-5. Toutes battent le 4-4-2 : à étudier. Vérifié dans Chromium et avec `tools/page.js` |
 | 58 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 %. Entre niveaux voisins : toujours 48 à 52 %. Élite contre Faible : 10,2 à 0,05. Passes réussies : l'équipe forte n'en réussit toujours pas plus que l'autre contre le même adversaire |
 
 | 59 | Demande de Frédéric : l'équipe forte doit garder le ballon. Découverte : le « goût du risque » de Faible (7,8) la rendait plus prudente que l'Élite (13,9) | Prudence et patience dépendent aussi de la lucidité : un joueur lucide sait ce que coûte une passe forcée et attend avant de forcer (rien à 14) | Seul : +1 à 3 points de possession |
@@ -511,6 +530,7 @@ Après la sixième séance (à reprendre) :
 
 - **Les tactiques défensives se font écraser (n° 65, 71)** : la tactique « Bloc bas » concède encore 30 tirs par match contre une équipe neutre et perd 17 matchs sur 20. Cause trouvée (n° 67) : avec « attendre » et un bloc bas, l'adversaire remonte sans être gêné et centre deux fois plus. Le marquage sur centre (n° 69) n'a corrigé qu'une partie. Pistes : défendre les côtés (empêcher le centre), mieux repousser les centres de la tête ; et le jeu long de la tactique fait perdre le ballon vite. Pressing haut est la seule tactique à égalité avec « Équilibré ».
 - **Élite contre Élevé : toujours 50 % de possession.** Entre deux niveaux voisins, l'écart reste faible (50 à 54 %).
+- **Toutes les formations battent le 4-4-2 (n° 78)**, le 4-3-3 nettement (14 victoires sur 20). Probablement le milieu à trois contre deux. Pas encore étudié : affiches entre autres formations, et ce que chaque formation change sur les cartes.
 - **L'axe ballon-but reste encore souvent ouvert** près du but (71 % du temps à moins de 20 m, n° 77) : la règle n'agit qu'à la réflexion suivante du défenseur, et un défenseur loin met du temps à revenir. À regarder en mouvement.
 
 - **Les écarts de score restent énormes** : Élite contre Faible 10,8 à 0,02, contre Moyen 6,5 à 0,15. Un cran d'écart donne 82 à 90 % de victoires.

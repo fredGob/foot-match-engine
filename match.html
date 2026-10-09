@@ -308,6 +308,36 @@ const SLOTS = [
   { slot: 'LF',  role: 'FWD', num: 10, side: 0,  yD: -8,   yA: -9,  dD: 22,   dA: 40 },
   { slot: 'RF',  role: 'FWD', num: 9,  side: 0,  yD: 8,    yA: 9,   dD: 21,   dA: 36 },
 ];
+// formations : pour chacun des onze joueurs (dans l'ordre de l'effectif du 4-4-2), son rôle, son côté, sa place et son nom de poste.
+// Les joueurs gardent leur rang dans l'effectif : en 4-3-3, le milieu gauche devient ailier gauche, l'attaquant mobile milieu intérieur, etc.
+const F = (role, side, yD, yA, dD, dA, poste) => ({ role, side, yD, yA, dD, dA, poste });
+const FORMATIONS = [
+  { id: '442', name: '4-4-2', slots: null },
+  { id: '433', name: '4-3-3', slots: [null, null, null, null, null,
+      F('FWD', -1, -20, -27, 19, 38, 'Ailier gauche'), F('MID', 0, 0, 0, 5, 11, 'Milieu défensif'), F('MID', 0, 9, 12, 11, 24, 'Milieu intérieur droit'),
+      F('FWD', 1, 20, 27, 19, 38, 'Ailier droit'), F('MID', 0, -9, -12, 11, 24, 'Milieu intérieur gauche'), F('FWD', 0, 0, 0, 22, 39, 'Avant-centre')] },
+  { id: '4231', name: '4-2-3-1', slots: [null, null, null, null, null,
+      F('MID', -1, -20, -27, 14, 33, 'Milieu offensif gauche'), F('MID', 0, -5, -7, 7, 14, 'Milieu défensif gauche'), F('MID', 0, 5, 7, 7, 15, 'Milieu défensif droit'),
+      F('MID', 1, 20, 27, 14, 33, 'Milieu offensif droit'), F('MID', 0, 0, 0, 15, 29, 'Milieu offensif axial'), F('FWD', 0, 0, 0, 23, 39, 'Avant-centre')] },
+  { id: '352', name: '3-5-2', slots: [null,
+      F('MID', -1, -24, -30, 7, 28, 'Piston gauche'), F('DEF', 0, -10, -16, 0, 0, 'Défenseur central gauche'), F('DEF', 0, 10, 16, 0, 0, 'Défenseur central droit'), F('MID', 1, 24, 30, 7, 28, 'Piston droit'),
+      F('MID', 0, -10, -13, 11, 22, 'Milieu gauche'), F('DEF', 0, 0, 0, 0, 0, 'Défenseur central'), F('MID', 0, 0, 0, 9, 18, 'Milieu axial'),
+      F('MID', 0, 10, 13, 11, 22, 'Milieu droit'), null, null] },
+  { id: '532', name: '5-3-2', slots: [null,
+      F('DEF', -1, -22, -29, 1, 20, 'Piston gauche'), F('DEF', 0, -10, -16, 0, 0, 'Défenseur central gauche'), F('DEF', 0, 10, 16, 0, 0, 'Défenseur central droit'), F('DEF', 1, 22, 29, 1, 20, 'Piston droit'),
+      F('MID', 0, -11, -14, 10, 20, 'Milieu gauche'), F('DEF', 0, 0, 0, 0, 0, 'Défenseur central'), F('MID', 0, 0, 0, 9, 18, 'Milieu axial'),
+      F('MID', 0, 11, 14, 10, 20, 'Milieu droit'), null, null] },
+];
+// place du joueur n° i dans la formation de son équipe (null dans une formation : comme en 4-4-2)
+function slotOf(T, i) { const f = FORMATIONS.find(x => x.id === T.form), s = f && f.slots && f.slots[i]; return s ? Object.assign({}, SLOTS[i], s) : SLOTS[i]; }
+// change la formation d'une équipe, avant ou pendant le match
+function setFormation(m, team, id) {
+  const T = m.teams[team], f = FORMATIONS.find(x => x.id === id);
+  if (!f || T.form === id) return;
+  const was = T.form; T.form = id;
+  for (const p of T.players) { const s = slotOf(T, p.idx); p.role = s.role; p.side = s.side; p.poste = s.poste || POSTE[s.slot]; }
+  if (was && m.tick > 0) log(m, 'tactic', team, 'Formation des ' + T.name + ' : ' + f.name);
+}
 const POSTE = { GK: 'Gardien', LB: 'Arrière gauche', LCB: 'Défenseur central', RCB: 'Défenseur central', RB: 'Arrière droit', LM: 'Milieu gauche', LCM: 'Milieu axial', RCM: 'Milieu axial', RM: 'Milieu droit', LF: 'Attaquant', RF: 'Attaquant' };
 // hauteur de la ligne défensive (x relatif) selon la position du ballon (x relatif)
 const DEF_LINE = [[-52.5, -47.5], [-40, -44], [-25, -37], [-10, -29], [5, -21], [25, -12], [52.5, -6]];
@@ -447,6 +477,7 @@ function createMatch(opts) {
     for (let i = 0; i < 11; i++) { const p = makePlayer(m, T, i, names[t * 11 + i], squads[t] && squads[t][i]); T.players.push(p); m.players.push(p); }
     m.teams.push(T);
   }
+  for (let t = 0; t < 2; t++) setFormation(m, t, (opts.formations && opts.formations[t]) || '442');
   if (opts.tactics) for (let t = 0; t < 2; t++) setTactics(m, t, opts.tactics[t]);
   m.ball = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, px: 0, py: 0, pz: 0, dip: 0, owner: null, lastTouch: null };
   setRestart(m, 'kickoff', 0, 0, 0, 2);
@@ -531,7 +562,7 @@ function computeAnchors(m, T) {
   const ballSide = by > 6 ? 1 : by < -6 ? -1 : 0;
   const corner = m.corner && (m.mode === 'dead' || m.t < m.corner.until) ? m.corner : null;
   for (const p of T.players) {
-    const s = SLOTS[p.idx];
+    const s = slotOf(T, p.idx);
     let ax, ay;
     if (p.role === 'GK') {
       const gbx = b.x * d + P.HL, gby = b.y * d, dg = hyp(gbx, gby) || 1;
@@ -1596,7 +1627,7 @@ function step(m) {
 }
 
 // restart : met en scène un arrêt de jeu (penalty, coup franc, corner…), pour les outils de mesure
-return { createMatch, step, setTactics, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt };
+return { createMatch, step, setTactics, setFormation, FORMATIONS, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt };
 });
 </script>
 <script>
@@ -1905,12 +1936,12 @@ return { create, add, rows, rowsOf };
   const tickOf = t => Math.round(t / DT);
   // consignes en vigueur à un instant donné
   function tacAt(tick) { const t = [Object.assign({}, tac0[0]), Object.assign({}, tac0[1])]; for (const c of changes) if (c.tick <= tick) t[c.team][c.key] = c.v; return t; }
-  function describe(t) { const on = TAC.filter(c => t[c.key]).map(c => c.label + ' : ' + c.options[t[c.key] + 1].toLowerCase()); return on.length ? on.join(' · ') : 'consignes neutres'; }
+  function describe(t) { const fo = (E.FORMATIONS.find(f => f.id === (t.formation || '442')) || {}).name, on = TAC.filter(c => t[c.key]).map(c => c.label + ' : ' + c.options[t[c.key] + 1].toLowerCase()); return fo + ' · ' + (on.length ? on.join(' · ') : 'consignes neutres'); }
 
   // ---------- calcul et enregistrement du match ----------
   // full = false : seulement l'image du coup d'envoi (avant-match)
   function simulate(full) {
-    const m = E.createMatch({ seed, duration, tactics: tac0, teams: teamsOf(squad) }), key = seed + '|' + squad.join('|');
+    const m = E.createMatch({ seed, duration, tactics: tac0, teams: teamsOf(squad), formations: tac0.map(t => t.formation || '442') }), key = seed + '|' + squad.join('|');
     const cap = full ? Math.round(duration / DT) + 4 : 1;
     const buf = buffers[cap] || (buffers[cap] = { P: new Float32Array(cap * NP * F), B: new Float32Array(cap * 4), L: new Uint16Array(cap * NP), N: new Uint16Array(cap * NP), K: new Uint8Array(cap * NP), D: new Uint8Array(cap) });
     const r = Object.assign({ n: 0, texts: [''], kinds: [], stats: [], events: m.events, passes: [] }, buf);
@@ -1941,6 +1972,7 @@ return { create, add, rows, rowsOf };
     while (full && m.mode !== 'over' && f < cap - 1) {
       for (; ci < changes.length && changes[ci].tick <= m.tick; ci++) {
         const c = changes[ci];
+        if (c.key === 'formation') { E.setFormation(m, c.team, c.v); continue; }
         if (c.preset) { const grp = {}; let cj = ci; for (; cj < changes.length && changes[cj].tick === c.tick && changes[cj].team === c.team && changes[cj].preset === c.preset; cj++) grp[changes[cj].key] = changes[cj].v; E.setTactics(m, c.team, grp, c.preset); ci = cj - 1; }
         else E.setTactics(m, c.team, { [c.key]: c.v });
       }
@@ -2022,6 +2054,7 @@ return { create, add, rows, rowsOf };
     $('stats').innerHTML = statRows(St.rowsOf(st[0], st[1]));
     // consignes en vigueur à cet instant
     const t = tacAt(coach() ? Math.min(tickOf(live), rec.n - 1) : tick);      // Coach It : les consignes en vigueur au moment du direct
+    document.querySelectorAll('#tactics select[data-formation]').forEach(sel => { const v = t[+sel.dataset.formation].formation || '442'; if (sel.value !== v && document.activeElement !== sel) sel.value = v; sel.classList.toggle('set', v !== '442'); });
     document.querySelectorAll('#tactics select[data-preset]').forEach(sel => { const id = presetOf(t[+sel.dataset.preset]); if (sel.value !== id && document.activeElement !== sel) sel.value = id; const P = PRE.find(P => P.id === id); sel.title = P ? P.help : 'Consignes réglées à la main'; });
     document.querySelectorAll('#tactics select[data-key]').forEach(sel => { const v = String(t[+sel.dataset.team][sel.dataset.key]); if (sel.value !== v && document.activeElement !== sel) sel.value = v; sel.classList.toggle('set', v !== '0'); });
     if (coach()) $('tacHint').textContent = pending ? 'Choisissez les consignes de votre équipe (les Bleus). L\'adversaire joue avec des consignes neutres.' : 'Un changement s\'applique au moment du direct (' + mmss(live) + '), même si vous revoyez une action plus ancienne.';
@@ -2228,12 +2261,15 @@ return { create, add, rows, rowsOf };
   // tableau des consignes
   const PRE = E.PRESETS || [];
   const presetOf = t => { const P = PRE.find(P => TAC.every(c => (P.t[c.key] || 0) === t[c.key])); return P ? P.id : ''; };
+  const formSel = team => '<select class="preset" data-formation="' + team + '" aria-label="Formation des ' + (team ? 'Rouges' : 'Bleus') + '">' + E.FORMATIONS.map(f => '<option value="' + f.id + '">' + f.name + '</option>').join('') + '</select>';
   const preSel = team => '<select class="preset" data-preset="' + team + '" aria-label="Tactique des ' + (team ? 'Rouges' : 'Bleus') + '"><option value="">Personnalisée</option>' + PRE.map(P => '<option value="' + P.id + '" title="' + esc(P.help) + '">' + esc(P.name) + '</option>').join('') + '</select>';
   $('tactics').innerHTML = '<tr><th><span class="dot" style="background: var(--blue)"></span> Bleus</th><th></th><th>Rouges <span class="dot" style="background: var(--red)"></span></th></tr>'
+    + '<tr class="presets"><td>' + formSel(0) + '</td><td class="k" title="La formation place les onze joueurs. Les joueurs gardent leur rang dans l\'effectif : en 4-3-3, les milieux de côté deviennent ailiers.">Formation</td><td>' + formSel(1) + '</td></tr>'
     + '<tr class="presets"><td>' + preSel(0) + '</td><td class="k" title="Une tactique règle les cinq consignes d\'un coup. Vous pouvez ensuite changer une consigne : la tactique devient « Personnalisée ».">Tactique</td><td>' + preSel(1) + '</td></tr>'
     + TAC.map(c => { const sel = team => '<select data-team="' + team + '" data-key="' + c.key + '" aria-label="' + esc(c.label) + ' des ' + (team ? 'Rouges' : 'Bleus') + '">' + c.options.map((o, i) => '<option value="' + (i - 1) + '"' + (i === 1 ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';
       return '<tr><td>' + sel(0) + '</td><td class="k" title="' + esc(c.help) + '">' + esc(c.label) + '</td><td>' + sel(1) + '</td></tr>'; }).join('');
   document.querySelectorAll('#tactics select[data-key]').forEach(sel => sel.onchange = () => { setTactic(+sel.dataset.team, sel.dataset.key, +sel.value); sel.blur(); });
+  document.querySelectorAll('#tactics select[data-formation]').forEach(sel => sel.onchange = () => { setTactics(+sel.dataset.formation, { formation: sel.value }); sel.blur(); nextHud = 0; });
   document.querySelectorAll('#tactics select[data-preset]').forEach(sel => sel.onchange = () => { const P = PRE.find(P => P.id === sel.value); if (P) setTactics(+sel.dataset.preset, P.t, P.name); sel.blur(); nextHud = 0; });
   $('neutral').onclick = () => {
     if (!rec) return;
@@ -2269,7 +2305,7 @@ return { create, add, rows, rowsOf };
     if (md === mode) return;
     mode = md; document.body.classList.toggle('coach', coach());
     document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
-    document.querySelectorAll('#tactics select[data-team="1"], #tactics select[data-preset="1"]').forEach(sel => { sel.disabled = coach(); sel.title = coach() ? 'Mode Coach It : l\'adversaire joue avec des consignes neutres' : ''; });
+    document.querySelectorAll('#tactics select[data-team="1"], #tactics select[data-preset="1"], #tactics select[data-formation="1"]').forEach(sel => { sel.disabled = coach(); sel.title = coach() ? 'Mode Coach It : l\'adversaire joue avec des consignes neutres' : ''; });
     const heads = document.querySelectorAll('#squads th, #tactics th');
     heads.forEach(th => { const t = th.textContent.trim(); if (/Bleus|Votre équipe/.test(t)) th.lastChild.textContent = coach() ? ' Votre équipe' : ' Bleus'; if (/Rouges|Adversaire/.test(t)) th.firstChild.textContent = coach() ? 'Adversaire ' : 'Rouges '; });
     if (coach()) { tac0 = [rec ? tacAt(tickOf(cur))[0] : tac0[0], blank()]; changes = []; }
@@ -2330,7 +2366,7 @@ return { create, add, rows, rowsOf };
   function seriesStep() {
     const S = series, t0 = performance.now();
     while (!S.stop && S.done < S.n && performance.now() - t0 < 30) {
-      if (!S.m) S.m = E.createMatch({ seed: S.base + S.done, duration: S.duration, tactics: S.tac, teams: teamsOf(S.squad) });
+      if (!S.m) S.m = E.createMatch({ seed: S.base + S.done, duration: S.duration, tactics: S.tac, teams: teamsOf(S.squad), formations: S.tac.map(t => t.formation || '442') });
       for (let k = 0; k < 300 && S.m.mode !== 'over'; k++) { E.step(S.m); mapStep(S); }
       if (S.m.mode === 'over') { S.open = []; St.add(S.acc, S.m); S.list.push({ seed: S.m.seed, a: S.m.teams[0].score, b: S.m.teams[1].score }); S.m = null; S.done++; }
     }
