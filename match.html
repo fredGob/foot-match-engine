@@ -21,7 +21,7 @@
   .tabs .group button { border-radius: 0; margin-left: -1px; }
   .tabs .group button:first-child { border-radius: 7px 0 0 7px; margin-left: 0; }
   .tabs .group button:last-child { border-radius: 0 7px 7px 0; }
-  #statsCtl { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+  #statsCtl { display: flex; flex-basis: 100%; flex-wrap: wrap; align-items: center; gap: 8px 14px; }      /* toujours sur sa propre ligne, sous Match / Statistiques */
   .tabs [hidden], #statsCtl[hidden] { display: none; }
   .tip { position: absolute; pointer-events: none; padding: 6px 10px; border-radius: 6px; background: rgba(12, 16, 20, 0.92); border: 1px solid var(--line); font-size: 13px; white-space: nowrap; }
   .tip[hidden] { display: none; }
@@ -136,9 +136,9 @@
       <span class="group" title="Mode God : on règle les deux équipes, on voit les intentions et toute la suite du match. Mode Coach It : on dirige les Bleus seulement, comme un vrai entraîneur, sans voir la suite."><button data-mode="god" class="on">Mode God</button><button data-mode="coach">Mode Coach It</button></span>
       <span class="group"><button id="tabMatch" class="on">Match</button><button id="tabStats">Statistiques</button></span>
       <span id="statsCtl" hidden>
+        <span class="group"><button data-st-map="num" class="on">Chiffres</button><button data-st-map="heat">Carte de chaleur</button><button data-st-map="net">Réseau de passes</button></span>
         <span class="group" id="stSrc" hidden><button data-st-src="match" class="on">Ce match</button><button data-st-src="series" id="stSrcSeries">Série</button></span>
         <span class="group" id="stTeams"><button data-st-team="0" class="on">Bleus</button><button data-st-team="1">Rouges</button></span>
-        <span class="group"><button data-st-map="num" class="on">Chiffres</button><button data-st-map="heat">Carte de chaleur</button><button data-st-map="net">Réseau de passes</button></span>
         <select id="stPlayer" aria-label="Joueur de la carte de chaleur"></select>
         <span class="heatkey" id="heatKey">peu <i></i> beaucoup de temps</span>
       </span>
