@@ -564,7 +564,7 @@ function thinkDefend(m, p, noPress) {
     const guards = q => { const rx = q.x - th.x, ry = q.y - th.y, s = rx * ux + ry * uy; return s > 0.3 && s < Math.min(12, dGoalTh) && Math.abs(rx * uy - ry * ux) < 1.5 + 0.25 * s; };
     if (!T.players.some(q => q !== p && q.role !== 'GK' && guards(q))) {
       const kx = th.x + ux * 3, ky = th.y + uy * 3, mine = timeToCover(m, p, hyp(kx - p.x, ky - p.y), kx, ky);
-      if (!T.players.some(q => q !== p && q.role === 'DEF' && timeToCover(m, q, hyp(kx - q.x, ky - q.y), kx, ky) < mine))
+      if (!T.players.some(q => q !== p && q.role === 'DEF' && q.intent.type !== 'press' && (q.x - th.x) * ux + (q.y - th.y) * uy > 0 && timeToCover(m, q, hyp(kx - q.x, ky - q.y), kx, ky) < mine))      // seuls comptent les coéquipiers libres et devant le ballon
         return setIntent(m, p, 'press', 'Ferme l\'axe du but face au n°' + c.num, th.x, th.y, 1);
     }
   }
