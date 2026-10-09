@@ -125,14 +125,17 @@ const tacNote = (key, v) => TACTICS.find(c => c.key === key).notes[v < 0 ? 0 : 2
 // Dans cette version, tous les joueurs ont toutes leurs qualités au même niveau (14 sur 20) : deux équipes strictement égales,
 // pour que seules les consignes fassent la différence. Les notes individuelles tirées au hasard restent disponibles (opts.random).
 const LEVEL = 0.7;
-const PASS_GAP = 2.0;          // poids de la note de passe sur la précision du geste
+const PASS_GAP = 3.5;          // poids de la note de passe sur la précision du geste (×1 à 14, ×2,9 à 8, ×0,6 à 17)
 const BAD_LAT = 0.6, BAD_PASS = 0.25;      // passe mal ajustée : écart toléré (m), puis risque de contrôle raté
 const VISION = 2.5;        // poids de la vision : risque de ne pas voir un partenaire loin ou dans le dos
 const PANIC_V = 0.7, PANIC_R = 0.3;      // sous 14 de vision, un joueur pressé commence à paniquer ; à 8, il panique tout à fait
 const MISREAD = 0.6;       // vision 8 : il ne voit que 40 % du danger d'interception sur une passe
 const DUEL_MIND = 0.4;     // part de l'anticipation (défenseur) et du sang-froid (porteur) dans un duel
-const PRESS_Q = 5;         // presseur (moyenne démarrage, anticipation, agressivité) : pèse 0,75 m plus près à 17, 1,5 m plus loin à 8
-const READ = 0.6;          // lecture de la passe : allonge la portée de 9 % à 17, la réduit de 18 % à 8
+const PRESS_Q = 10;        // presseur (moyenne démarrage, anticipation, agressivité) : pèse 1,5 m plus près à 17, 3 m plus loin à 8
+const AMORTI_FREE = 2.5;   // sans adversaire à moins de 2,5 m, un ballon aérien s'amortit au lieu de se jouer de la tête
+const READ = 1.2;          // lecture de la passe : allonge la portée de 18 % à 17, la réduit de 36 % à 8
+const LUCID = 2;           // lucidité : prudence face à une passe risquée (+30 % à 17, −60 % à 8)
+const PATIENCE = 3;        // lucidité : attente avant de s'impatienter (8 s à 14, 11,6 s à 17, 0,8 s à 8)
 const CTRL = 0.6;        // poids de la pression sur la prise de balle (9,6 % de contrôles ratés sous pression pour un joueur à 14)
 const MASK = 0.22;      // coup franc par-dessus le mur : retard (s) du gardien, qui voit partir le ballon tard
 const DIP = 0.8;        // coup franc brossé : le ballon plonge comme si la pesanteur était 1,8 fois plus forte
@@ -477,6 +480,10 @@ function thinkDefend(m, p, noPress) {
     const reach = (1 + (p.role === 'DEF' ? 0.3 : p.role === 'FWD' ? 0.8 : 0.5) * k * own) * (0.6 + 0.4 * p.stam);      // fatigué, on sort moins loin
     const zone0 = (p.role === 'DEF' ? 11 : 15) + (p.intent.type === 'press' ? 5 : 0), zone = zone0 * reach;
     const deep = th.x * d < -17.5, tooFar = k < 0 && th.x * d > 15 + 40 * (1 + k);      // « attendre » : on ne sort pas dans le camp adverse
+    // contre-pressing : juste après la perte du ballon, un joueur qui court et lit le jeu (au-dessus de 14) saute sur le porteur
+    const cpq = clamp(((p.a.workRate + p.a.anticipation) / 2 - LEVEL) / 0.15, 0, 1) * (0.5 + 0.5 * p.stam);
+    if (cpq > 0 && rank <= 1 && m.holder === 1 - p.team && m.t - m.possSince < 2 + 3 * cpq && dMe < 8 + 8 * cpq && !spare(p))
+      return setIntent(m, p, 'press', 'Contre-presse le n°' + c.num, th.x, th.y, 1);
     if (rank === 0 && !tooFar && !spare(p) && (dAnch < zone || deep || dMe < 5 * (1 + 0.4 * k * own))) {
       setIntent(m, p, 'press', 'Presse le n°' + c.num, th.x, th.y, 1);
       if (k > 0 && !(dAnch < zone0 || deep || dMe < 5)) note(p, 'press', k);     // sans la consigne, il serait resté à son poste
@@ -656,7 +663,7 @@ const misread = p => MISREAD * clamp((PANIC_V - p.a.vision) / PANIC_R, 0, 1);
 const seenLane = (p, lane) => 1 - (1 - lane) * (1 - misread(p));
 function fastestOpp(m, O, qx, qy) {
   let tO = 99;
-  for (const o of O.players) { const keeper = o.role === 'GK' && inOwnBox(m.teams[o.team], qx, qy); const dd = Math.max(0, hyp(o.x - qx, o.y - qy) - (keeper ? 1.2 : 0.8)); const t = timeToCover(m, o, dd, qx, qy) + 0.25; if (t < tO) tO = t; }
+  for (const o of O.players) { const keeper = o.role === 'GK' && inOwnBox(m.teams[o.team], qx, qy); const dd = Math.max(0, hyp(o.x - qx, o.y - qy) - (keeper ? 1.2 : 0.8)); const t = timeToCover(m, o, dd, qx, qy) + 0.25; if (t < tO) { tO = t; fastestOpp.who = o; fastestOpp.keeper = keeper; } }
   return tO;
 }
 
@@ -709,7 +716,10 @@ function passOption(m, p, q, pr, sp, hands, risk) {
     const D = hyp(qx - p.x, qy - p.y); if (D < 18 || D > 62) continue;
     const lo = loftSolve(D, 28), tr = L ? timeToCover(m, q, L, qx, qy) + 0.15 : 0, tO = fastestOpp(m, O, qx, qy);
     const arrR = Math.max(tr, lo.t), arrO = Math.max(tO, lo.t);
-    const win = arrR === arrO ? 0.5 + 0.3 * Math.tanh((tO - tr) / 0.6) : sigmoid((arrO - arrR) / 0.3);
+    // tous deux sous le ballon avant lui : libre si le défenseur arrive bien après, sinon duel de la tête (et une tête gagnée ne garde pas toujours le ballon)
+    const who = fastestOpp.who, free = sigmoid((tO - tr - 1.0) / 0.35);
+    const duel = fastestOpp.keeper ? 0.1 : 0.75 * clamp(0.45 + 0.6 * (q.a.heading - who.a.heading), 0.15, 0.8);
+    const win = arrR === arrO ? free + (1 - free) * duel : sigmoid((arrO - arrR) / 0.3);
     const pOk = win * passAcc(p, D, pr, off, true) * 0.85 * seen;
     keep({ kind: 'pass', u: score(pOk, qx, qy, 0.6 + 0.4 * clamp(oppDist(O, qx, qy) / 8, 0, 1), qx, qy, qx * d > P.HL - P.BOX_D && Math.abs(qy) < P.BOX_HW ? 0.9 : 0.6), to: q, qx, qy, v0: lo.v, lofted: true, elev: 28, pOk });
   }
@@ -761,7 +771,7 @@ function thinkCarrier(m, p) {
   if (hands && m.t < p.holdUntil) return setIntent(m, p, 'hold', 'Garde le ballon en main', p.x, p.y, 0.1);
   const pr = sp || hands ? 0 : pressure(m, p);
   const gx = P.HL * d, dGoal = hyp(gx - p.x, p.y);
-  const vHere = valueAt(T, p.x, p.y), lossHere = valueAt(O, p.x, p.y) + TURNOVER, risk = 1.15 - 0.4 * a.flair;
+  const vHere = valueAt(T, p.x, p.y), lossHere = valueAt(O, p.x, p.y) + TURNOVER, risk = (1.15 - 0.4 * a.flair) * (1 + LUCID * (a.decisions - LEVEL));      // un joueur lucide sait ce que coûte une passe forcée : il est plus prudent (rien à 14)
   const opts = [];
   if (sp === 'freekick') { if (dGoal < 31) { const xg = clamp(0.085 - 0.004 * (dGoal - 18), 0.03, 0.085) * clamp(1.5 - Math.abs(p.y) / 12, 0.25, 1); opts.push({ kind: 'shot', u: xg, xg }); } }      // coup franc direct
   else if ((!sp || sp === 'penalty') && !hands && dGoal < 28) { const xg = shotXg(m, p, sp ? 0 : shotPressure(m, p, gx)); opts.push({ kind: 'shot', u: sp === 'penalty' ? 9 : xg * (dGoal > 17 ? 1.35 : 1), xg }); }      // de loin, on tente sa chance un peu plus que ne le dit le calcul
@@ -811,7 +821,7 @@ function thinkCarrier(m, p) {
   }
   // impatience : plus la possession dure sans rien donner, plus on accepte de tenter vers l'avant (plus tôt à rythme rapide)
   if (!sp && !hands) {
-    const hurry = 0.5 * clamp((m.t - m.possSince - 8 * (1 - 0.4 * tac.tempo) * (1 - 0.5 * Math.max(0, tac.passing))) / 12, 0, 1);
+    const hurry = 0.5 * clamp((m.t - m.possSince - 8 * (1 + PATIENCE * (a.decisions - LEVEL)) * (1 - 0.4 * tac.tempo) * (1 - 0.5 * Math.max(0, tac.passing))) / 12, 0, 1);
     if (hurry > 0) {
       for (const g of groups) for (const o of g) { const fwd = (o.qx - p.x) * d; if (fwd > 4) o.u += ref * hurry * clamp(fwd / 15, 0, 1); }
       for (const o of rest) if (o.kind === 'dribble' && o.dx * d > 0.5) o.u += ref * hurry * 0.5;
@@ -867,7 +877,7 @@ function executePlan(m, p) {
     let qx = pl.qx, qy = pl.qy, v0 = pl.v0;
     if (pl.feet) { const D0 = hyp(to.x - p.x, to.y - p.y); v0 = Math.min(v0 * 1.15, groundSpeedFor(D0, 8.5 + 0.04 * D0)); const lead = Math.min(groundTime(v0, D0), 0.7) * 0.6; qx = to.x + to.vx * lead; qy = to.y + to.vy * lead; }
     const off = Math.abs(angDiff(Math.atan2(qy - p.y, qx - p.x), p.face));
-    const skill = Math.exp(PASS_GAP * (LEVEL - a.passing));      // l'écart grandit vite quand la note baisse (×1 à 14, ×1,8 à 8, ×0,7 à 17)
+    const skill = Math.exp(PASS_GAP * (LEVEL - a.passing));      // l'écart grandit vite quand la note baisse
     const sig = (0.016 + 0.032 * (1 - a.passing)) * skill * (1 + 1.2 * pr) * (1 + 0.3 * off) * (pl.lofted ? 1.6 : 1) * (pl.firstTime ? 1.4 : 1);
     const eA = sig * g(), eV = 0.05 * skill * g();
     ang = Math.atan2(qy - p.y, qx - p.x) + eA;
@@ -1020,6 +1030,13 @@ function touch(m, p, z, stretch) {
   }
   if (keeper && !(fromMate && pass.kind === 'pass')) {                    // le gardien s'en saisit
     if (rng() < clamp(0.97 - 0.012 * Math.max(0, sp3 - 12) - (z > 1.8 ? 0.08 : 0), 0.5, 0.99)) { if (!offsideCheck(m, p)) catchBall(m, p); } else deflect(m, p, 0.3, 1.0);
+    return;
+  }
+  if (z > 1.25 && fromMate && pass.kind === 'pass' && oppDist(m.teams[1 - p.team], p.x, p.y) > AMORTI_FREE) {      // seul sous le ballon : il l'amortit (poitrine, cuisse)
+    const ok = rng() < clamp(0.45 + 0.55 * a.firstTouch - (z > 1.8 ? 0.1 : 0), 0.4, 0.95);
+    cnt(m, 'amorti.' + (ok ? 'ok' : 'rate'));
+    if (ok) return gainControl(m, p, z, pressure(m, p));
+    deflect(m, p, 0.3, 0.9); T.stats.miscontrols++; setIntent(m, p, 'chase', 'Amorti raté', b.x, b.y, 1); p.nextThink = m.t + 0.35;
     return;
   }
   if (z > 1.25) return header(m, p, z);

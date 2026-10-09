@@ -522,6 +522,16 @@ La page :
 
 Rappel de méthode : les réglages ont été faits à la main, sur des moyennes. Changer un nombre en déplace d'autres : toujours remesurer. Et se méfier des totaux par match : préférer les chiffres par situation.
 
+## Prochaine étape : l'interface (demande de Frédéric, 9 octobre 2026)
+
+Après le point « l'équipe forte garde le ballon », pause sur le moteur et travail sur l'interface. Sa liste, en vrac :
+
+1. **Deux modes de jeu.**
+   - **Mode God** (la page actuelle) : on règle les deux équipes, on voit les intentions, et on voit « le futur » (le match est calculé d'avance, on peut aller aux minutes suivantes).
+   - **Mode Coach It** : on dirige une seule équipe. L'adversaire est pour l'instant en consignes standard ; on choisit seulement son niveau. On ne voit pas le futur.
+2. **Tactiques prédéfinies** (des jeux de consignes prêts à l'emploi).
+3. **Une page Statistiques** : les chiffres (comme aujourd'hui), plus une **carte de chaleur** et une **carte des passes** (pass map). Frédéric pense, à raison, qu'elles serviront aussi à corriger le moteur.
+
 ## Ce qui n'existe pas encore
 
 - Une seule formation (4-4-2). Onze joueurs par équipe, pas de remplaçants.
