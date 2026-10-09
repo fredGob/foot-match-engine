@@ -227,7 +227,7 @@ function createMatch(opts) {
 
 function log(m, kind, team, text) { m.events.push({ t: m.t, kind, team, text }); }
 function cnt(m, k, v) { m.count[k] = (m.count[k] || 0) + (v == null ? 1 : v); }
-function passEnd(m, how) { const q = m.pass; if (q && q.kind === 'pass' && !q.ended) { q.ended = true; cnt(m, how + '.' + q.type); } }
+function passEnd(m, how) { const q = m.pass; if (q && q.kind === 'pass' && !q.ended) { q.ended = true; q.how = how; cnt(m, how + '.' + q.type); } }      // how : issue de la passe (pour la carte des passes)
 function topSpeed(p) { return p.top * (0.76 + 0.24 * p.stam); }      // un joueur à 50 % de fraîcheur perd 12 % de vitesse de pointe
 function inOwnBox(T, x, y) { return x * T.dir < -P.HL + P.BOX_D && Math.abs(y) < P.BOX_HW; }
 

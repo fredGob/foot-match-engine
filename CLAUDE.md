@@ -44,6 +44,12 @@ Comment la page fonctionne :
 
 Aussi dans la page : chrono façon télé dans le coin du terrain (temps, score, « Arrêt de jeu »), vitesse ×1 à ×16, clic sur un joueur pour lire ce qu'il fait (s'il suit ou non une consigne, sa fraîcheur, ses notes), case pour voir où chaque joueur veut aller, case pour écrire sous chaque joueur son intention (« Presse le n°7 », « Se démarque »… ; capture `docs/intentions.png`), choix de la durée (90, 45, 20 ou 10 minutes). Les statistiques ont une ligne « Fraîcheur des joueurs » : c'est là qu'on voit ce que coûte un pressing.
 
+**Onglet « Statistiques »** (au-dessus du terrain, à côté de « Match ») : il remplace le terrain par une carte, calculée jusqu'à l'instant affiché par la barre de temps.
+
+- **Carte de chaleur** : où l'équipe (sans le gardien) ou un joueur choisi a passé son temps, ballon en jeu. Une seule teinte, du clair (peu) au foncé (beaucoup). Capture `docs/carte-chaleur.png`.
+- **Réseau de passes** : chaque joueur à sa position moyenne quand son équipe a le ballon ; rond d'autant plus gros qu'il touche le ballon ; trait d'autant plus épais que les deux joueurs se passent le ballon (passes réussies, seuls les liens d'au moins 15 % du plus fort sont tracés). Survol d'un joueur : ses passes données, réussies, reçues. Clic : sa carte de chaleur. Sous la carte, les associations les plus fréquentes. Capture `docs/reseau-passes.png`.
+- Les chiffres restent dans le cadre « Statistiques » à droite.
+
 Les arrêts de jeu ont une durée réaliste (une touche 17 secondes, une sortie de but 30, un corner 34…). Pour ne pas attendre, la case « Passer vite les arrêts de jeu » (cochée par défaut) les lit six fois plus vite.
 
 ## Les fichiers
@@ -51,7 +57,7 @@ Les arrêts de jeu ont une durée réaliste (une touche 17 secondes, une sortie 
 | Fichier | Rôle |
 |---|---|
 | `engine.js` | Le moteur : joueurs, ballon, règles, décisions, consignes. Aucun affichage. |
-| `render.js` | Le dessin du terrain vu de dessus. |
+| `render.js` | Le dessin du terrain vu de dessus, et des cartes de la page Statistiques (chaleur, réseau de passes). |
 | `stats.js` | Les statistiques affichées (un match ou une série), partagées par la page et les outils. |
 | `index.html` | La page : avant-match, lecture, barre de temps, consignes, série de matchs. |
 | `equipes.json` | **Le fichier des équipes** : quatre équipes, onze joueurs chacune, vingt notes par joueur. Se modifie à la main. |
@@ -465,6 +471,7 @@ Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la pos
 
 | 57 | Demande de Frédéric : un joueur fort réussit mieux son pressing. Nouvel outil `tools/duels.js` : le pressing de l'Élite reprenait le ballon 24 % du temps, celui de Faible 16 %. Ce sont surtout les attaquants qui pressent, et le moteur ne jugeait un duel que sur la note de tacle, leur point faible | Duel : tacle et anticipation contre dribble et sang-froid. Pression : un presseur vif, agressif et qui anticipe ferme mieux le porteur. Interception : un joueur qui anticipe coupe la passe d'un peu plus loin. Rien ne change à 14 (équipe standard identique au match près) | Pressing de l'Élite : 31 % de ballons repris, Faible : 14 %. Possession de l'Élite : 59 % |
 | 58b | Demande de Frédéric (interface, pour déboguer) : voir l'intention de chaque joueur, et un chrono | Case « Montrer l'intention de chaque joueur » ; chrono façon télé au-dessus du terrain (le chrono du haut de page, petit et gris, passait inaperçu) | Vérifié dans Chromium et avec `tools/page.js` |
+| 63 | Demande de Frédéric : une page Statistiques avec carte de chaleur et réseau de passes (il a choisi : réseau de passes, carte d'équipe puis de joueur, onglet à la place du terrain) | Onglet « Statistiques » ; la page note chaque passe et son issue (le moteur garde l'issue de la passe, sans rien changer aux matchs) | Vérifié dans Chromium et avec `tools/page.js`. Premières lectures du moteur : le gardien et les défenseurs centraux touchent très peu le ballon (défaut déjà connu) ; un arrière latéral standard ne passe presque jamais la ligne médiane |
 | 58 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 %. Entre niveaux voisins : toujours 48 à 52 %. Élite contre Faible : 10,2 à 0,05. Passes réussies : l'équipe forte n'en réussit toujours pas plus que l'autre contre le même adversaire |
 
 | 59 | Demande de Frédéric : l'équipe forte doit garder le ballon. Découverte : le « goût du risque » de Faible (7,8) la rendait plus prudente que l'Élite (13,9) | Prudence et patience dépendent aussi de la lucidité : un joueur lucide sait ce que coûte une passe forcée et attend avant de forcer (rien à 14) | Seul : +1 à 3 points de possession |
@@ -481,6 +488,7 @@ Après la sixième séance (à reprendre) :
 
 - **Les écarts de score restent énormes** : Élite contre Faible 10,8 à 0,02, contre Moyen 6,5 à 0,15. Un cran d'écart donne 82 à 90 % de victoires.
 - **Trop de contrôles ratés pour les équipes faibles** : 28 à 48 par match pour Faible, 20 à 40 pour Moyen (une quinzaine en vrai). L'effet « passe mal ajustée » est sans doute trop fort pour elles.
+- **Vu sur les cartes (n° 63)** : un arrière latéral standard ne passe presque jamais la ligne médiane ; le gardien et les centraux touchent très peu le ballon.
 - Personne n'a encore regardé en mouvement la panique, les « Ne voit pas … », le contre-pressing et l'amorti.
 
 Avant la sixième séance :
@@ -533,7 +541,7 @@ Après le point « l'équipe forte garde le ballon », pause sur le moteur et tr
    - **Mode God** (la page actuelle) : on règle les deux équipes, on voit les intentions, et on voit « le futur » (le match est calculé d'avance, on peut aller aux minutes suivantes).
    - **Mode Coach It** : on dirige une seule équipe. L'adversaire est pour l'instant en consignes standard ; on choisit seulement son niveau. On ne voit pas le futur.
 2. **Tactiques prédéfinies** (des jeux de consignes prêts à l'emploi).
-3. **Une page Statistiques** : les chiffres (comme aujourd'hui), plus une **carte de chaleur** et une **carte des passes** (pass map). Frédéric pense, à raison, qu'elles serviront aussi à corriger le moteur.
+3. **Une page Statistiques** : les chiffres (comme aujourd'hui), plus une **carte de chaleur** et une **carte des passes** (pass map). Frédéric pense, à raison, qu'elles serviront aussi à corriger le moteur. **Fait (n° 63)** : onglet « Statistiques ». À faire peut-être : mettre aussi les chiffres dans l'onglet, cartes sur une série de matchs.
 
 ## Ce qui n'existe pas encore
 
