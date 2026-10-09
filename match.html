@@ -396,6 +396,7 @@ const MISREAD = 0.6;       // vision 8 : il ne voit que 40 % du danger d'interce
 const DUEL_MIND = 0.4;     // part de l'anticipation (défenseur) et du sang-froid (porteur) dans un duel
 const PRESS_Q = 10;        // presseur (moyenne démarrage, anticipation, agressivité) : pèse 1,5 m plus près à 17, 3 m plus loin à 8
 const AMORTI_FREE = 2.5;   // sans adversaire à moins de 2,5 m, un ballon aérien s'amortit au lieu de se jouer de la tête
+const CROSS_BLOCK = 0.55;     // centre contré : chance maximale qu'un adversaire collé devant le centreur touche le ballon
 const CROSS_MARK = 1;      // centre possible : marquage serré dans la surface
 const AXIS_D = 35;         // à moins de 35 m du but, un défenseur ferme l'axe ballon-but s'il est ouvert
 const READ = 1.2;          // lecture de la passe : allonge la portée de 18 % à 17, la réduit de 36 % à 8
@@ -657,7 +658,7 @@ function intercept(m, p) {
 function setIntent(m, p, type, label, tx, ty, urg) {
   const it = p.intent;
   if (it.type !== type) it.since = m.t;
-  it.type = type; it.label = label; it.tx = tx; it.ty = ty; it.urg = urg; it.note = null; it.hunt = false; it.cover = null;
+  it.type = type; it.label = label; it.tx = tx; it.ty = ty; it.urg = urg; it.note = null; it.hunt = false; it.cover = null; it.contain = 0; it.hard = 0;
 }
 // ce que la fiche du joueur affichera : il suit une consigne de son entraîneur, ou il s'en écarte
 function note(p, key, v, against) { p.intent.note = (against ? 'Malgré la consigne : ' : 'Consigne : ') + tacNote(key, v); }
@@ -751,13 +752,12 @@ function thinkDefend(m, p, noPress) {
     const zone0 = (p.role === 'DEF' ? 11 : 15) + (p.intent.type === 'press' ? 5 : 0), zone = zone0 * reach;
     const deep = th.x * d < -17.5, tooFar = k < 0 && th.x * d > 15 + 40 * (1 + k);      // « attendre » : on ne sort pas dans le camp adverse
     // consigne « centres adverses » : porteur excentré près de notre surface
-    const kc = T.tac.cross, wide = b.owner === c && Math.abs(th.y) > 13 && th.x * d < -P.HL + 35 && !inOwnBox(T, th.x, th.y);
+    const kc = T.tac.cross, wide = b.owner === c && Math.abs(th.y) > 13 && th.x * d < -P.HL + 45 && !inOwnBox(T, th.x, th.y);
     if (wide && kc < 0 && rank === 0 && !spare(p)) {      // défendre la surface : on ne se jette pas, on ferme l'intérieur à distance
-      const sx = gx + 11 * d, ux = sx - th.x, uy = -th.y, n = hyp(ux, uy) || 1, gap = 4.5 * -kc;
-      setIntent(m, p, 'position', 'Ferme l\'intérieur face au n°' + c.num, th.x + ux / n * gap, th.y + uy / n * gap, 0.85); note(p, 'cross', kc); return;
+      setIntent(m, p, 'press', 'Ferme l\'intérieur face au n°' + c.num, th.x, th.y, 1); p.intent.contain = -kc; note(p, 'cross', kc); return;
     }
-    if (wide && kc > 0 && !spare(p) && (rank === 0 || (rank === 1 && p.role !== 'FWD' && dMe < 12 + 6 * kc))) {      // sortir sur le centreur : le plus proche y va, un deuxième vient fermer
-      setIntent(m, p, 'press', (rank ? 'Sort à deux sur le centreur n°' : 'Sort sur le centreur n°') + c.num, th.x, th.y, 1); note(p, 'cross', kc); return;
+    if (wide && kc > 0 && !spare(p) && rank === 0) {      // sortir sur le centreur : le plus proche y va, un deuxième vient fermer
+      setIntent(m, p, 'press', 'Sort sur le centreur n°' + c.num, th.x, th.y, 1); p.intent.hard = kc; note(p, 'cross', kc); return;
     }
     // contre-pressing : juste après la perte du ballon, un joueur qui court et lit le jeu (au-dessus de 14) saute sur le porteur
     const cpq = clamp(((p.a.workRate + p.a.anticipation) / 2 - LEVEL) / 0.15, 0, 1) * (0.5 + 0.5 * p.stam);
@@ -1231,6 +1231,17 @@ function executePlan(m, p) {
   m.pass = { from: p, to, kind: pl.kind, lofted: !!pl.lofted, t0: m.t, offs, type: pl.lofted ? 'air' : pl.feet ? 'pieds' : 'course', aimX: pl.kind === 'pass' ? pl.qx * d : null, lat: pl.lat || 0, dose: pl.dose || 0, pOk: pl.pOk };
   if (pl.kind === 'pass') cnt(m, 'passe.' + m.pass.type); else cnt(m, pl.kind);
   if (m.corner && sp === 'corner') m.corner.until = m.t + 3;
+  // centre contré : un adversaire collé devant le centreur peut toucher le ballon au départ (plus souvent s'il est sorti sur lui)
+  if (pl.kind === 'pass' && pl.lofted && !sp && isCross(T, p)) {
+    const ux = Math.cos(ang), uy = Math.sin(ang);
+    for (const o of m.teams[1 - p.team].players) {
+      const rx = o.x - p.x, ry = o.y - p.y, D = hyp(rx, ry), along = (rx * ux + ry * uy) / (D || 1);
+      if (D > 3 || along < 0.4 || o.stunUntil > m.t) continue;
+      const pB = CROSS_BLOCK * clamp((3 - D) / 1.8, 0, 1) * along * (o.intent.type === 'press' ? 1 + 0.6 * (o.intent.hard || 0) : 0.6);
+      if (rng() < pB) { cnt(m, 'centre.contre'); b.x = o.x - ux * 0.3; b.y = o.y - uy * 0.3; b.z = 0.5; deflect(m, o, 0.3, 0.7); return; }
+      break;
+    }
+  }
   predict(m);
   react(m, to);
 }
@@ -1395,7 +1406,7 @@ function resolveTackles(m) {
     if (hyp(o.x - b.x, o.y - b.y) > 1.25) continue;
     const T = m.teams[o.team], keeper = o.role === 'GK' && inOwnBox(T, o.x, o.y);
     const rx = o.x - c.x, ry = o.y - c.y, closing = (c.vx * rx + c.vy * ry) / (hyp(rx, ry) || 1);
-    const lam = closing > 2.5 || (keeper && o.intent.type === 'claim') ? 5 : (o.intent.type === 'press' || keeper ? 0.6 : 0.25) * (0.6 + 0.8 * o.a.aggression) * (hyp(c.x + P.HL * T.dir, c.y) < 25 ? 2.2 : 1) * (o.intent.type === 'press' ? 1 + 0.5 * T.tac.press : 1);
+    const lam = closing > 2.5 || (keeper && o.intent.type === 'claim') ? 5 : (o.intent.type === 'press' || keeper ? 0.6 : 0.25) * (0.6 + 0.8 * o.a.aggression) * (hyp(c.x + P.HL * T.dir, c.y) < 25 ? 2.2 : 1) * (o.intent.type === 'press' ? 1 + 0.5 * T.tac.press : 1) * (1 - 0.7 * (o.intent.contain || 0)) * (1 + 0.3 * (o.intent.hard || 0));      // « défendre la surface » : il temporise, se jette rarement
     if (rng() > lam * DT) continue;
     const front = (rx * Math.cos(c.face) + ry * Math.sin(c.face)) / (hyp(rx, ry) || 1);      // 1 : de face, −1 : dans le dos
     const pWin = clamp(0.46 * (0.8 + 0.2 * o.stam) + 0.55 * (duelDef(o) - duelAtt(c)) + 0.12 * front + (m.t < c.controlReadyAt ? 0.5 * (1 - c.a.firstTouch) : 0) + (keeper ? 0.2 : 0), 0.12, 0.85);      // pendant son contrôle, il est d'autant plus vulnérable que sa prise de balle est faible
@@ -1557,8 +1568,8 @@ function act(m, p) {
     case 'press': {
       const c = b.owner && b.owner.team !== p.team ? b.owner : null, th = c || threat(m);
       const gx = -P.HL * d; let ux = gx - th.x, uy = -th.y; const n = hyp(ux, uy) || 1; ux /= n; uy /= n;
-      const engage = c && (n < 24 + 70 * Math.max(0, T.tac.press) || hyp(c.vx, c.vy) < 1.5);      // « harceler » : on va au contact partout
-      const dd = hyp(th.x - p.x, th.y - p.y), off = dd > 6 ? 2.5 : dd > 3 ? 2 : engage ? 0.6 : 1.7, lead = c ? Math.min(dd / 8, 0.5) : 0;
+      const engage = c && !it.contain && (it.hard || n < 24 + 70 * Math.max(0, T.tac.press) || hyp(c.vx, c.vy) < 1.5);      // « harceler » : on va au contact partout
+      const dd = hyp(th.x - p.x, th.y - p.y), off = dd > 6 ? 2.5 : dd > 3 ? 2 : engage ? 0.6 : it.contain ? 1.7 + 1.3 * it.contain : 1.7, lead = c ? Math.min(dd / 8, 0.5) : 0;
       tx = th.x + (c ? c.vx * lead : 0) + ux * off; ty = th.y + (c ? c.vy * lead : 0) + uy * off;
       if (engage && dd < 3 && hyp(c.vx, c.vy) < 1.5) { tx = b.x; ty = b.y; }                // il protège son ballon : on le contourne
       sp = dd > 5 || !c ? top : Math.max(hyp(c.vx, c.vy) + 1.5, 4);      // sprinte puis temporise à l'approche
