@@ -359,16 +359,18 @@ const TACTICS = [
     help: 'Bas : l\'équipe défend près de son but. Haut : la défense monte, l\'adversaire a moins de place mais de l\'espace dans le dos.' },
   { key: 'press', label: 'Pressing', options: ['Attendre', 'Normal', 'Harceler'], notes: ['attendre l\'adversaire', '', 'harceler le porteur'],
     help: 'Attendre : on garde ses positions et on laisse venir ; les attaquants ne courent pas après le ballon et restent frais. Harceler : on va chercher le porteur loin, à deux s\'il le faut, au prix de beaucoup d\'énergie.' },
+  { key: 'cross', label: 'Centres adverses', options: ['Défendre la surface', 'Normal', 'Sortir sur le centreur'], notes: ['défendre la surface', '', 'sortir sur le centreur'],
+    help: 'Défendre la surface : on laisse centrer, on ferme seulement l\'intérieur et on remplit la surface. Sortir sur le centreur : on va vite sur le joueur excentré, à deux, pour empêcher le centre, au risque d\'être éliminé et de laisser la surface moins garnie.' },
 ];
 // tactiques prédéfinies : un jeu des cinq consignes, prêt à l'emploi (passing, tempo, width, line, press)
 const PRESETS = [
-  { id: 'equilibre', name: 'Équilibré', t: { passing: 0, tempo: 0, width: 0, line: 0, press: 0 }, help: 'Toutes les consignes au neutre.' },
-  { id: 'possession', name: 'Possession', t: { passing: -1, tempo: -1, width: 1, line: 0, press: 0 }, help: 'Garder le ballon : passes courtes, on prend son temps, on écarte le jeu.' },
-  { id: 'pressing', name: 'Pressing haut', t: { passing: 0, tempo: 1, width: 0, line: 1, press: 1 }, help: 'Reprendre le ballon loin de son but : bloc haut, on harcèle le porteur, on joue vite. Coûte beaucoup d\'énergie.' },
-  { id: 'contre', name: 'Contre-attaque', t: { passing: 1, tempo: 1, width: 0, line: -1, press: -1 }, help: 'Laisser venir, puis partir vite dans le dos de la défense.' },
-  { id: 'blocbas', name: 'Bloc bas', t: { passing: 1, tempo: -1, width: -1, line: -1, press: -1 }, help: 'Défendre le score : bloc bas et compact, on ne prend aucun risque, on dégage loin.' },
-  { id: 'direct', name: 'Jeu direct', t: { passing: 1, tempo: 1, width: 1, line: 0, press: 0 }, help: 'Aller vite vers l\'avant : longs ballons, ailes et centres.' },
-  { id: 'attaque', name: 'Tout pour l\'attaque', t: { passing: 0, tempo: 1, width: 1, line: 1, press: 1 }, help: 'Courir après le score : tout le monde monte, on presse et on écarte. Laisse de l\'espace derrière.' },
+  { id: 'equilibre', name: 'Équilibré', t: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0 }, help: 'Toutes les consignes au neutre.' },
+  { id: 'possession', name: 'Possession', t: { passing: -1, tempo: -1, width: 1, line: 0, press: 0, cross: 0 }, help: 'Garder le ballon : passes courtes, on prend son temps, on écarte le jeu.' },
+  { id: 'pressing', name: 'Pressing haut', t: { passing: 0, tempo: 1, width: 0, line: 1, press: 1, cross: 1 }, help: 'Reprendre le ballon loin de son but : bloc haut, on harcèle le porteur, on joue vite. Coûte beaucoup d\'énergie.' },
+  { id: 'contre', name: 'Contre-attaque', t: { passing: 1, tempo: 1, width: 0, line: -1, press: -1, cross: 0 }, help: 'Laisser venir, puis partir vite dans le dos de la défense.' },
+  { id: 'blocbas', name: 'Bloc bas', t: { passing: 1, tempo: -1, width: -1, line: -1, press: -1, cross: -1 }, help: 'Défendre le score : bloc bas et compact, on ne prend aucun risque, on dégage loin.' },
+  { id: 'direct', name: 'Jeu direct', t: { passing: 1, tempo: 1, width: 1, line: 0, press: 0, cross: 0 }, help: 'Aller vite vers l\'avant : longs ballons, ailes et centres.' },
+  { id: 'attaque', name: 'Tout pour l\'attaque', t: { passing: 0, tempo: 1, width: 1, line: 1, press: 1, cross: 1 }, help: 'Courir après le score : tout le monde monte, on presse et on écarte. Laisse de l\'espace derrière.' },
 ];
 // change les consignes d'une équipe, avant ou pendant le match (un changement en cours de match est noté dans le fil du match)
 // label : nom d'une tactique prédéfinie ; le fil du match note alors une seule ligne au lieu d'une par consigne
@@ -472,7 +474,7 @@ function createMatch(opts) {
   const squads = [0, 1].map(t => opts.teams && opts.teams[t] ? readTeam(opts.teams[t]) : null);
   for (let t = 0; t < 2; t++) {
     const T = { id: t, name: t === 0 ? 'Bleus' : 'Rouges', club: squads[t] ? String(opts.teams[t].nom || opts.teams[t].id || '') : '', color: t === 0 ? '#2f6fdf' : '#d8423a', dir: t === 0 ? 1 : -1, score: 0, phase: 0.5, refX: 0, refY: 0, line: -30, offLine: 0, spread: 46, players: [],
-      tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0 },
+      tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0 },
       stats: { possT: 0, passes: 0, passesOk: 0, shots: 0, onTarget: 0, goals: 0, xg: 0, tackles: 0, interceptions: 0, blocks: 0, fouls: 0, corners: 0, offsides: 0, saves: 0,
         // mesures du style de jeu : elles servent à voir l'effet des consignes
         miscontrols: 0, passLen: 0, passLenN: 0, longBalls: 0, through: 0, crosses: 0, ballT: 0, touches: 0, widthSum: 0, widthN: 0, lineSum: 0, lineN: 0, recov: 0, recovHigh: 0, passFollow: 0, passDefy: 0 } };
@@ -591,6 +593,8 @@ function computeAnchors(m, T) {
       }
       if (f > 0.3) ax = Math.min(ax, T.offLine - (s.role === 'FWD' ? 3 : 1));      // rester en jeu, avec un peu d'élan devant soi
     }
+    // consigne « défendre la surface » : ballon adverse sur un côté près de notre but, les milieux rentrent garnir la surface
+    if (p.role === 'MID' && tac.cross < 0 && f < 0.5 && bx < -P.HL + 35 && Math.abs(by) > 13) { const w = -tac.cross * (1 - 2 * f); ax = lerp(ax, Math.min(ax, -P.HL + 17), w); ay = lerp(ay, ay * 0.6, w); }
     if (corner) { const c = cornerSpot(p, T, corner); if (c) { ax = c[0]; ay = c[1]; } }
     const yMax = 30.5 + 1.5 * Math.max(0, wide);
     ax = clamp(ax, -P.HL + 0.4, P.HL - 3); ay = clamp(ay, -yMax, yMax);
@@ -746,6 +750,15 @@ function thinkDefend(m, p, noPress) {
     const reach = (1 + (p.role === 'DEF' ? 0.3 : p.role === 'FWD' ? 0.8 : 0.5) * k * own) * (0.6 + 0.4 * p.stam);      // fatigué, on sort moins loin
     const zone0 = (p.role === 'DEF' ? 11 : 15) + (p.intent.type === 'press' ? 5 : 0), zone = zone0 * reach;
     const deep = th.x * d < -17.5, tooFar = k < 0 && th.x * d > 15 + 40 * (1 + k);      // « attendre » : on ne sort pas dans le camp adverse
+    // consigne « centres adverses » : porteur excentré près de notre surface
+    const kc = T.tac.cross, wide = b.owner === c && Math.abs(th.y) > 13 && th.x * d < -P.HL + 35 && !inOwnBox(T, th.x, th.y);
+    if (wide && kc < 0 && rank === 0 && !spare(p)) {      // défendre la surface : on ne se jette pas, on ferme l'intérieur à distance
+      const sx = gx + 11 * d, ux = sx - th.x, uy = -th.y, n = hyp(ux, uy) || 1, gap = 4.5 * -kc;
+      setIntent(m, p, 'position', 'Ferme l\'intérieur face au n°' + c.num, th.x + ux / n * gap, th.y + uy / n * gap, 0.85); note(p, 'cross', kc); return;
+    }
+    if (wide && kc > 0 && !spare(p) && (rank === 0 || (rank === 1 && p.role !== 'FWD' && dMe < 12 + 6 * kc))) {      // sortir sur le centreur : le plus proche y va, un deuxième vient fermer
+      setIntent(m, p, 'press', (rank ? 'Sort à deux sur le centreur n°' : 'Sort sur le centreur n°') + c.num, th.x, th.y, 1); note(p, 'cross', kc); return;
+    }
     // contre-pressing : juste après la perte du ballon, un joueur qui court et lit le jeu (au-dessus de 14) saute sur le porteur
     const cpq = clamp(((p.a.workRate + p.a.anticipation) / 2 - LEVEL) / 0.15, 0, 1) * (0.5 + 0.5 * p.stam);
     if (cpq > 0 && rank <= 1 && m.holder === 1 - p.team && m.t - m.possSince < 2 + 3 * cpq && dMe < 8 + 8 * cpq && !spare(p))
