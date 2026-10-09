@@ -4,7 +4,7 @@
 
 Frédéric veut créer un jeu d'entraîneur de football centré sur la tactique : pas de simulation du monde du foot ni du temps qui passe, seulement un match où le joueur gagne par ses choix tactiques. Il faut pour cela un moteur de match réaliste, où chaque footballeur réfléchit par lui-même et ne ressemble pas à un robot.
 
-Étape actuelle (8 octobre 2026, cinquième séance) : un moteur qui simule un match de 90 minutes entre deux équipes en 4-4-2, avec **cinq consignes tactiques réglables par équipe**, avant et pendant le match. Il y a deux sortes d'équipes :
+Étape actuelle (9 octobre 2026, sixième séance : les niveaux pèsent sur la possession, la passe, la vision et le pressing ; prochaine étape : l'interface) : un moteur qui simule un match de 90 minutes entre deux équipes en 4-4-2, avec **cinq consignes tactiques réglables par équipe**, avant et pendant le match. Il y a deux sortes d'équipes :
 
 - l'équipe **standard**, où tous les joueurs ont 14 sur 20 partout. Elle sert à comparer les consignes entre deux équipes strictement égales ;
 - **quatre équipes de niveaux différents** (élite, élevé, moyen, faible), avec des notes selon le poste, gardées dans le fichier `equipes.json`.
@@ -467,18 +467,21 @@ Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la pos
 | 58b | Demande de Frédéric (interface, pour déboguer) : voir l'intention de chaque joueur, et un chrono | Case « Montrer l'intention de chaque joueur » ; chrono façon télé au-dessus du terrain (le chrono du haut de page, petit et gris, passait inaperçu) | Vérifié dans Chromium et avec `tools/page.js` |
 | 58 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 %. Entre niveaux voisins : toujours 48 à 52 %. Élite contre Faible : 10,2 à 0,05. Passes réussies : l'équipe forte n'en réussit toujours pas plus que l'autre contre le même adversaire |
 
+| 59 | Demande de Frédéric : l'équipe forte doit garder le ballon. Découverte : le « goût du risque » de Faible (7,8) la rendait plus prudente que l'Élite (13,9) | Prudence et patience dépendent aussi de la lucidité : un joueur lucide sait ce que coûte une passe forcée et attend avant de forcer (rien à 14) | Seul : +1 à 3 points de possession |
+| 60 | Outil `tools/longballs.js` : sur un long ballon, un adversaire touche le premier 63 fois sur 100, et deux secondes après le ballon est libre une fois sur deux. Un ballon au-dessus de la hanche était toujours joué de la tête, même seul ; le passeur se croyait gagnant 8 fois sur 10 quand receveur et défenseur arrivent tous deux sous le ballon | Un joueur seul sous le ballon l'amortit (selon sa prise de balle) ; estimation du passeur selon le vrai duel de la tête | Peu d'effet sur la possession. Les « longs ballons » de l'Élite sont pour moitié des centres, ce qui est normal |
+| 61 | Chaque réglage seul ne rapporte que 1 à 2 points (essais en parallèle : passe plus forte, pressing plus fort, lucidité) | Les trois ensemble, plus un contre-pressing : juste après la perte du ballon, un joueur au-dessus de 14 en volume de course et anticipation saute sur le porteur (« Contre-presse le n°… ») | Élite contre Moyen 55 %, contre Faible 64 % |
+| 62 | Tournoi complet (`node tools/levels.js 60`) | — | Possession : Élite 66 % contre Faible, Élevé 62 % contre Faible, Élite 55 % contre Moyen. Passes réussies : Élite 82 à 88 %, Faible 68 à 71 %. Équipe standard : 3,5 buts par match (3,2 avant), mêmes occasions, 87 % de passes réussies |
+
 ## Ce qui ne va pas encore
 
 Après la sixième séance (à reprendre) :
 
-- **Entre niveaux voisins, la possession ne bouge pas** (48 à 52 %). La panique et la mauvaise lecture ne touchent que les joueurs sous 14 de vision : Élite et Élevé n'en ont presque pas.
-- **L'équipe forte ne réussit pas plus de passes que l'autre** contre le même adversaire (Élite 80,5 % contre Faible, Faible 80,0 % contre Élite) : elle tente beaucoup de longs ballons et de passes vers l'avant ratés.
+- **Élite contre Élevé : toujours 50 % de possession.** Entre deux niveaux voisins, l'écart reste faible (50 à 54 %).
+- **Équipe standard un peu plus prolifique** depuis l'amorti des ballons aériens : 3,5 buts par match pour 3,1 occasions (3,2 avant).
 
-- **Possession encore trop faible pour l'équipe forte** : 56 à 59 % contre Faible, environ 50 % entre niveaux proches (objectif de Frédéric : 65 à 70 % quand l'écart est grand).
-- **Les écarts de score ont grandi** : Élite contre Faible 11,1 à 0,1 (8,3 à 0,4 avant). Faible contre Faible : 2,0 buts par match seulement.
-- **Trop de contrôles ratés pour les équipes faibles** : 40 à 49 par match pour Faible (une quinzaine en vrai). L'effet « passe mal ajustée » est sans doute trop fort pour elles.
-- L'équipe forte rend encore beaucoup de ballons par de longs ballons ratés (voir n° 52).
-- Personne n'a encore regardé en mouvement la panique et les « Ne voit pas … ».
+- **Les écarts de score restent énormes** : Élite contre Faible 10,8 à 0,02, contre Moyen 6,5 à 0,15. Un cran d'écart donne 82 à 90 % de victoires.
+- **Trop de contrôles ratés pour les équipes faibles** : 28 à 48 par match pour Faible, 20 à 40 pour Moyen (une quinzaine en vrai). L'effet « passe mal ajustée » est sans doute trop fort pour elles.
+- Personne n'a encore regardé en mouvement la panique, les « Ne voit pas … », le contre-pressing et l'amorti.
 
 Avant la sixième séance :
 
