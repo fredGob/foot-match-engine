@@ -490,6 +490,8 @@ Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la pos
 | 69 | Les défenseurs ne serrent pas les attaquants dans la surface quand un centre se prépare | Ballon sur un côté à moins de 30 m de son but : défenseurs et milieux marquent de près les attaquants présents dans la surface (`CROSS_MARK`) | Bloc bas + attendre : 23,9 → 21,8 tirs concédés, occasions 2,06 → 1,72 ; tirs après un centre 7,3 → 4,9. Neutre : rien de mesurable (60 matchs : 3,4 buts, 3,3 occasions) |
 | 70 | Essai : en bloc bas ou en « attendre », sortir de plus loin sur le porteur entré à 35 m de son but | — | Abandonné : aucun effet (22,6 tirs concédés) |
 | 71 | Tactiques contre « Équilibré » après ces corrections (20 matchs) | — | Pressing haut 8-6-6, Jeu direct 7-4-9, Tout pour l'attaque 7-2-11, Possession 6-4-10, Contre-attaque 4-6-10, **Bloc bas 2-1-17 (30 tirs concédés)** |
+| 72 | Centraux et gardien presque jamais servis (`tools/passes.js` : centraux 9,5 % des passes reçues, 0,1 % entre eux ; gardien 0,4 %). Point d'écoute ajouté au moteur (`m.onChoice`, sans effet sur le match) pour lire les choix du porteur. Un milieu ou latéral libre dans son camp conduit le ballon 85 fois sur 100 ; la passe au central a une valeur négative : il croit la rater 11 fois sur 100, parce qu'une passe vers un partenaire dans son dos était pénalisée, en plus du risque de ne pas le voir (vision, n° 53) | Pénalité en double retirée | Centraux 9,5 → 10,7 %. Standard (60 matchs) : 3,4 buts, 27,5 tirs (30 avant, vrai 26), 88,4 % de passes réussies. Élite contre Faible inchangé |
+| 73 | Sous pression dans son camp, un milieu ou un latéral conduit encore le ballon une fois sur deux ; la passe au central n'est choisie qu'une fois sur cinq | Pas corrigé : réglage profond de la tête du porteur, à décider avec Frédéric | — |
 | 58 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 %. Entre niveaux voisins : toujours 48 à 52 %. Élite contre Faible : 10,2 à 0,05. Passes réussies : l'équipe forte n'en réussit toujours pas plus que l'autre contre le même adversaire |
 
 | 59 | Demande de Frédéric : l'équipe forte doit garder le ballon. Découverte : le « goût du risque » de Faible (7,8) la rendait plus prudente que l'Élite (13,9) | Prudence et patience dépendent aussi de la lucidité : un joueur lucide sait ce que coûte une passe forcée et attend avant de forcer (rien à 14) | Seul : +1 à 3 points de possession |
@@ -507,7 +509,7 @@ Après la sixième séance (à reprendre) :
 
 - **Les écarts de score restent énormes** : Élite contre Faible 10,8 à 0,02, contre Moyen 6,5 à 0,15. Un cran d'écart donne 82 à 90 % de victoires.
 - **Trop de contrôles ratés pour les équipes faibles** : 28 à 48 par match pour Faible, 20 à 40 pour Moyen (une quinzaine en vrai). L'effet « passe mal ajustée » est sans doute trop fort pour elles.
-- **Vu sur les cartes (n° 63)** : un arrière latéral standard ne passe presque jamais la ligne médiane ; le gardien et les centraux touchent très peu le ballon.
+- **Vu sur les cartes (n° 63)** : un arrière latéral standard ne passe presque jamais la ligne médiane ; le gardien et les centraux touchent très peu le ballon (10,7 % des passes reçues pour les deux centraux, n° 72). Cause principale trouvée (n° 73) : sous pression dans son camp, le porteur conduit le ballon une fois sur deux au lieu de le donner.
 - Personne n'a encore regardé en mouvement la panique, les « Ne voit pas … », le contre-pressing et l'amorti.
 
 Avant la sixième séance :

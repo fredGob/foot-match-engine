@@ -691,7 +691,7 @@ function passOption(m, p, q, pr, sp, hands, risk) {
   if (!exempt && q.x * d > T.offLine + 0.2 && m.rng() < 0.75 + 0.25 * a.vision) return all;      // il voit que le partenaire est hors-jeu
   const off0 = Math.abs(angDiff(Math.atan2(q.y - p.y, q.x - p.x), p.face));
   const off = Math.max(0, off0 - 8 * (0.10 + 0.22 * off0 / Math.PI));                              // il aura le temps de se tourner avant de frapper
-  const seen = (off0 < 1.6 || sp) ? 1 : 0.8 + 0.15 * a.vision;                                      // partenaire dans son dos
+  const seen = 1;      // partenaire dans son dos : le risque de ne pas le voir est déjà compté par seesMate (vision), pas une deuxième fois ici
   const maxV = hands ? 16 : sp === 'throwin' ? 13 : 24;
   const keep = o => { all.push(o); };
   // floor : valeur plancher d'une passe vers un partenaire libre. Reculer coûte moins cher qu'avancer ne rapporte.
@@ -857,6 +857,7 @@ function thinkCarrier(m, p) {
   for (const o of opts) { o.w = Math.exp((o.u - top) / tau); sum += o.w; }
   let r = rng() * sum, pick = opts[0]; for (const o of opts) { r -= o.w; if (r <= 0) { pick = o; break; } }
   cnt(m, 'choix.' + pick.kind);
+  if (m.onChoice) m.onChoice(p, opts, pick, pr);      // point d'écoute pour les outils de mesure (aucun effet sur le match)
   if (pick.why && !pick.against && pick === natural) pick.why = null;      // il l'aurait fait de toute façon
   const why = () => { if (pick.why) note(p, pick.why, tac[pick.why], pick.against); };
 
