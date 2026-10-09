@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Construire mon équipe</title>
+<!-- Source de la page de construction d'équipe. Ne pas ouvrir directement : « node build.js » la remplit avec joueurs.json
+     et les données du moteur, et écrit equipe.html, le fichier à ouvrir. -->
+<style>
+  :root { color-scheme: dark; --bg: #11151a; --panel: #1a2028; --line: #2b3440; --text: #e8edf2; --muted: #93a0af; --blue: #2f6fdf; --accent: #ffe45c; --warn: #ff9a3c; --ok: #5cc98a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  [hidden] { display: none !important; }
+  button, select, input[type=text] { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 6px 12px; }
+  button, select { cursor: pointer; }
+  button:hover:not(:disabled), select:hover { border-color: #4a5868; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.on { background: #2a3a55; border-color: #46639a; }
+  button.main { background: #2a3a55; border-color: #46639a; font-weight: 600; }
+  a { color: #9cc0ff; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12.5px; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 12px 16px 28px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 12px; }
+  header h1 { margin: 0; font-size: 20px; font-weight: 650; }
+  header .steps { display: flex; gap: 6px; color: var(--muted); }
+  header .steps span { padding: 2px 10px; border-radius: 12px; border: 1px solid var(--line); font-size: 13px; }
+  header .steps span.on { color: var(--text); border-color: var(--accent); }
+  header .right { margin-left: auto; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .card h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+
+  /* écran d'accueil : deux grands choix */
+  .home { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 860px; margin: 8vh auto 0; }
+  .big { display: flex; flex-direction: column; gap: 8px; padding: 28px 24px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--text); text-align: left; text-decoration: none; cursor: pointer; font: inherit; }
+  .big:hover { border-color: var(--accent); }
+  .big b { font-size: 24px; font-weight: 650; }
+  .big span { color: var(--muted); }
+  .saved { grid-column: 1 / -1; text-align: center; }
+
+  /* achats */
+  .buy { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 12px 14px; align-items: start; }
+  .summary { position: sticky; top: 0; z-index: 5; grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .money { font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .money.over { color: #ff6b5e; }
+  .count { display: flex; flex-wrap: wrap; gap: 6px; }
+  .count span { padding: 2px 9px; border-radius: 12px; border: 1px solid var(--line); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .count span.ok { border-color: #2f6b49; color: var(--ok); }
+  .valid { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; justify-content: flex-end; }
+  .valid .why { font-size: 12.5px; color: var(--warn); max-width: 420px; text-align: right; }
+  .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chips button { padding: 4px 10px; font-size: 13px; }
+  label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  td { padding: 5px 6px; border-bottom: 1px solid #222a33; }
+  tr.p { cursor: pointer; }
+  tr.p:hover td { background: #1f2731; }
+  tr.mine td { background: rgba(47, 111, 223, 0.13); }
+  tr.cant td:not(:last-child) { opacity: 0.5; }
+  td.num, th.num { text-align: right; }
+  td.act { text-align: right; width: 1%; white-space: nowrap; }
+  td.act button { padding: 3px 10px; font-size: 13px; }
+  .tag { display: inline-block; min-width: 30px; padding: 1px 5px; border-radius: 5px; font-size: 12px; font-weight: 650; text-align: center; background: #26303c; }
+  .tag.G { background: #6b4a12; } .tag.DEF { background: #1d4560; } .tag.MIL { background: #234e2f; } .tag.ATT { background: #5d2424; }
+  .note { font-weight: 650; }
+  .list { max-height: calc(100vh - 210px); overflow: auto; }
+  .squad .line { margin-top: 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+  .squad .line:first-of-type { margin-top: 0; }
+  .squad .empty { padding: 6px 0; color: var(--muted); }
+
+  /* fiche d'un joueur */
+  .sheet { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(5, 8, 12, 0.6); }
+  .sheet .card { width: 100%; max-width: 480px; max-height: 100%; overflow: auto; }
+  .sheet .who { font-size: 18px; font-weight: 650; }
+  .attrs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin: 10px 0; font-size: 13.5px; }
+  .attr { display: flex; justify-content: space-between; gap: 8px; }
+  .attr b { font-variant-numeric: tabular-nums; }
+  .attr.key { color: var(--accent); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+  /* tactique */
+  .tac { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 12px 14px; align-items: start; }
+  .pitchbox { max-width: 640px; margin: 0 auto; width: 100%; }
+  .pitch { position: relative; width: 100%; aspect-ratio: 74 / 74; border-radius: 10px; overflow: hidden; user-select: none; -webkit-user-select: none; }
+  .pitch svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .spot { position: absolute; transform: translate(-50%, -50%); width: 84px; display: flex; flex-direction: column; align-items: center; }
+  .tok { display: flex; flex-direction: column; align-items: center; touch-action: none; cursor: grab; }
+  .tok .ball { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--blue); border: 2px solid #fff; font-size: 12px; font-weight: 700; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); position: relative; }
+  .tok .ball i { position: absolute; right: -7px; top: -6px; width: 17px; height: 17px; border-radius: 50%; background: var(--warn); color: #1a1a1a; font-style: normal; font-size: 12px; line-height: 17px; text-align: center; font-weight: 800; }
+  .tok .nm { margin-top: 2px; max-width: 84px; padding: 0 4px; border-radius: 4px; background: rgba(10, 14, 18, 0.72); font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tok .sub { font-size: 10.5px; padding: 0 4px; border-radius: 4px; background: rgba(10, 14, 18, 0.6); white-space: nowrap; }
+  .tok.off .ball { border-color: var(--warn); box-shadow: 0 0 0 3px rgba(255, 154, 60, 0.55); }
+  .tok.off .sub { color: var(--warn); font-weight: 600; }
+  .tok.sel .ball { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(255, 228, 92, 0.6); }
+  .tok.dragging { opacity: 0.3; }
+  .ghost { position: fixed; z-index: 30; pointer-events: none; transform: translate(-50%, -50%); }
+  .drop.over .ball, .drop.over { outline: 2px dashed var(--accent); outline-offset: 3px; border-radius: 10px; }
+  .bench { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-top: 8px; padding: 10px 6px 8px; border-radius: 10px; background: #1b2530; border: 1px solid var(--line); }
+  .bench .drop { display: flex; justify-content: center; min-height: 66px; padding-top: 2px; }
+  .bench .tok .ball { background: #3a4a5e; }
+  .benchtitle { margin-top: 10px; font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+  .hint { margin: 6px 0 0; font-size: 12.5px; color: var(--muted); }
+  .forms { display: flex; flex-wrap: wrap; gap: 4px; }
+  .forms button { padding: 5px 10px; }
+  .cons { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 10px; align-items: center; }
+  .cons .k { font-size: 13px; color: var(--muted); cursor: help; }
+  .cons select { width: 100%; padding: 5px 6px; }
+  .cons select.set { border-color: var(--accent); }
+  .cons .preset { font-weight: 600; }
+  .side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .side input[type=text] { width: 100%; }
+  .msg { min-height: 1.4em; font-size: 13px; color: var(--ok); }
+  .compo td { padding: 3px 6px; font-size: 13px; }
+  .compo .offp { color: var(--warn); font-weight: 600; white-space: nowrap; }
+
+  @media (max-width: 900px) {
+    .buy, .tac { grid-template-columns: minmax(0, 1fr); }
+    .home { grid-template-columns: 1fr; margin-top: 3vh; }
+    .list { max-height: none; }
+    .valid { margin-left: 0; justify-content: flex-start; }
+    .valid .why { text-align: left; }
+    .hide-s { display: none; }
+    .summary { position: static; }
+  }
+  @media (max-width: 520px) {
+    .spot { width: 64px; }
+    .tok .nm { max-width: 64px; font-size: 10.5px; }
+    .tok .sub { font-size: 9.5px; }
+    .tok .ball { width: 30px; height: 30px; font-size: 11px; }
+    td, th { padding: 4px 3px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="title">Moteur de match</h1>
+    <div class="steps" id="steps" hidden><span id="st1">1. Acheter les joueurs</span><span id="st2">2. Placer l'équipe</span></div>
+    <div class="right"><button id="home" hidden>Accueil</button></div>
+  </header>
+
+  <!-- écran d'accueil -->
+  <section id="vHome">
+    <div class="home">
+      <button class="big" id="goBuild"><b>Construire mon équipe</b><span>Un budget, une base de 120 joueurs : achetez seize joueurs, puis choisissez la formation et placez-les.</span></button>
+      <a class="big" href="match.html" id="goQuick"><b>Match rapide</b><span>Ouvre le match (match.html) avec les équipes déjà prêtes : standard, élite, élevé, moyen, faible.</span></a>
+      <div class="saved muted" id="savedLine" hidden></div>
+    </div>
+  </section>
+
+  <!-- achat des joueurs -->
+  <section id="vBuy" hidden>
+    <div class="buy">
+      <div class="summary">
+        <div><div class="small muted">Budget restant</div><div class="money" id="money"></div></div>
+        <div><div class="small muted">Effectif</div><div class="count" id="count"></div></div>
+        <div class="valid"><span class="why" id="why"></span><button class="main" id="validate">Valider mon équipe</button></div>
+      </div>
+      <div class="card">
+        <h2>Joueurs à acheter</h2>
+        <div class="filters">
+          <div class="chips" id="fPoste"></div>
+          <label>Trier par <select id="sort">
+            <option value="note">note (meilleurs d'abord)</option><option value="prix">prix (moins chers d'abord)</option>
+            <option value="prixd">prix (plus chers d'abord)</option><option value="poste">poste</option><option value="nom">nom</option><option value="age">âge</option>
+          </select></label>
+          <label><input type="checkbox" id="afford"> Seulement ceux que je peux payer</label>
+        </div>
+        <div class="list"><table id="base"></table></div>
+        <p class="hint">Cliquez sur un joueur pour voir ses vingt notes. La note globale compte trois fois les notes importantes de son poste (en jaune sur sa fiche).</p>
+      </div>
+      <div class="card squad">
+        <h2>Mon effectif</h2>
+        <div id="squad"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- tactique -->
+  <section id="vTac" hidden>
+    <div class="tac">
+      <div class="pitchbox">
+        <div class="pitch" id="pitch"></div>
+        <div class="benchtitle">Remplaçants</div>
+        <div class="bench" id="bench"></div>
+        <p class="hint">Faites glisser un joueur sur une place ou sur un autre joueur pour les échanger. Sur téléphone, on peut aussi toucher un joueur puis l'autre. Un rond orange « ! » : le joueur est hors de son poste naturel.</p>
+      </div>
+      <div class="side">
+        <div class="card">
+          <h2>Équipe</h2>
+          <input type="text" id="nom" maxlength="40" placeholder="Nom de l'équipe">
+          <div class="small muted" id="teamInfo" style="margin-top:6px"></div>
+        </div>
+        <div class="card">
+          <h2>Formation</h2>
+          <div class="forms" id="forms"></div>
+          <div class="row" style="margin-top:8px"><button id="auto">Placement automatique</button></div>
+        </div>
+        <div class="card">
+          <h2>Consignes</h2>
+          <div class="cons" id="cons"></div>
+        </div>
+        <div class="card">
+          <h2>Composition</h2>
+          <table class="compo" id="compo"></table>
+        </div>
+        <div class="card">
+          <div class="row"><button class="main" id="save">Enregistrer l'équipe</button><button id="export">Exporter</button><button id="back">Retour aux achats</button></div>
+          <div class="msg" id="msg"></div>
+          <div class="small muted">Lancer un match avec cette équipe viendra plus tard. « Exporter » donne un fichier au format de equipes.json, à recopier dans ce fichier.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="sheet" id="sheet" hidden><div class="card" id="sheetCard"></div></div>
+
+<script>
+'use strict';
+// Données mises en place par « node build.js » : base de joueurs (joueurs.json, avec note globale et prix), budget,
+// et, lues dans engine.js, les formations (places de chaque formation), les tactiques prédéfinies, les consignes et les noms des notes.
+const D = {"budget":29,"joueurs":[{"id":"j001","poste":"G","nom":"Arthur Dupont","age":19,"notes":{"vitesse":12,"acceleration":14,"endurance":14,"passe":12,"vision":13,"prise_de_balle":13,"dribble":10,"finition":9,"tacle":11,"placement":16,"anticipation":19,"lucidite":16,"sang_froid":18,"volume_de_course":11,"agressivite":12,"gout_du_risque":12,"jeu_de_tete":14,"appels":10,"reflexes":17,"mains":16},"note":15.6,"prix":5.2},{"id":"j002","poste":"G","nom":"Julien Delattre","age":22,"notes":{"vitesse":13,"acceleration":12,"endurance":12,"passe":11,"vision":12,"prise_de_balle":11,"dribble":7,"finition":7,"tacle":6,"placement":15,"anticipation":14,"lucidite":14,"sang_froid":15,"volume_de_course":9,"agressivite":11,"gout_du_risque":10,"jeu_de_tete":11,"appels":9,"reflexes":15,"mains":15},"note":13.5,"prix":2.5},{"id":"j003","poste":"G","nom":"Noah Gauthier","age":34,"notes":{"vitesse":11,"acceleration":9,"endurance":11,"passe":10,"vision":11,"prise_de_balle":8,"dribble":7,"finition":5,"tacle":7,"placement":13,"anticipation":14,"lucidite":12,"sang_froid":17,"volume_de_course":9,"agressivite":10,"gout_du_risque":8,"jeu_de_tete":12,"appels":7,"reflexes":14,"mains":14},"note":12.8,"prix":2},{"id":"j004","poste":"G","nom":"Erwan Charrier","age":19,"notes":{"vitesse":10,"acceleration":11,"endurance":11,"passe":9,"vision":15,"prise_de_balle":11,"dribble":6,"finition":5,"tacle":9,"placement":12,"anticipation":15,"lucidite":14,"sang_froid":15,"volume_de_course":9,"agressivite":10,"gout_du_risque":9,"jeu_de_tete":10,"appels":8,"reflexes":14,"mains":14},"note":12.8,"prix":2},{"id":"j005","poste":"G","nom":"Florian Daniel","age":34,"notes":{"vitesse":9,"acceleration":11,"endurance":9,"passe":9,"vision":10,"prise_de_balle":10,"dribble":4,"finition":5,"tacle":5,"placement":14,"anticipation":14,"lucidite":12,"sang_froid":15,"volume_de_course":9,"agressivite":8,"gout_du_risque":7,"jeu_de_tete":10,"appels":6,"reflexes":14,"mains":13},"note":12.3,"prix":1.7},{"id":"j006","poste":"G","nom":"Damien Noël","age":22,"notes":{"vitesse":8,"acceleration":10,"endurance":9,"passe":10,"vision":10,"prise_de_balle":11,"dribble":5,"finition":4,"tacle":5,"placement":15,"anticipation":13,"lucidite":13,"sang_froid":15,"volume_de_course":8,"agressivite":9,"gout_du_risque":8,"jeu_de_tete":8,"appels":6,"reflexes":13,"mains":12},"note":12,"prix":1.5},{"id":"j007","poste":"G","nom":"Lilian Rivière","age":30,"notes":{"vitesse":9,"acceleration":9,"endurance":8,"passe":9,"vision":10,"prise_de_balle":9,"dribble":3,"finition":3,"tacle":3,"placement":10,"anticipation":13,"lucidite":11,"sang_froid":14,"volume_de_course":8,"agressivite":8,"gout_du_risque":7,"jeu_de_tete":10,"appels":4,"reflexes":12,"mains":12},"note":11,"prix":1.1},{"id":"j008","poste":"G","nom":"Mathéo Millet","age":28,"notes":{"vitesse":8,"acceleration":9,"endurance":8,"passe":9,"vision":10,"prise_de_balle":11,"dribble":4,"finition":5,"tacle":5,"placement":11,"anticipation":11,"lucidite":10,"sang_froid":14,"volume_de_course":5,"agressivite":8,"gout_du_risque":7,"jeu_de_tete":8,"appels":7,"reflexes":13,"mains":11},"note":10.6,"prix":1},{"id":"j009","poste":"G","nom":"Bastien Baron","age":24,"notes":{"vitesse":6,"acceleration":7,"endurance":7,"passe":7,"vision":9,"prise_de_balle":9,"dribble":3,"finition":3,"tacle":3,"placement":13,"anticipation":12,"lucidite":10,"sang_froid":12,"volume_de_course":5,"agressivite":5,"gout_du_risque":7,"jeu_de_tete":7,"appels":4,"reflexes":12,"mains":12},"note":10.2,"prix":0.8},{"id":"j010","poste":"G","nom":"Théo Marie","age":25,"notes":{"vitesse":6,"acceleration":8,"endurance":8,"passe":3,"vision":8,"prise_de_balle":7,"dribble":2,"finition":1,"tacle":3,"placement":9,"anticipation":10,"lucidite":11,"sang_froid":10,"volume_de_course":7,"agressivite":5,"gout_du_risque":5,"jeu_de_tete":7,"appels":3,"reflexes":10,"mains":11},"note":8.8,"prix":0.5},{"id":"j011","poste":"G","nom":"Antoine Moulin","age":29,"notes":{"vitesse":4,"acceleration":9,"endurance":6,"passe":2,"vision":6,"prise_de_balle":5,"dribble":2,"finition":2,"tacle":3,"placement":6,"anticipation":8,"lucidite":7,"sang_froid":10,"volume_de_course":5,"agressivite":5,"gout_du_risque":5,"jeu_de_tete":6,"appels":3,"reflexes":10,"mains":9},"note":7.4,"prix":0.3},{"id":"j012","poste":"G","nom":"Axel Mathieu","age":31,"notes":{"vitesse":3,"acceleration":6,"endurance":6,"passe":4,"vision":4,"prise_de_balle":6,"dribble":1,"finition":1,"tacle":1,"placement":7,"anticipation":9,"lucidite":7,"sang_froid":10,"volume_de_course":3,"agressivite":4,"gout_du_risque":4,"jeu_de_tete":4,"appels":1,"reflexes":9,"mains":6},"note":6.8,"prix":0.3},{"id":"j013","poste":"AG","nom":"Noé Gilbert","age":21,"notes":{"vitesse":17,"acceleration":16,"endurance":19,"passe":16,"vision":15,"prise_de_balle":14,"dribble":17,"finition":9,"tacle":17,"placement":16,"anticipation":17,"lucidite":15,"sang_froid":14,"volume_de_course":18,"agressivite":16,"gout_du_risque":12,"jeu_de_tete":13,"appels":16,"reflexes":5,"mains":5},"note":16.1,"prix":6.1},{"id":"j014","poste":"AG","nom":"Sacha Rivière","age":23,"notes":{"vitesse":14,"acceleration":17,"endurance":17,"passe":14,"vision":14,"prise_de_balle":13,"dribble":13,"finition":9,"tacle":14,"placement":15,"anticipation":14,"lucidite":16,"sang_froid":15,"volume_de_course":15,"agressivite":16,"gout_du_risque":10,"jeu_de_tete":12,"appels":14,"reflexes":5,"mains":5},"note":14.5,"prix":3.6},{"id":"j015","poste":"AG","nom":"Valentin Brunet","age":20,"notes":{"vitesse":14,"acceleration":16,"endurance":17,"passe":13,"vision":13,"prise_de_balle":13,"dribble":13,"finition":5,"tacle":13,"placement":15,"anticipation":14,"lucidite":12,"sang_froid":12,"volume_de_course":17,"agressivite":14,"gout_du_risque":10,"jeu_de_tete":13,"appels":13,"reflexes":5,"mains":5},"note":14,"prix":3},{"id":"j016","poste":"AG","nom":"Hugo Millet","age":20,"notes":{"vitesse":16,"acceleration":14,"endurance":16,"passe":12,"vision":14,"prise_de_balle":12,"dribble":12,"finition":7,"tacle":12,"placement":14,"anticipation":12,"lucidite":11,"sang_froid":10,"volume_de_course":13,"agressivite":14,"gout_du_risque":9,"jeu_de_tete":10,"appels":12,"reflexes":5,"mains":5},"note":13,"prix":2.2},{"id":"j017","poste":"AG","nom":"Arthur Barre","age":29,"notes":{"vitesse":13,"acceleration":15,"endurance":14,"passe":10,"vision":11,"prise_de_balle":11,"dribble":13,"finition":5,"tacle":12,"placement":12,"anticipation":11,"lucidite":8,"sang_froid":11,"volume_de_course":13,"agressivite":11,"gout_du_risque":8,"jeu_de_tete":10,"appels":10,"reflexes":5,"mains":5},"note":11.9,"prix":1.5},{"id":"j018","poste":"AG","nom":"Paul Tanguy","age":24,"notes":{"vitesse":11,"acceleration":13,"endurance":14,"passe":12,"vision":11,"prise_de_balle":11,"dribble":10,"finition":5,"tacle":12,"placement":13,"anticipation":13,"lucidite":10,"sang_froid":10,"volume_de_course":14,"agressivite":12,"gout_du_risque":8,"jeu_de_tete":10,"appels":13,"reflexes":5,"mains":5},"note":11.9,"prix":1.5},{"id":"j019","poste":"AG","nom":"Samuel Laurent","age":34,"notes":{"vitesse":12,"acceleration":12,"endurance":12,"passe":9,"vision":8,"prise_de_balle":11,"dribble":9,"finition":4,"tacle":11,"placement":9,"anticipation":10,"lucidite":10,"sang_froid":9,"volume_de_course":12,"agressivite":11,"gout_du_risque":7,"jeu_de_tete":10,"appels":12,"reflexes":5,"mains":5},"note":10.5,"prix":0.9},{"id":"j020","poste":"AG","nom":"Loïc Laine","age":34,"notes":{"vitesse":14,"acceleration":11,"endurance":12,"passe":10,"vision":10,"prise_de_balle":8,"dribble":7,"finition":4,"tacle":11,"placement":11,"anticipation":9,"lucidite":8,"sang_froid":9,"volume_de_course":12,"agressivite":10,"gout_du_risque":5,"jeu_de_tete":7,"appels":9,"reflexes":5,"mains":5},"note":10.3,"prix":0.9},{"id":"j021","poste":"AG","nom":"Florian Bailleul","age":19,"notes":{"vitesse":12,"acceleration":8,"endurance":13,"passe":9,"vision":9,"prise_de_balle":9,"dribble":10,"finition":4,"tacle":10,"placement":11,"anticipation":9,"lucidite":9,"sang_froid":8,"volume_de_course":11,"agressivite":8,"gout_du_risque":7,"jeu_de_tete":8,"appels":11,"reflexes":5,"mains":5},"note":9.9,"prix":0.8},{"id":"j022","poste":"AG","nom":"Axel Gros","age":33,"notes":{"vitesse":10,"acceleration":10,"endurance":11,"passe":8,"vision":6,"prise_de_balle":8,"dribble":8,"finition":3,"tacle":9,"placement":10,"anticipation":9,"lucidite":6,"sang_froid":11,"volume_de_course":10,"agressivite":8,"gout_du_risque":5,"jeu_de_tete":7,"appels":8,"reflexes":5,"mains":5},"note":8.9,"prix":0.5},{"id":"j023","poste":"AG","nom":"Robin Martinez","age":34,"notes":{"vitesse":8,"acceleration":9,"endurance":9,"passe":6,"vision":5,"prise_de_balle":5,"dribble":6,"finition":3,"tacle":7,"placement":8,"anticipation":7,"lucidite":6,"sang_froid":6,"volume_de_course":9,"agressivite":9,"gout_du_risque":3,"jeu_de_tete":4,"appels":6,"reflexes":5,"mains":5},"note":7.2,"prix":0.3},{"id":"j024","poste":"DC","nom":"Marius Vasseur","age":34,"notes":{"vitesse":14,"acceleration":16,"endurance":15,"passe":17,"vision":15,"prise_de_balle":15,"dribble":11,"finition":10,"tacle":16,"placement":18,"anticipation":18,"lucidite":15,"sang_froid":18,"volume_de_course":16,"agressivite":18,"gout_du_risque":12,"jeu_de_tete":18,"appels":11,"reflexes":5,"mains":5},"note":16,"prix":5.9},{"id":"j025","poste":"DC","nom":"Loïc Lambert","age":33,"notes":{"vitesse":14,"acceleration":13,"endurance":12,"passe":14,"vision":13,"prise_de_balle":13,"dribble":11,"finition":9,"tacle":18,"placement":16,"anticipation":16,"lucidite":17,"sang_froid":19,"volume_de_course":17,"agressivite":17,"gout_du_risque":12,"jeu_de_tete":16,"appels":10,"reflexes":5,"mains":5},"note":15.3,"prix":4.7},{"id":"j026","poste":"DC","nom":"Mathéo Ollivier","age":25,"notes":{"vitesse":14,"acceleration":11,"endurance":13,"passe":14,"vision":15,"prise_de_balle":13,"dribble":11,"finition":10,"tacle":18,"placement":15,"anticipation":15,"lucidite":17,"sang_froid":17,"volume_de_course":16,"agressivite":16,"gout_du_risque":11,"jeu_de_tete":16,"appels":8,"reflexes":5,"mains":5},"note":14.7,"prix":3.8},{"id":"j027","poste":"DC","nom":"Julien Ferrand","age":28,"notes":{"vitesse":10,"acceleration":13,"endurance":13,"passe":13,"vision":12,"prise_de_balle":12,"dribble":9,"finition":8,"tacle":18,"placement":15,"anticipation":15,"lucidite":16,"sang_froid":16,"volume_de_course":14,"agressivite":14,"gout_du_risque":11,"jeu_de_tete":15,"appels":10,"reflexes":5,"mains":5},"note":14,"prix":3},{"id":"j028","poste":"DC","nom":"Damien Roger","age":28,"notes":{"vitesse":11,"acceleration":13,"endurance":15,"passe":13,"vision":12,"prise_de_balle":9,"dribble":7,"finition":6,"tacle":13,"placement":15,"anticipation":15,"lucidite":12,"sang_froid":14,"volume_de_course":12,"agressivite":14,"gout_du_risque":7,"jeu_de_tete":16,"appels":7,"reflexes":5,"mains":5},"note":12.8,"prix":2},{"id":"j029","poste":"DC","nom":"Sacha Baron","age":26,"notes":{"vitesse":10,"acceleration":11,"endurance":11,"passe":13,"vision":12,"prise_de_balle":12,"dribble":9,"finition":4,"tacle":14,"placement":15,"anticipation":14,"lucidite":12,"sang_froid":13,"volume_de_course":12,"agressivite":15,"gout_du_risque":7,"jeu_de_tete":15,"appels":7,"reflexes":5,"mains":5},"note":12.4,"prix":1.8},{"id":"j030","poste":"DC","nom":"Yanis Delattre","age":20,"notes":{"vitesse":9,"acceleration":12,"endurance":13,"passe":13,"vision":11,"prise_de_balle":11,"dribble":6,"finition":6,"tacle":13,"placement":14,"anticipation":15,"lucidite":12,"sang_froid":12,"volume_de_course":13,"agressivite":14,"gout_du_risque":7,"jeu_de_tete":14,"appels":7,"reflexes":5,"mains":5},"note":12.1,"prix":1.6},{"id":"j031","poste":"DC","nom":"Loïc Gros","age":30,"notes":{"vitesse":10,"acceleration":12,"endurance":11,"passe":11,"vision":13,"prise_de_balle":10,"dribble":7,"finition":6,"tacle":11,"placement":14,"anticipation":15,"lucidite":12,"sang_froid":12,"volume_de_course":13,"agressivite":14,"gout_du_risque":6,"jeu_de_tete":14,"appels":8,"reflexes":5,"mains":5},"note":11.8,"prix":1.4},{"id":"j032","poste":"DC","nom":"Samuel Legrand","age":18,"notes":{"vitesse":10,"acceleration":11,"endurance":10,"passe":12,"vision":11,"prise_de_balle":10,"dribble":7,"finition":5,"tacle":12,"placement":16,"anticipation":13,"lucidite":11,"sang_froid":11,"volume_de_course":12,"agressivite":13,"gout_du_risque":5,"jeu_de_tete":13,"appels":4,"reflexes":5,"mains":5},"note":11.3,"prix":1.2},{"id":"j033","poste":"DC","nom":"Noah Lucas","age":29,"notes":{"vitesse":10,"acceleration":10,"endurance":9,"passe":12,"vision":9,"prise_de_balle":9,"dribble":6,"finition":7,"tacle":14,"placement":12,"anticipation":12,"lucidite":14,"sang_froid":12,"volume_de_course":12,"agressivite":13,"gout_du_risque":8,"jeu_de_tete":12,"appels":7,"reflexes":5,"mains":5},"note":11.1,"prix":1.1},{"id":"j034","poste":"DC","nom":"Paul Benard","age":18,"notes":{"vitesse":9,"acceleration":11,"endurance":11,"passe":10,"vision":10,"prise_de_balle":10,"dribble":8,"finition":5,"tacle":11,"placement":14,"anticipation":13,"lucidite":11,"sang_froid":13,"volume_de_course":11,"agressivite":12,"gout_du_risque":7,"jeu_de_tete":10,"appels":5,"reflexes":5,"mains":5},"note":10.8,"prix":1},{"id":"j035","poste":"DC","nom":"Mathis Joly","age":34,"notes":{"vitesse":10,"acceleration":10,"endurance":10,"passe":11,"vision":10,"prise_de_balle":8,"dribble":5,"finition":4,"tacle":12,"placement":11,"anticipation":12,"lucidite":13,"sang_froid":11,"volume_de_course":11,"agressivite":10,"gout_du_risque":8,"jeu_de_tete":13,"appels":6,"reflexes":5,"mains":5},"note":10.5,"prix":0.9},{"id":"j036","poste":"DC","nom":"Maxime Lambert","age":29,"notes":{"vitesse":9,"acceleration":10,"endurance":9,"passe":9,"vision":8,"prise_de_balle":9,"dribble":6,"finition":6,"tacle":12,"placement":12,"anticipation":11,"lucidite":11,"sang_froid":13,"volume_de_course":12,"agressivite":14,"gout_du_risque":6,"jeu_de_tete":11,"appels":6,"reflexes":5,"mains":5},"note":10.4,"prix":0.9},{"id":"j037","poste":"DC","nom":"Thibault Vincent","age":32,"notes":{"vitesse":9,"acceleration":10,"endurance":8,"passe":9,"vision":9,"prise_de_balle":9,"dribble":6,"finition":5,"tacle":12,"placement":12,"anticipation":11,"lucidite":11,"sang_froid":12,"volume_de_course":11,"agressivite":9,"gout_du_risque":10,"jeu_de_tete":12,"appels":6,"reflexes":5,"mains":5},"note":10.3,"prix":0.9},{"id":"j038","poste":"DC","nom":"Alexis Marty","age":21,"notes":{"vitesse":8,"acceleration":8,"endurance":7,"passe":9,"vision":7,"prise_de_balle":6,"dribble":5,"finition":3,"tacle":11,"placement":12,"anticipation":13,"lucidite":11,"sang_froid":10,"volume_de_course":9,"agressivite":10,"gout_du_risque":6,"jeu_de_tete":12,"appels":3,"reflexes":5,"mains":5},"note":9.5,"prix":0.7},{"id":"j039","poste":"DC","nom":"Loïc Legrand","age":25,"notes":{"vitesse":9,"acceleration":8,"endurance":9,"passe":8,"vision":7,"prise_de_balle":7,"dribble":3,"finition":3,"tacle":11,"placement":11,"anticipation":11,"lucidite":11,"sang_froid":11,"volume_de_course":9,"agressivite":10,"gout_du_risque":7,"jeu_de_tete":13,"appels":3,"reflexes":5,"mains":5},"note":9.5,"prix":0.7},{"id":"j040","poste":"DC","nom":"Romain Guillaume","age":34,"notes":{"vitesse":7,"acceleration":9,"endurance":7,"passe":10,"vision":9,"prise_de_balle":7,"dribble":5,"finition":4,"tacle":10,"placement":8,"anticipation":11,"lucidite":12,"sang_froid":9,"volume_de_course":9,"agressivite":11,"gout_du_risque":3,"jeu_de_tete":11,"appels":4,"reflexes":5,"mains":5},"note":8.7,"prix":0.5},{"id":"j041","poste":"DC","nom":"Sacha Lecomte","age":23,"notes":{"vitesse":8,"acceleration":7,"endurance":6,"passe":8,"vision":6,"prise_de_balle":8,"dribble":3,"finition":1,"tacle":9,"placement":11,"anticipation":10,"lucidite":10,"sang_froid":9,"volume_de_course":10,"agressivite":9,"gout_du_risque":5,"jeu_de_tete":10,"appels":5,"reflexes":5,"mains":5},"note":8.3,"prix":0.4},{"id":"j042","poste":"DC","nom":"Erwan Paris","age":29,"notes":{"vitesse":8,"acceleration":6,"endurance":8,"passe":8,"vision":7,"prise_de_balle":7,"dribble":1,"finition":1,"tacle":10,"placement":11,"anticipation":11,"lucidite":8,"sang_froid":9,"volume_de_course":9,"agressivite":10,"gout_du_risque":3,"jeu_de_tete":10,"appels":3,"reflexes":5,"mains":5},"note":8.3,"prix":0.4},{"id":"j043","poste":"DC","nom":"Lucas Schmitt","age":31,"notes":{"vitesse":5,"acceleration":11,"endurance":7,"passe":9,"vision":7,"prise_de_balle":7,"dribble":4,"finition":1,"tacle":9,"placement":10,"anticipation":9,"lucidite":9,"sang_froid":10,"volume_de_course":8,"agressivite":10,"gout_du_risque":4,"jeu_de_tete":10,"appels":1,"reflexes":5,"mains":5},"note":8.1,"prix":0.4},{"id":"j044","poste":"DC","nom":"Théo Bouvier","age":30,"notes":{"vitesse":6,"acceleration":7,"endurance":6,"passe":7,"vision":5,"prise_de_balle":6,"dribble":3,"finition":2,"tacle":10,"placement":9,"anticipation":9,"lucidite":9,"sang_froid":9,"volume_de_course":8,"agressivite":8,"gout_du_risque":4,"jeu_de_tete":9,"appels":2,"reflexes":5,"mains":5},"note":7.5,"prix":0.3},{"id":"j045","poste":"DC","nom":"Léo Dupont","age":25,"notes":{"vitesse":4,"acceleration":6,"endurance":6,"passe":6,"vision":5,"prise_de_balle":4,"dribble":3,"finition":1,"tacle":8,"placement":11,"anticipation":6,"lucidite":7,"sang_froid":8,"volume_de_course":7,"agressivite":7,"gout_du_risque":3,"jeu_de_tete":10,"appels":3,"reflexes":5,"mains":5},"note":6.8,"prix":0.3},{"id":"j046","poste":"AD","nom":"Léo Bouvier","age":31,"notes":{"vitesse":16,"acceleration":17,"endurance":18,"passe":15,"vision":16,"prise_de_balle":16,"dribble":15,"finition":11,"tacle":17,"placement":17,"anticipation":17,"lucidite":16,"sang_froid":16,"volume_de_course":14,"agressivite":17,"gout_du_risque":12,"jeu_de_tete":16,"appels":12,"reflexes":5,"mains":5},"note":15.9,"prix":5.7},{"id":"j047","poste":"AD","nom":"Hugo Gautier","age":30,"notes":{"vitesse":15,"acceleration":18,"endurance":16,"passe":13,"vision":12,"prise_de_balle":13,"dribble":13,"finition":10,"tacle":15,"placement":16,"anticipation":16,"lucidite":16,"sang_froid":15,"volume_de_course":17,"agressivite":14,"gout_du_risque":11,"jeu_de_tete":12,"appels":13,"reflexes":5,"mains":5},"note":15,"prix":4.2},{"id":"j048","poste":"AD","nom":"Noah Guillaume","age":19,"notes":{"vitesse":16,"acceleration":14,"endurance":14,"passe":12,"vision":11,"prise_de_balle":12,"dribble":11,"finition":9,"tacle":16,"placement":14,"anticipation":14,"lucidite":12,"sang_froid":14,"volume_de_course":15,"agressivite":11,"gout_du_risque":10,"jeu_de_tete":11,"appels":10,"reflexes":5,"mains":5},"note":13.5,"prix":2.5},{"id":"j049","poste":"AD","nom":"Mathis Laurent","age":26,"notes":{"vitesse":15,"acceleration":15,"endurance":15,"passe":11,"vision":11,"prise_de_balle":16,"dribble":11,"finition":8,"tacle":13,"placement":14,"anticipation":15,"lucidite":13,"sang_froid":12,"volume_de_course":14,"agressivite":13,"gout_du_risque":11,"jeu_de_tete":12,"appels":8,"reflexes":5,"mains":5},"note":13.3,"prix":2.4},{"id":"j050","poste":"AD","nom":"Erwan Baron","age":29,"notes":{"vitesse":13,"acceleration":14,"endurance":14,"passe":12,"vision":9,"prise_de_balle":12,"dribble":10,"finition":7,"tacle":12,"placement":15,"anticipation":11,"lucidite":11,"sang_froid":13,"volume_de_course":13,"agressivite":12,"gout_du_risque":9,"jeu_de_tete":10,"appels":9,"reflexes":5,"mains":5},"note":12.3,"prix":1.7},{"id":"j051","poste":"AD","nom":"Yanis Weber","age":29,"notes":{"vitesse":13,"acceleration":15,"endurance":15,"passe":11,"vision":10,"prise_de_balle":12,"dribble":9,"finition":6,"tacle":12,"placement":16,"anticipation":13,"lucidite":11,"sang_froid":12,"volume_de_course":12,"agressivite":12,"gout_du_risque":8,"jeu_de_tete":9,"appels":8,"reflexes":5,"mains":5},"note":12.3,"prix":1.7},{"id":"j052","poste":"AD","nom":"Yanis Tanguy","age":21,"notes":{"vitesse":12,"acceleration":13,"endurance":14,"passe":10,"vision":8,"prise_de_balle":9,"dribble":9,"finition":6,"tacle":11,"placement":12,"anticipation":12,"lucidite":9,"sang_froid":11,"volume_de_course":12,"agressivite":10,"gout_du_risque":7,"jeu_de_tete":13,"appels":8,"reflexes":5,"mains":5},"note":11.1,"prix":1.1},{"id":"j053","poste":"AD","nom":"Lilian Leblanc","age":27,"notes":{"vitesse":11,"acceleration":11,"endurance":12,"passe":9,"vision":8,"prise_de_balle":10,"dribble":7,"finition":5,"tacle":10,"placement":10,"anticipation":11,"lucidite":11,"sang_froid":10,"volume_de_course":14,"agressivite":11,"gout_du_risque":6,"jeu_de_tete":9,"appels":7,"reflexes":5,"mains":5},"note":10.3,"prix":0.9},{"id":"j054","poste":"AD","nom":"Robin Benard","age":23,"notes":{"vitesse":10,"acceleration":12,"endurance":14,"passe":8,"vision":8,"prise_de_balle":11,"dribble":7,"finition":3,"tacle":9,"placement":11,"anticipation":10,"lucidite":9,"sang_froid":9,"volume_de_course":10,"agressivite":9,"gout_du_risque":8,"jeu_de_tete":9,"appels":8,"reflexes":5,"mains":5},"note":9.9,"prix":0.8},{"id":"j055","poste":"AD","nom":"Enzo Laine","age":34,"notes":{"vitesse":9,"acceleration":10,"endurance":11,"passe":8,"vision":7,"prise_de_balle":7,"dribble":6,"finition":3,"tacle":10,"placement":10,"anticipation":9,"lucidite":7,"sang_froid":8,"volume_de_course":9,"agressivite":5,"gout_du_risque":6,"jeu_de_tete":8,"appels":6,"reflexes":5,"mains":5},"note":8.6,"prix":0.5},{"id":"j056","poste":"AD","nom":"Baptiste Noël","age":20,"notes":{"vitesse":9,"acceleration":11,"endurance":10,"passe":7,"vision":6,"prise_de_balle":7,"dribble":4,"finition":2,"tacle":9,"placement":9,"anticipation":7,"lucidite":8,"sang_froid":8,"volume_de_course":11,"agressivite":8,"gout_du_risque":5,"jeu_de_tete":7,"appels":5,"reflexes":5,"mains":5},"note":8.4,"prix":0.5},{"id":"j057","poste":"MG","nom":"Kévin Roche","age":29,"notes":{"vitesse":20,"acceleration":16,"endurance":17,"passe":16,"vision":14,"prise_de_balle":15,"dribble":17,"finition":14,"tacle":12,"placement":14,"anticipation":15,"lucidite":15,"sang_froid":16,"volume_de_course":17,"agressivite":13,"gout_du_risque":17,"jeu_de_tete":14,"appels":16,"reflexes":5,"mains":5},"note":16.1,"prix":6.1},{"id":"j058","poste":"MG","nom":"Corentin Roy","age":31,"notes":{"vitesse":15,"acceleration":15,"endurance":13,"passe":15,"vision":11,"prise_de_balle":13,"dribble":15,"finition":14,"tacle":10,"placement":11,"anticipation":14,"lucidite":13,"sang_froid":12,"volume_de_course":14,"agressivite":12,"gout_du_risque":17,"jeu_de_tete":13,"appels":13,"reflexes":5,"mains":5},"note":13.8,"prix":2.8},{"id":"j059","poste":"MG","nom":"Simon Rivière","age":28,"notes":{"vitesse":16,"acceleration":15,"endurance":17,"passe":14,"vision":12,"prise_de_balle":14,"dribble":14,"finition":11,"tacle":9,"placement":12,"anticipation":12,"lucidite":12,"sang_froid":12,"volume_de_course":14,"agressivite":11,"gout_du_risque":16,"jeu_de_tete":12,"appels":13,"reflexes":5,"mains":5},"note":13.6,"prix":2.6},{"id":"j060","poste":"MG","nom":"Rémi Lecomte","age":30,"notes":{"vitesse":15,"acceleration":15,"endurance":12,"passe":13,"vision":13,"prise_de_balle":11,"dribble":15,"finition":11,"tacle":8,"placement":12,"anticipation":12,"lucidite":13,"sang_froid":9,"volume_de_course":14,"agressivite":10,"gout_du_risque":13,"jeu_de_tete":10,"appels":15,"reflexes":5,"mains":5},"note":13.2,"prix":2.3},{"id":"j061","poste":"MG","nom":"Bastien Bonnet","age":18,"notes":{"vitesse":15,"acceleration":14,"endurance":11,"passe":11,"vision":9,"prise_de_balle":13,"dribble":14,"finition":10,"tacle":9,"placement":7,"anticipation":12,"lucidite":10,"sang_froid":11,"volume_de_course":13,"agressivite":9,"gout_du_risque":13,"jeu_de_tete":8,"appels":11,"reflexes":5,"mains":5},"note":11.9,"prix":1.5},{"id":"j062","poste":"MG","nom":"Romain Jacquet","age":28,"notes":{"vitesse":13,"acceleration":13,"endurance":12,"passe":11,"vision":10,"prise_de_balle":11,"dribble":11,"finition":9,"tacle":8,"placement":10,"anticipation":12,"lucidite":11,"sang_froid":11,"volume_de_course":14,"agressivite":10,"gout_du_risque":13,"jeu_de_tete":10,"appels":10,"reflexes":5,"mains":5},"note":11.4,"prix":1.3},{"id":"j063","poste":"MG","nom":"Erwan Legrand","age":20,"notes":{"vitesse":12,"acceleration":14,"endurance":11,"passe":11,"vision":7,"prise_de_balle":10,"dribble":12,"finition":10,"tacle":9,"placement":9,"anticipation":10,"lucidite":10,"sang_froid":9,"volume_de_course":13,"agressivite":6,"gout_du_risque":13,"jeu_de_tete":9,"appels":11,"reflexes":5,"mains":5},"note":11.1,"prix":1.1},{"id":"j064","poste":"MG","nom":"Paul Bailleul","age":18,"notes":{"vitesse":13,"acceleration":12,"endurance":12,"passe":12,"vision":8,"prise_de_balle":10,"dribble":11,"finition":10,"tacle":7,"placement":9,"anticipation":10,"lucidite":9,"sang_froid":10,"volume_de_course":10,"agressivite":9,"gout_du_risque":11,"jeu_de_tete":10,"appels":11,"reflexes":5,"mains":5},"note":10.7,"prix":1},{"id":"j065","poste":"MG","nom":"Baptiste Girard","age":20,"notes":{"vitesse":15,"acceleration":12,"endurance":11,"passe":9,"vision":7,"prise_de_balle":9,"dribble":9,"finition":7,"tacle":6,"placement":9,"anticipation":8,"lucidite":8,"sang_froid":8,"volume_de_course":12,"agressivite":8,"gout_du_risque":12,"jeu_de_tete":6,"appels":11,"reflexes":5,"mains":5},"note":10.1,"prix":0.8},{"id":"j066","poste":"MG","nom":"Robin Paris","age":25,"notes":{"vitesse":11,"acceleration":12,"endurance":10,"passe":10,"vision":6,"prise_de_balle":7,"dribble":11,"finition":7,"tacle":6,"placement":8,"anticipation":8,"lucidite":8,"sang_froid":9,"volume_de_course":11,"agressivite":8,"gout_du_risque":12,"jeu_de_tete":6,"appels":10,"reflexes":5,"mains":5},"note":9.7,"prix":0.7},{"id":"j067","poste":"MG","nom":"Lilian Tanguy","age":33,"notes":{"vitesse":10,"acceleration":10,"endurance":10,"passe":7,"vision":6,"prise_de_balle":8,"dribble":8,"finition":5,"tacle":5,"placement":7,"anticipation":6,"lucidite":7,"sang_froid":5,"volume_de_course":8,"agressivite":4,"gout_du_risque":10,"jeu_de_tete":6,"appels":10,"reflexes":5,"mains":5},"note":7.9,"prix":0.4},{"id":"j068","poste":"MG","nom":"Malo Germain","age":24,"notes":{"vitesse":9,"acceleration":10,"endurance":4,"passe":7,"vision":5,"prise_de_balle":7,"dribble":9,"finition":4,"tacle":3,"placement":5,"anticipation":6,"lucidite":5,"sang_froid":4,"volume_de_course":9,"agressivite":5,"gout_du_risque":8,"jeu_de_tete":3,"appels":9,"reflexes":5,"mains":5},"note":7.3,"prix":0.3},{"id":"j069","poste":"MC","nom":"Arthur Charrier","age":18,"notes":{"vitesse":15,"acceleration":15,"endurance":18,"passe":16,"vision":16,"prise_de_balle":15,"dribble":14,"finition":16,"tacle":13,"placement":15,"anticipation":15,"lucidite":19,"sang_froid":17,"volume_de_course":19,"agressivite":14,"gout_du_risque":15,"jeu_de_tete":12,"appels":16,"reflexes":5,"mains":5},"note":15.9,"prix":5.7},{"id":"j070","poste":"MC","nom":"Axel Bouchet","age":34,"notes":{"vitesse":14,"acceleration":12,"endurance":16,"passe":13,"vision":13,"prise_de_balle":16,"dribble":14,"finition":10,"tacle":16,"placement":17,"anticipation":16,"lucidite":17,"sang_froid":16,"volume_de_course":17,"agressivite":17,"gout_du_risque":8,"jeu_de_tete":17,"appels":12,"reflexes":5,"mains":5},"note":14.8,"prix":3.9},{"id":"j071","poste":"MC","nom":"Benjamin Duval","age":26,"notes":{"vitesse":13,"acceleration":14,"endurance":17,"passe":14,"vision":15,"prise_de_balle":15,"dribble":17,"finition":12,"tacle":13,"placement":14,"anticipation":14,"lucidite":17,"sang_froid":16,"volume_de_course":17,"agressivite":13,"gout_du_risque":13,"jeu_de_tete":11,"appels":13,"reflexes":5,"mains":5},"note":14.7,"prix":3.8},{"id":"j072","poste":"MC","nom":"Alexis Tanguy","age":22,"notes":{"vitesse":12,"acceleration":12,"endurance":13,"passe":13,"vision":13,"prise_de_balle":14,"dribble":13,"finition":7,"tacle":16,"placement":15,"anticipation":16,"lucidite":15,"sang_froid":15,"volume_de_course":15,"agressivite":17,"gout_du_risque":11,"jeu_de_tete":13,"appels":11,"reflexes":5,"mains":5},"note":13.6,"prix":2.6},{"id":"j073","poste":"MC","nom":"Léo Hervé","age":23,"notes":{"vitesse":12,"acceleration":9,"endurance":13,"passe":13,"vision":12,"prise_de_balle":15,"dribble":13,"finition":7,"tacle":13,"placement":15,"anticipation":15,"lucidite":15,"sang_froid":18,"volume_de_course":14,"agressivite":17,"gout_du_risque":11,"jeu_de_tete":10,"appels":9,"reflexes":5,"mains":5},"note":13.2,"prix":2.3},{"id":"j074","poste":"MC","nom":"Noé Muller","age":27,"notes":{"vitesse":11,"acceleration":10,"endurance":16,"passe":12,"vision":14,"prise_de_balle":13,"dribble":12,"finition":12,"tacle":12,"placement":12,"anticipation":13,"lucidite":14,"sang_froid":15,"volume_de_course":16,"agressivite":11,"gout_du_risque":16,"jeu_de_tete":9,"appels":12,"reflexes":5,"mains":5},"note":13.1,"prix":2.2},{"id":"j075","poste":"MC","nom":"Florian Rousseau","age":34,"notes":{"vitesse":12,"acceleration":10,"endurance":11,"passe":14,"vision":12,"prise_de_balle":14,"dribble":12,"finition":7,"tacle":13,"placement":14,"anticipation":15,"lucidite":15,"sang_froid":14,"volume_de_course":12,"agressivite":15,"gout_du_risque":9,"jeu_de_tete":12,"appels":9,"reflexes":5,"mains":5},"note":12.7,"prix":1.9},{"id":"j076","poste":"MC","nom":"Malo Rousseau","age":20,"notes":{"vitesse":10,"acceleration":8,"endurance":13,"passe":11,"vision":11,"prise_de_balle":14,"dribble":12,"finition":7,"tacle":12,"placement":17,"anticipation":13,"lucidite":15,"sang_froid":15,"volume_de_course":13,"agressivite":16,"gout_du_risque":9,"jeu_de_tete":11,"appels":10,"reflexes":5,"mains":5},"note":12.4,"prix":1.8},{"id":"j077","poste":"MC","nom":"Paul Garcia","age":29,"notes":{"vitesse":14,"acceleration":9,"endurance":13,"passe":13,"vision":13,"prise_de_balle":11,"dribble":10,"finition":10,"tacle":9,"placement":10,"anticipation":12,"lucidite":14,"sang_froid":14,"volume_de_course":14,"agressivite":11,"gout_du_risque":12,"jeu_de_tete":9,"appels":11,"reflexes":5,"mains":5},"note":12,"prix":1.5},{"id":"j078","poste":"MC","nom":"Enzo Rousseau","age":20,"notes":{"vitesse":12,"acceleration":11,"endurance":13,"passe":13,"vision":13,"prise_de_balle":12,"dribble":11,"finition":10,"tacle":11,"placement":11,"anticipation":10,"lucidite":13,"sang_froid":13,"volume_de_course":13,"agressivite":11,"gout_du_risque":13,"jeu_de_tete":8,"appels":10,"reflexes":5,"mains":5},"note":11.9,"prix":1.5},{"id":"j079","poste":"MC","nom":"Robin Rousseau","age":31,"notes":{"vitesse":10,"acceleration":9,"endurance":12,"passe":11,"vision":12,"prise_de_balle":14,"dribble":11,"finition":4,"tacle":11,"placement":12,"anticipation":13,"lucidite":17,"sang_froid":12,"volume_de_course":11,"agressivite":13,"gout_du_risque":9,"jeu_de_tete":12,"appels":7,"reflexes":5,"mains":5},"note":11.9,"prix":1.5},{"id":"j080","poste":"MC","nom":"Malo Gros","age":18,"notes":{"vitesse":11,"acceleration":11,"endurance":13,"passe":11,"vision":11,"prise_de_balle":12,"dribble":11,"finition":10,"tacle":11,"placement":11,"anticipation":13,"lucidite":14,"sang_froid":14,"volume_de_course":12,"agressivite":10,"gout_du_risque":13,"jeu_de_tete":8,"appels":11,"reflexes":5,"mains":5},"note":11.8,"prix":1.4},{"id":"j081","poste":"MC","nom":"Damien Mathieu","age":33,"notes":{"vitesse":11,"acceleration":14,"endurance":14,"passe":10,"vision":13,"prise_de_balle":11,"dribble":10,"finition":10,"tacle":9,"placement":9,"anticipation":10,"lucidite":12,"sang_froid":14,"volume_de_course":14,"agressivite":10,"gout_du_risque":10,"jeu_de_tete":6,"appels":9,"reflexes":5,"mains":5},"note":11.2,"prix":1.2},{"id":"j082","poste":"MC","nom":"Rémi Bouchet","age":32,"notes":{"vitesse":7,"acceleration":10,"endurance":14,"passe":10,"vision":12,"prise_de_balle":11,"dribble":12,"finition":10,"tacle":10,"placement":10,"anticipation":11,"lucidite":12,"sang_froid":12,"volume_de_course":13,"agressivite":7,"gout_du_risque":10,"jeu_de_tete":6,"appels":10,"reflexes":5,"mains":5},"note":10.9,"prix":1.1},{"id":"j083","poste":"MC","nom":"Malo Dumont","age":22,"notes":{"vitesse":10,"acceleration":10,"endurance":12,"passe":10,"vision":12,"prise_de_balle":12,"dribble":9,"finition":9,"tacle":8,"placement":10,"anticipation":11,"lucidite":12,"sang_froid":12,"volume_de_course":13,"agressivite":9,"gout_du_risque":13,"jeu_de_tete":8,"appels":7,"reflexes":5,"mains":5},"note":10.8,"prix":1},{"id":"j084","poste":"MC","nom":"Malo Roger","age":28,"notes":{"vitesse":9,"acceleration":6,"endurance":11,"passe":11,"vision":11,"prise_de_balle":14,"dribble":10,"finition":5,"tacle":11,"placement":12,"anticipation":11,"lucidite":12,"sang_froid":13,"volume_de_course":11,"agressivite":13,"gout_du_risque":8,"jeu_de_tete":9,"appels":8,"reflexes":5,"mains":5},"note":10.8,"prix":1},{"id":"j085","poste":"MC","nom":"Quentin Germain","age":29,"notes":{"vitesse":9,"acceleration":8,"endurance":12,"passe":10,"vision":11,"prise_de_balle":9,"dribble":9,"finition":10,"tacle":8,"placement":8,"anticipation":10,"lucidite":12,"sang_froid":9,"volume_de_course":14,"agressivite":6,"gout_du_risque":9,"jeu_de_tete":7,"appels":8,"reflexes":5,"mains":5},"note":9.9,"prix":0.8},{"id":"j086","poste":"MC","nom":"Yanis Pichon","age":29,"notes":{"vitesse":8,"acceleration":8,"endurance":10,"passe":8,"vision":9,"prise_de_balle":9,"dribble":9,"finition":5,"tacle":13,"placement":11,"anticipation":11,"lucidite":13,"sang_froid":11,"volume_de_course":11,"agressivite":11,"gout_du_risque":7,"jeu_de_tete":9,"appels":4,"reflexes":5,"mains":5},"note":9.6,"prix":0.7},{"id":"j087","poste":"MC","nom":"Arthur Gilbert","age":28,"notes":{"vitesse":10,"acceleration":7,"endurance":10,"passe":8,"vision":8,"prise_de_balle":10,"dribble":8,"finition":4,"tacle":10,"placement":11,"anticipation":9,"lucidite":12,"sang_froid":10,"volume_de_course":10,"agressivite":13,"gout_du_risque":6,"jeu_de_tete":9,"appels":6,"reflexes":5,"mains":5},"note":9.2,"prix":0.6},{"id":"j088","poste":"MC","nom":"Adrien Clément","age":31,"notes":{"vitesse":7,"acceleration":6,"endurance":9,"passe":8,"vision":7,"prise_de_balle":9,"dribble":8,"finition":4,"tacle":8,"placement":10,"anticipation":8,"lucidite":13,"sang_froid":9,"volume_de_course":9,"agressivite":11,"gout_du_risque":5,"jeu_de_tete":8,"appels":5,"reflexes":5,"mains":5},"note":8.4,"prix":0.5},{"id":"j089","poste":"MC","nom":"Lucas Tessier","age":30,"notes":{"vitesse":6,"acceleration":6,"endurance":10,"passe":7,"vision":8,"prise_de_balle":9,"dribble":8,"finition":4,"tacle":10,"placement":9,"anticipation":9,"lucidite":11,"sang_froid":10,"volume_de_course":9,"agressivite":12,"gout_du_risque":4,"jeu_de_tete":7,"appels":5,"reflexes":5,"mains":5},"note":8.4,"prix":0.5},{"id":"j090","poste":"MC","nom":"Samuel Renaud","age":19,"notes":{"vitesse":6,"acceleration":5,"endurance":8,"passe":7,"vision":8,"prise_de_balle":10,"dribble":6,"finition":1,"tacle":7,"placement":9,"anticipation":10,"lucidite":8,"sang_froid":10,"volume_de_course":11,"agressivite":10,"gout_du_risque":4,"jeu_de_tete":7,"appels":4,"reflexes":5,"mains":5},"note":7.8,"prix":0.4},{"id":"j091","poste":"MC","nom":"Mathéo Bouchet","age":28,"notes":{"vitesse":6,"acceleration":6,"endurance":8,"passe":7,"vision":6,"prise_de_balle":9,"dribble":6,"finition":4,"tacle":8,"placement":7,"anticipation":9,"lucidite":12,"sang_froid":9,"volume_de_course":7,"agressivite":9,"gout_du_risque":4,"jeu_de_tete":6,"appels":4,"reflexes":5,"mains":5},"note":7.6,"prix":0.3},{"id":"j092","poste":"MC","nom":"Loïc Lecomte","age":23,"notes":{"vitesse":5,"acceleration":4,"endurance":8,"passe":7,"vision":7,"prise_de_balle":5,"dribble":4,"finition":5,"tacle":4,"placement":5,"anticipation":7,"lucidite":6,"sang_froid":6,"volume_de_course":8,"agressivite":5,"gout_du_risque":5,"jeu_de_tete":1,"appels":4,"reflexes":5,"mains":5},"note":5.9,"prix":0.2},{"id":"j093","poste":"MD","nom":"Victor Leblanc","age":30,"notes":{"vitesse":19,"acceleration":17,"endurance":20,"passe":17,"vision":16,"prise_de_balle":19,"dribble":18,"finition":16,"tacle":14,"placement":16,"anticipation":16,"lucidite":15,"sang_froid":13,"volume_de_course":16,"agressivite":16,"gout_du_risque":17,"jeu_de_tete":14,"appels":18,"reflexes":5,"mains":5},"note":16.9,"prix":8},{"id":"j094","poste":"MD","nom":"Sacha Vincent","age":25,"notes":{"vitesse":16,"acceleration":14,"endurance":15,"passe":13,"vision":13,"prise_de_balle":14,"dribble":16,"finition":12,"tacle":10,"placement":12,"anticipation":11,"lucidite":12,"sang_froid":13,"volume_de_course":14,"agressivite":13,"gout_du_risque":13,"jeu_de_tete":8,"appels":14,"reflexes":5,"mains":5},"note":13.6,"prix":2.6},{"id":"j095","poste":"MD","nom":"Noé Laine","age":18,"notes":{"vitesse":16,"acceleration":13,"endurance":15,"passe":14,"vision":12,"prise_de_balle":13,"dribble":15,"finition":11,"tacle":10,"placement":12,"anticipation":14,"lucidite":14,"sang_froid":12,"volume_de_course":13,"agressivite":13,"gout_du_risque":14,"jeu_de_tete":9,"appels":15,"reflexes":5,"mains":5},"note":13.6,"prix":2.6},{"id":"j096","poste":"MD","nom":"Jules Benard","age":24,"notes":{"vitesse":15,"acceleration":16,"endurance":14,"passe":13,"vision":12,"prise_de_balle":13,"dribble":14,"finition":9,"tacle":9,"placement":11,"anticipation":11,"lucidite":12,"sang_froid":11,"volume_de_course":13,"agressivite":12,"gout_du_risque":14,"jeu_de_tete":10,"appels":12,"reflexes":5,"mains":5},"note":12.9,"prix":2.1},{"id":"j097","poste":"MD","nom":"Damien Gauthier","age":25,"notes":{"vitesse":13,"acceleration":13,"endurance":13,"passe":13,"vision":11,"prise_de_balle":12,"dribble":14,"finition":9,"tacle":7,"placement":11,"anticipation":7,"lucidite":10,"sang_froid":11,"volume_de_course":12,"agressivite":10,"gout_du_risque":13,"jeu_de_tete":8,"appels":13,"reflexes":5,"mains":5},"note":11.9,"prix":1.5},{"id":"j098","poste":"MD","nom":"Maxime Moulin","age":20,"notes":{"vitesse":14,"acceleration":14,"endurance":12,"passe":12,"vision":10,"prise_de_balle":13,"dribble":12,"finition":10,"tacle":7,"placement":10,"anticipation":9,"lucidite":11,"sang_froid":10,"volume_de_course":13,"agressivite":12,"gout_du_risque":13,"jeu_de_tete":8,"appels":10,"reflexes":5,"mains":5},"note":11.7,"prix":1.4},{"id":"j099","poste":"MD","nom":"Yanis Leroy","age":23,"notes":{"vitesse":14,"acceleration":12,"endurance":12,"passe":12,"vision":11,"prise_de_balle":12,"dribble":11,"finition":7,"tacle":6,"placement":10,"anticipation":9,"lucidite":10,"sang_froid":9,"volume_de_course":10,"agressivite":9,"gout_du_risque":10,"jeu_de_tete":8,"appels":11,"reflexes":5,"mains":5},"note":10.8,"prix":1},{"id":"j100","poste":"MD","nom":"Louis Martinez","age":29,"notes":{"vitesse":13,"acceleration":12,"endurance":10,"passe":10,"vision":9,"prise_de_balle":11,"dribble":12,"finition":9,"tacle":6,"placement":10,"anticipation":9,"lucidite":12,"sang_froid":9,"volume_de_course":10,"agressivite":9,"gout_du_risque":11,"jeu_de_tete":8,"appels":11,"reflexes":5,"mains":5},"note":10.6,"prix":1},{"id":"j101","poste":"MD","nom":"Maxime Benard","age":27,"notes":{"vitesse":12,"acceleration":11,"endurance":11,"passe":10,"vision":9,"prise_de_balle":11,"dribble":12,"finition":7,"tacle":8,"placement":9,"anticipation":7,"lucidite":9,"sang_froid":11,"volume_de_course":10,"agressivite":7,"gout_du_risque":9,"jeu_de_tete":6,"appels":10,"reflexes":5,"mains":5},"note":10,"prix":0.8},{"id":"j102","poste":"MD","nom":"Baptiste Jean","age":25,"notes":{"vitesse":11,"acceleration":10,"endurance":10,"passe":9,"vision":10,"prise_de_balle":8,"dribble":11,"finition":5,"tacle":4,"placement":6,"anticipation":8,"lucidite":7,"sang_froid":7,"volume_de_course":9,"agressivite":7,"gout_du_risque":8,"jeu_de_tete":4,"appels":8,"reflexes":5,"mains":5},"note":8.6,"prix":0.5},{"id":"j103","poste":"MD","nom":"Enzo Delmas","age":22,"notes":{"vitesse":10,"acceleration":8,"endurance":12,"passe":9,"vision":7,"prise_de_balle":10,"dribble":10,"finition":3,"tacle":4,"placement":7,"anticipation":6,"lucidite":7,"sang_froid":6,"volume_de_course":10,"agressivite":7,"gout_du_risque":8,"jeu_de_tete":5,"appels":8,"reflexes":5,"mains":5},"note":8.2,"prix":0.4},{"id":"j104","poste":"MD","nom":"Antoine Fournier","age":31,"notes":{"vitesse":8,"acceleration":7,"endurance":10,"passe":8,"vision":7,"prise_de_balle":8,"dribble":6,"finition":6,"tacle":3,"placement":3,"anticipation":4,"lucidite":5,"sang_froid":6,"volume_de_course":6,"agressivite":4,"gout_du_risque":7,"jeu_de_tete":2,"appels":8,"reflexes":5,"mains":5},"note":6.5,"prix":0.2},{"id":"j105","poste":"AT","nom":"Mathis Maillard","age":22,"notes":{"vitesse":17,"acceleration":16,"endurance":13,"passe":12,"vision":13,"prise_de_balle":16,"dribble":15,"finition":18,"tacle":9,"placement":11,"anticipation":18,"lucidite":15,"sang_froid":16,"volume_de_course":15,"agressivite":15,"gout_du_risque":15,"jeu_de_tete":17,"appels":17,"reflexes":5,"mains":5},"note":15.7,"prix":5.3},{"id":"j106","poste":"AT","nom":"Benjamin Mercier","age":22,"notes":{"vitesse":15,"acceleration":17,"endurance":13,"passe":13,"vision":14,"prise_de_balle":16,"dribble":16,"finition":15,"tacle":5,"placement":10,"anticipation":15,"lucidite":18,"sang_froid":16,"volume_de_course":12,"agressivite":12,"gout_du_risque":16,"jeu_de_tete":10,"appels":16,"reflexes":5,"mains":5},"note":14.5,"prix":3.6},{"id":"j107","poste":"AT","nom":"Clément Gilbert","age":22,"notes":{"vitesse":15,"acceleration":15,"endurance":13,"passe":15,"vision":13,"prise_de_balle":16,"dribble":14,"finition":13,"tacle":6,"placement":10,"anticipation":14,"lucidite":14,"sang_froid":15,"volume_de_course":11,"agressivite":9,"gout_du_risque":12,"jeu_de_tete":10,"appels":14,"reflexes":5,"mains":5},"note":13.4,"prix":2.5},{"id":"j108","poste":"AT","nom":"Samuel Mathieu","age":23,"notes":{"vitesse":14,"acceleration":12,"endurance":10,"passe":13,"vision":9,"prise_de_balle":12,"dribble":11,"finition":15,"tacle":6,"placement":5,"anticipation":15,"lucidite":11,"sang_froid":16,"volume_de_course":13,"agressivite":11,"gout_du_risque":12,"jeu_de_tete":15,"appels":14,"reflexes":5,"mains":5},"note":12.9,"prix":2.1},{"id":"j109","poste":"AT","nom":"Damien Ferrand","age":33,"notes":{"vitesse":12,"acceleration":13,"endurance":10,"passe":11,"vision":9,"prise_de_balle":13,"dribble":11,"finition":14,"tacle":5,"placement":8,"anticipation":18,"lucidite":11,"sang_froid":12,"volume_de_course":13,"agressivite":11,"gout_du_risque":9,"jeu_de_tete":15,"appels":15,"reflexes":5,"mains":5},"note":12.6,"prix":1.9},{"id":"j110","poste":"AT","nom":"Maxime Guillaume","age":22,"notes":{"vitesse":12,"acceleration":14,"endurance":10,"passe":12,"vision":8,"prise_de_balle":13,"dribble":11,"finition":14,"tacle":6,"placement":5,"anticipation":14,"lucidite":13,"sang_froid":14,"volume_de_course":11,"agressivite":13,"gout_du_risque":12,"jeu_de_tete":15,"appels":15,"reflexes":5,"mains":5},"note":12.5,"prix":1.8},{"id":"j111","poste":"AT","nom":"Gaël Bonnet","age":23,"notes":{"vitesse":14,"acceleration":14,"endurance":13,"passe":11,"vision":11,"prise_de_balle":12,"dribble":13,"finition":10,"tacle":4,"placement":7,"anticipation":12,"lucidite":14,"sang_froid":14,"volume_de_course":10,"agressivite":8,"gout_du_risque":13,"jeu_de_tete":8,"appels":13,"reflexes":5,"mains":5},"note":11.7,"prix":1.4},{"id":"j112","poste":"AT","nom":"Corentin Tanguy","age":33,"notes":{"vitesse":13,"acceleration":14,"endurance":9,"passe":9,"vision":12,"prise_de_balle":12,"dribble":12,"finition":12,"tacle":3,"placement":7,"anticipation":11,"lucidite":11,"sang_froid":15,"volume_de_course":9,"agressivite":7,"gout_du_risque":11,"jeu_de_tete":8,"appels":12,"reflexes":5,"mains":5},"note":11.2,"prix":1.2},{"id":"j113","poste":"AT","nom":"Simon Muller","age":27,"notes":{"vitesse":10,"acceleration":12,"endurance":7,"passe":10,"vision":9,"prise_de_balle":12,"dribble":10,"finition":13,"tacle":4,"placement":7,"anticipation":14,"lucidite":11,"sang_froid":11,"volume_de_course":10,"agressivite":10,"gout_du_risque":10,"jeu_de_tete":15,"appels":14,"reflexes":5,"mains":5},"note":11.2,"prix":1.2},{"id":"j114","poste":"AT","nom":"Martin Fournier","age":22,"notes":{"vitesse":14,"acceleration":12,"endurance":11,"passe":9,"vision":10,"prise_de_balle":13,"dribble":12,"finition":10,"tacle":3,"placement":6,"anticipation":11,"lucidite":12,"sang_froid":11,"volume_de_course":10,"agressivite":4,"gout_du_risque":14,"jeu_de_tete":8,"appels":12,"reflexes":5,"mains":5},"note":10.8,"prix":1},{"id":"j115","poste":"AT","nom":"Jules Marchal","age":31,"notes":{"vitesse":14,"acceleration":11,"endurance":12,"passe":10,"vision":10,"prise_de_balle":10,"dribble":11,"finition":10,"tacle":3,"placement":5,"anticipation":10,"lucidite":9,"sang_froid":11,"volume_de_course":8,"agressivite":6,"gout_du_risque":10,"jeu_de_tete":6,"appels":11,"reflexes":5,"mains":5},"note":10,"prix":0.8},{"id":"j116","poste":"AT","nom":"Mathéo Bertrand","age":34,"notes":{"vitesse":9,"acceleration":10,"endurance":8,"passe":9,"vision":7,"prise_de_balle":11,"dribble":8,"finition":14,"tacle":4,"placement":4,"anticipation":11,"lucidite":9,"sang_froid":11,"volume_de_course":8,"agressivite":5,"gout_du_risque":10,"jeu_de_tete":11,"appels":11,"reflexes":5,"mains":5},"note":9.8,"prix":0.7},{"id":"j117","poste":"AT","nom":"Nathan Blanc","age":22,"notes":{"vitesse":12,"acceleration":12,"endurance":9,"passe":8,"vision":10,"prise_de_balle":11,"dribble":12,"finition":11,"tacle":1,"placement":4,"anticipation":8,"lucidite":11,"sang_froid":12,"volume_de_course":8,"agressivite":6,"gout_du_risque":10,"jeu_de_tete":6,"appels":11,"reflexes":5,"mains":5},"note":9.7,"prix":0.7},{"id":"j118","poste":"AT","nom":"Yanis Gros","age":31,"notes":{"vitesse":9,"acceleration":9,"endurance":8,"passe":5,"vision":6,"prise_de_balle":9,"dribble":8,"finition":9,"tacle":1,"placement":3,"anticipation":13,"lucidite":7,"sang_froid":9,"volume_de_course":8,"agressivite":8,"gout_du_risque":6,"jeu_de_tete":12,"appels":10,"reflexes":5,"mains":5},"note":8.6,"prix":0.5},{"id":"j119","poste":"AT","nom":"Benjamin Lecomte","age":27,"notes":{"vitesse":10,"acceleration":10,"endurance":8,"passe":6,"vision":8,"prise_de_balle":9,"dribble":9,"finition":8,"tacle":1,"placement":1,"anticipation":9,"lucidite":9,"sang_froid":8,"volume_de_course":6,"agressivite":3,"gout_du_risque":8,"jeu_de_tete":4,"appels":9,"reflexes":5,"mains":5},"note":7.7,"prix":0.4},{"id":"j120","poste":"AT","nom":"Damien Langlois","age":25,"notes":{"vitesse":5,"acceleration":5,"endurance":3,"passe":4,"vision":1,"prise_de_balle":5,"dribble":3,"finition":6,"tacle":1,"placement":1,"anticipation":8,"lucidite":6,"sang_froid":6,"volume_de_course":5,"agressivite":4,"gout_du_risque":8,"jeu_de_tete":9,"appels":7,"reflexes":5,"mains":5},"note":5.4,"prix":0.2}],"cles":{"G":["reflexes","mains","placement","anticipation","sang_froid"],"AG":["vitesse","acceleration","endurance","tacle","placement","volume_de_course"],"AD":["vitesse","acceleration","endurance","tacle","placement","volume_de_course"],"DC":["tacle","placement","anticipation","jeu_de_tete","sang_froid"],"MG":["vitesse","acceleration","dribble","passe","appels","volume_de_course"],"MD":["vitesse","acceleration","dribble","passe","appels","volume_de_course"],"MC":["passe","vision","lucidite","prise_de_balle","endurance","anticipation"],"AT":["finition","appels","sang_froid","prise_de_balle","vitesse","anticipation"]},"formations":[{"id":"442","name":"4-4-2","places":[{"code":"G","num":1,"label":"Gardien","role":"GK","side":0,"x":0,"d":-15},{"code":"AG","num":3,"label":"Arrière gauche","role":"DEF","side":-1,"x":-21.5,"d":6.25},{"code":"DCG","num":4,"label":"Défenseur central","role":"DEF","side":0,"x":-8,"d":0},{"code":"DCD","num":5,"label":"Défenseur central","role":"DEF","side":0,"x":8,"d":0},{"code":"AD","num":2,"label":"Arrière droit","role":"DEF","side":1,"x":21.5,"d":6.25},{"code":"MG","num":11,"label":"Milieu gauche","role":"MID","side":-1,"x":-24.5,"d":20.75},{"code":"MCG","num":6,"label":"Milieu axial","role":"MID","side":0,"x":-5.25,"d":12.5},{"code":"MCD","num":8,"label":"Milieu axial","role":"MID","side":0,"x":7.5,"d":18},{"code":"MD","num":7,"label":"Milieu droit","role":"MID","side":1,"x":24.5,"d":20.75},{"code":"ATG","num":10,"label":"Attaquant","role":"FWD","side":0,"x":-8.5,"d":31},{"code":"ATD","num":9,"label":"Attaquant","role":"FWD","side":0,"x":8.5,"d":28.5}]},{"id":"433","name":"4-3-3","places":[{"code":"G","num":1,"label":"Gardien","role":"GK","side":0,"x":0,"d":-15},{"code":"AG","num":3,"label":"Arrière gauche","role":"DEF","side":-1,"x":-21.5,"d":6.25},{"code":"DCG","num":4,"label":"Défenseur central","role":"DEF","side":0,"x":-8,"d":0},{"code":"DCD","num":5,"label":"Défenseur central","role":"DEF","side":0,"x":8,"d":0},{"code":"AD","num":2,"label":"Arrière droit","role":"DEF","side":1,"x":21.5,"d":6.25},{"code":"MG","num":11,"label":"Ailier gauche","role":"FWD","side":-1,"x":-23.5,"d":28.5},{"code":"MCG","num":6,"label":"Milieu défensif","role":"MID","side":0,"x":0,"d":8},{"code":"MCD","num":8,"label":"Milieu intérieur droit","role":"MID","side":0,"x":10.5,"d":17.5},{"code":"MD","num":7,"label":"Ailier droit","role":"FWD","side":1,"x":23.5,"d":28.5},{"code":"ATG","num":10,"label":"Milieu intérieur gauche","role":"MID","side":0,"x":-10.5,"d":17.5},{"code":"ATD","num":9,"label":"Avant-centre","role":"FWD","side":0,"x":0,"d":30.5}]},{"id":"4231","name":"4-2-3-1","places":[{"code":"G","num":1,"label":"Gardien","role":"GK","side":0,"x":0,"d":-15},{"code":"AG","num":3,"label":"Arrière gauche","role":"DEF","side":-1,"x":-21.5,"d":6.25},{"code":"DCG","num":4,"label":"Défenseur central","role":"DEF","side":0,"x":-8,"d":0},{"code":"DCD","num":5,"label":"Défenseur central","role":"DEF","side":0,"x":8,"d":0},{"code":"AD","num":2,"label":"Arrière droit","role":"DEF","side":1,"x":21.5,"d":6.25},{"code":"MG","num":11,"label":"Milieu offensif gauche","role":"MID","side":-1,"x":-23.5,"d":23.5},{"code":"MCG","num":6,"label":"Milieu défensif gauche","role":"MID","side":0,"x":-6,"d":10.5},{"code":"MCD","num":8,"label":"Milieu défensif droit","role":"MID","side":0,"x":6,"d":11},{"code":"MD","num":7,"label":"Milieu offensif droit","role":"MID","side":1,"x":23.5,"d":23.5},{"code":"ATG","num":10,"label":"Milieu offensif axial","role":"MID","side":0,"x":0,"d":22},{"code":"ATD","num":9,"label":"Avant-centre","role":"FWD","side":0,"x":0,"d":31}]},{"id":"352","name":"3-5-2","places":[{"code":"G","num":1,"label":"Gardien","role":"GK","side":0,"x":0,"d":-15},{"code":"AG","num":3,"label":"Piston gauche","role":"MID","side":-1,"x":-27,"d":17.5},{"code":"DCG","num":4,"label":"Défenseur central gauche","role":"DEF","side":0,"x":-13,"d":0},{"code":"DCD","num":5,"label":"Défenseur central droit","role":"DEF","side":0,"x":13,"d":0},{"code":"AD","num":2,"label":"Piston droit","role":"MID","side":1,"x":27,"d":17.5},{"code":"MG","num":11,"label":"Milieu gauche","role":"MID","side":0,"x":-11.5,"d":16.5},{"code":"MCG","num":6,"label":"Défenseur central","role":"DEF","side":0,"x":0,"d":0},{"code":"MCD","num":8,"label":"Milieu axial","role":"MID","side":0,"x":0,"d":13.5},{"code":"MD","num":7,"label":"Milieu droit","role":"MID","side":0,"x":11.5,"d":16.5},{"code":"ATG","num":10,"label":"Attaquant","role":"FWD","side":0,"x":-8.5,"d":31},{"code":"ATD","num":9,"label":"Attaquant","role":"FWD","side":0,"x":8.5,"d":28.5}]},{"id":"532","name":"5-3-2","places":[{"code":"G","num":1,"label":"Gardien","role":"GK","side":0,"x":0,"d":-15},{"code":"AG","num":3,"label":"Piston gauche","role":"DEF","side":-1,"x":-25.5,"d":10.5},{"code":"DCG","num":4,"label":"Défenseur central gauche","role":"DEF","side":0,"x":-13,"d":0},{"code":"DCD","num":5,"label":"Défenseur central droit","role":"DEF","side":0,"x":13,"d":0},{"code":"AD","num":2,"label":"Piston droit","role":"DEF","side":1,"x":25.5,"d":10.5},{"code":"MG","num":11,"label":"Milieu gauche","role":"MID","side":0,"x":-12.5,"d":15},{"code":"MCG","num":6,"label":"Défenseur central","role":"DEF","side":0,"x":0,"d":0},{"code":"MCD","num":8,"label":"Milieu axial","role":"MID","side":0,"x":0,"d":13.5},{"code":"MD","num":7,"label":"Milieu droit","role":"MID","side":0,"x":12.5,"d":15},{"code":"ATG","num":10,"label":"Attaquant","role":"FWD","side":0,"x":-8.5,"d":31},{"code":"ATD","num":9,"label":"Attaquant","role":"FWD","side":0,"x":8.5,"d":28.5}]}],"presets":[{"id":"equilibre","name":"Équilibré","t":{"passing":0,"tempo":0,"width":0,"line":0,"press":0},"help":"Toutes les consignes au neutre."},{"id":"possession","name":"Possession","t":{"passing":-1,"tempo":-1,"width":1,"line":0,"press":0},"help":"Garder le ballon : passes courtes, on prend son temps, on écarte le jeu."},{"id":"pressing","name":"Pressing haut","t":{"passing":0,"tempo":1,"width":0,"line":1,"press":1},"help":"Reprendre le ballon loin de son but : bloc haut, on harcèle le porteur, on joue vite. Coûte beaucoup d'énergie."},{"id":"contre","name":"Contre-attaque","t":{"passing":1,"tempo":1,"width":0,"line":-1,"press":-1},"help":"Laisser venir, puis partir vite dans le dos de la défense."},{"id":"blocbas","name":"Bloc bas","t":{"passing":1,"tempo":-1,"width":-1,"line":-1,"press":-1},"help":"Défendre le score : bloc bas et compact, on ne prend aucun risque, on dégage loin."},{"id":"direct","name":"Jeu direct","t":{"passing":1,"tempo":1,"width":1,"line":0,"press":0},"help":"Aller vite vers l'avant : longs ballons, ailes et centres."},{"id":"attaque","name":"Tout pour l'attaque","t":{"passing":0,"tempo":1,"width":1,"line":1,"press":1},"help":"Courir après le score : tout le monde monte, on presse et on écarte. Laisse de l'espace derrière."}],"tactics":[{"key":"passing","label":"Jeu de passes","options":["Court","Mixte","Long"],"help":"Court : passes dans les pieds, partenaires proches du porteur. Long : on cherche vite les attaquants, par-dessus ou dans la profondeur."},{"key":"tempo","label":"Rythme","options":["Posé","Normal","Rapide"],"help":"Posé : le porteur attend qu'une bonne solution s'ouvre. Rapide : le ballon circule en une ou deux touches, quitte à forcer."},{"key":"width","label":"Largeur","options":["Resserré","Normal","Large"],"help":"Resserré : on attaque par l'axe, joueurs proches. Large : on occupe les deux ailes et on centre."},{"key":"line","label":"Hauteur du bloc","options":["Bas","Médian","Haut"],"help":"Bas : l'équipe défend près de son but. Haut : la défense monte, l'adversaire a moins de place mais de l'espace dans le dos."},{"key":"press","label":"Pressing","options":["Attendre","Normal","Harceler"],"help":"Attendre : on garde ses positions et on laisse venir ; les attaquants ne courent pas après le ballon et restent frais. Harceler : on va chercher le porteur loin, à deux s'il le faut, au prix de beaucoup d'énergie."}],"qualities":[["vitesse","Vitesse"],["acceleration","Accélération"],["endurance","Endurance"],["passe","Passe"],["vision","Vision du jeu"],["prise_de_balle","Prise de balle"],["dribble","Dribble"],["finition","Finition"],["tacle","Tacle"],["placement","Placement"],["anticipation","Anticipation"],["lucidite","Lucidité"],["sang_froid","Sang-froid"],["volume_de_course","Volume de course"],["agressivite","Agressivité"],["gout_du_risque","Goût du risque"],["jeu_de_tete","Jeu de tête"],["appels","Appels de balle"],["reflexes","Réflexes"],["mains","Jeu de mains"]]};
+
+// ---------- postes ----------
+const POSTES = { G: 'Gardien', AG: 'Arrière gauche', DC: 'Défenseur central', AD: 'Arrière droit', MG: 'Milieu gauche', MC: 'Milieu axial', MD: 'Milieu droit', AT: 'Attaquant' };
+const ORDRE = ['G', 'AG', 'DC', 'AD', 'MG', 'MC', 'MD', 'AT'];
+const LIGNE = { G: 'G', AG: 'DEF', DC: 'DEF', AD: 'DEF', MG: 'MIL', MC: 'MIL', MD: 'MIL', AT: 'ATT' };
+const LIGNES = [['G', 'Gardiens', 2, 'gardien'], ['DEF', 'Défenseurs', 5, 'défenseur'], ['MIL', 'Milieux', 5, 'milieu'], ['ATT', 'Attaquants', 3, 'attaquant']];      // minimums de l'effectif
+const TAILLE = 16;
+// postes naturels qui conviennent à une place de formation (place : rôle, côté et nom donnés par le moteur)
+function accepte(pl) {
+  const piston = /Piston/.test(pl.label), cote = pl.side < 0 ? 'G' : 'D';
+  if (pl.role === 'GK') return ['G'];
+  if (pl.role === 'DEF') return pl.side === 0 ? ['DC'] : piston ? ['A' + cote, 'M' + cote] : ['A' + cote];
+  if (pl.role === 'MID') return pl.side === 0 ? (/offensif/.test(pl.label) ? ['MC', 'AT'] : ['MC']) : piston ? ['M' + cote, 'A' + cote] : ['M' + cote];
+  return pl.side === 0 ? ['AT'] : ['AT', 'M' + cote];      // attaquant ; ailier : attaquant ou milieu de côté
+}
+
+// ---------- état ----------
+const byId = {}; for (const j of D.joueurs) byId[j.id] = j;
+const S = { squad: [], lineup: null, bench: [], formation: '442', tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0 }, nom: '' };
+const UI = { poste: 'tous', sort: 'note', afford: false, sel: null };
+const $ = id => document.getElementById(id);
+const fmt = (x, d) => x.toFixed(d == null ? 1 : d).replace('.', ',');
+const euros = x => fmt(x) + ' M€';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const nomCourt = j => { const w = j.nom.split(' '); return w.length > 1 ? w[0][0] + '. ' + w.slice(1).join(' ') : j.nom; };      // « C. Tanguy »
+const depense = () => S.squad.reduce((s, id) => s + byId[id].prix, 0);
+const reste = () => Math.round(10 * (D.budget - depense())) / 10;
+const forme = () => D.formations.find(f => f.id === S.formation);
+const tag = p => '<span class="tag ' + LIGNE[p] + '">' + p + '</span>';
+
+// ---------- écrans ----------
+function show(v) {
+  for (const k of ['vHome', 'vBuy', 'vTac']) $(k).hidden = k !== v;
+  $('steps').hidden = v === 'vHome'; $('home').hidden = v === 'vHome';
+  $('st1').classList.toggle('on', v === 'vBuy'); $('st2').classList.toggle('on', v === 'vTac');
+  $('title').textContent = v === 'vHome' ? 'Moteur de match' : 'Construire mon équipe';
+  if (v === 'vBuy') drawBuy();
+  if (v === 'vTac') drawTac();
+  window.scrollTo(0, 0);
+}
+
+// ---------- achats ----------
+function manque() {
+  const out = [], n = S.squad.length;
+  if (n < TAILLE) out.push('encore ' + (TAILLE - n) + ' joueur' + (TAILLE - n > 1 ? 's' : '') + ' à acheter');
+  for (const [l, nom, min, un] of LIGNES) { const c = S.squad.filter(id => LIGNE[byId[id].poste] === l).length; if (c < min) out.push((min - c) + ' ' + (min - c > 1 ? nom.toLowerCase() : un) + ' de plus (minimum ' + min + ')'); }
+  if (reste() < 0) out.push('budget dépassé de ' + euros(-reste()));
+  return out;
+}
+function drawBuy() {
+  const r = reste();
+  $('money').textContent = euros(r) + ' sur ' + D.budget + ' M€'; $('money').classList.toggle('over', r < 0);
+  $('count').innerHTML = '<span class="' + (S.squad.length === TAILLE ? 'ok' : '') + '">' + S.squad.length + ' / ' + TAILLE + ' joueurs</span>' +
+    LIGNES.map(([l, nom, min]) => { const c = S.squad.filter(id => LIGNE[byId[id].poste] === l).length; return '<span class="' + (c >= min ? 'ok' : '') + '">' + nom + ' ' + c + ' (min. ' + min + ')</span>'; }).join('');
+  const m = manque();
+  $('validate').disabled = m.length > 0;
+  $('why').textContent = m.length ? 'Il manque : ' + m.join(' ; ') + '.' : 'Effectif complet : vous pouvez valider.';
+  $('why').style.color = m.length ? '' : 'var(--ok)';
+  // filtres
+  $('fPoste').innerHTML = [['tous', 'Tous'], ['G', 'G'], ['DEF', 'Défenseurs'], ...ORDRE.slice(1, 4).map(p => [p, p]), ['MIL', 'Milieux'], ...ORDRE.slice(4, 7).map(p => [p, p]), ['AT', 'Attaquants']]
+    .map(([k, t]) => '<button data-f="' + k + '" class="' + (UI.poste === k ? 'on' : '') + '" title="' + (POSTES[k] || t) + '">' + t + '</button>').join('');
+  let L = D.joueurs.filter(j => UI.poste === 'tous' || j.poste === UI.poste || LIGNE[j.poste] === UI.poste);
+  if (UI.afford) L = L.filter(j => S.squad.includes(j.id) || j.prix <= r);
+  const cmp = { note: (a, b) => b.note - a.note, prix: (a, b) => a.prix - b.prix || b.note - a.note, prixd: (a, b) => b.prix - a.prix, poste: (a, b) => ORDRE.indexOf(a.poste) - ORDRE.indexOf(b.poste) || b.note - a.note,
+    nom: (a, b) => a.nom.split(' ').slice(1).join(' ').localeCompare(b.nom.split(' ').slice(1).join(' '), 'fr'), age: (a, b) => a.age - b.age }[UI.sort];
+  L = L.slice().sort(cmp);
+  const full = S.squad.length >= TAILLE;
+  $('base').innerHTML = '<tr><th>Poste</th><th>Nom</th><th class="num hide-s">Âge</th><th class="num">Note</th><th class="num">Prix</th><th></th></tr>' + L.map(j => {
+    const mine = S.squad.includes(j.id), cant = !mine && (j.prix > r || full);
+    return '<tr class="p' + (mine ? ' mine' : '') + (cant ? ' cant' : '') + '" data-id="' + j.id + '"><td>' + tag(j.poste) + '</td><td>' + esc(j.nom) + '</td><td class="num hide-s">' + (j.age || '') + '</td><td class="num note">' + fmt(j.note) +
+      '</td><td class="num">' + euros(j.prix) + '</td><td class="act">' + (mine ? '<button data-sell="' + j.id + '">Vendre</button>' : '<button data-buy="' + j.id + '"' + (cant ? ' disabled title="' + (full ? 'Effectif complet' : 'Pas assez d\'argent') + '"' : '') + '>Acheter</button>') + '</td></tr>';
+  }).join('') + (L.length ? '' : '<tr><td colspan="6" class="muted">Aucun joueur.</td></tr>');
+  // effectif
+  let h = '';
+  for (const [l, nom, min] of LIGNES) {
+    const mine = S.squad.map(id => byId[id]).filter(j => LIGNE[j.poste] === l).sort((a, b) => ORDRE.indexOf(a.poste) - ORDRE.indexOf(b.poste) || b.note - a.note);
+    h += '<div class="line">' + nom + ' : ' + mine.length + ' (minimum ' + min + ')</div><table>' + (mine.length ? mine.map(j => '<tr class="p" data-id="' + j.id + '"><td>' + tag(j.poste) + '</td><td>' + esc(j.nom) + '</td><td class="num note">' + fmt(j.note) + '</td><td class="num">' + euros(j.prix) + '</td><td class="act"><button data-sell="' + j.id + '" title="Vendre">✕</button></td></tr>').join('') : '<tr><td class="empty">Personne</td></tr>') + '</table>';
+  }
+  if (S.squad.length) h += '<p class="small muted">Note globale moyenne : ' + fmt(S.squad.reduce((s, id) => s + byId[id].note, 0) / S.squad.length) + ' · dépensé ' + euros(depense()) + '</p>';
+  $('squad').innerHTML = h;
+}
+function buy(id) { const j = byId[id]; if (!j || S.squad.includes(id) || S.squad.length >= TAILLE || j.prix > reste() + 1e-9) return; S.squad.push(id); refresh(); }
+function sell(id) { S.squad = S.squad.filter(x => x !== id); refresh(); }
+function refresh() { drawBuy(); if (!$('sheet').hidden && UI.sheet) openSheet(UI.sheet); }
+
+// fiche d'un joueur : ses vingt notes, celles qui comptent pour son poste en jaune
+function openSheet(id) {
+  const j = byId[id]; UI.sheet = id;
+  const cles = D.cles[j.poste], mine = S.squad.includes(id);
+  const attrs = D.qualities.map(([k, t]) => '<div class="attr' + (cles.includes(k) ? ' key' : '') + '"><span>' + t + '</span><b>' + j.notes[k] + '</b></div>').join('');
+  const canBuy = !mine && S.squad.length < TAILLE && j.prix <= reste() + 1e-9;
+  $('sheetCard').innerHTML = '<div class="row" style="justify-content:space-between"><div class="who">' + esc(j.nom) + '</div><button id="closeSheet" title="Fermer">✕</button></div>' +
+    '<div class="muted">' + POSTES[j.poste] + (j.age ? ' · ' + j.age + ' ans' : '') + '</div>' +
+    '<div class="row" style="margin-top:6px"><span>Note globale <b class="note">' + fmt(j.note) + '</b></span><span>Prix <b>' + euros(j.prix) + '</b></span></div>' +
+    '<div class="attrs">' + attrs + '</div>' +
+    '<div class="small muted">En jaune : les notes importantes pour le poste (elles comptent trois fois dans la note globale).</div>' +
+    '<div class="row" style="margin-top:10px">' + (mine ? '<button data-sell="' + id + '">Vendre (' + euros(j.prix) + ')</button>' : '<button class="main" data-buy="' + id + '"' + (canBuy ? '' : ' disabled') + '>Acheter (' + euros(j.prix) + ')</button>' + (canBuy ? '' : ' <span class="small muted">' + (S.squad.length >= TAILLE ? 'Effectif complet.' : 'Pas assez d\'argent.') + '</span>')) + '</div>';
+  $('sheet').hidden = false;
+}
+function closeSheet() { $('sheet').hidden = true; UI.sheet = null; }
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('button, tr.p, a');
+  if (!t) { if (e.target === $('sheet')) closeSheet(); return; }
+  if (t.dataset.buy) { buy(t.dataset.buy); return; }
+  if (t.dataset.sell) { sell(t.dataset.sell); return; }
+  if (t.dataset.f) { UI.poste = t.dataset.f; drawBuy(); return; }
+  if (t.id === 'closeSheet') { closeSheet(); return; }
+  if (t.matches('tr.p') && t.dataset.id) { openSheet(t.dataset.id); return; }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+$('sort').onchange = () => { UI.sort = $('sort').value; drawBuy(); };
+$('afford').onchange = () => { UI.afford = $('afford').checked; drawBuy(); };
+$('goBuild').onclick = () => show('vBuy');
+$('home').onclick = () => { drawSaved(); show('vHome'); };
+$('validate').onclick = () => { if (manque().length) return; ranger(); show('vTac'); };
+$('back').onclick = () => show('vBuy');
+
+// ---------- tactique : placement ----------
+// S.lineup[i] = joueur à la place n° i de la formation (rang i de l'effectif du 4-4-2 dans le moteur) ; S.bench = les cinq autres.
+// Après des achats ou des ventes : on garde les joueurs à leur place, les nouveaux vont sur le banc, les places vides sont remplies au mieux.
+function ranger() {
+  const has = id => S.squad.includes(id);
+  if (!S.lineup) S.lineup = new Array(11).fill(null);
+  S.lineup = S.lineup.map(id => id && has(id) ? id : null);
+  const used = new Set(S.lineup.filter(Boolean));
+  let libres = S.squad.filter(id => !used.has(id));
+  remplir(libres);
+  S.bench = S.squad.filter(id => !S.lineup.includes(id));
+}
+// remplit les places vides : d'abord avec le meilleur joueur disponible dont c'est le poste naturel ;
+// s'il n'y en a pas, avec le meilleur joueur restant (un gardien seulement dans le but, sauf s'il ne reste que des gardiens)
+function remplir(libres) {
+  const pls = forme().places, pris = new Set();
+  const dispo = () => libres.filter(id => !pris.has(id)).map(id => byId[id]).sort((a, b) => b.note - a.note);
+  const mets = (i, j) => { if (j) { S.lineup[i] = j.id; pris.add(j.id); } };
+  for (let i = 0; i < 11; i++) if (!S.lineup[i]) mets(i, dispo().find(j => accepte(pls[i]).includes(j.poste)));
+  for (let i = 0; i < 11; i++) if (!S.lineup[i]) { const d = dispo(), gk = pls[i].role === 'GK'; mets(i, d.find(j => (j.poste === 'G') === gk) || d[0]); }
+}
+function autoPlace() { S.lineup = new Array(11).fill(null); remplir(S.squad.slice()); S.bench = S.squad.filter(id => !S.lineup.includes(id)); drawTac(); say('Placement automatique : le meilleur joueur de chaque poste.'); }
+
+const L0 = 72;      // dessin : ligne de but en bas (y = 72), on voit tout son camp et 20 m du camp adverse ; 1 unité = 1 mètre
+function pitchSvg() {
+  let s = '<svg viewBox="0 0 74 74" preserveAspectRatio="none"><rect width="74" height="74" fill="#2c6b36"/>';
+  for (let i = 0; i < 7; i++) s += '<rect x="3" y="' + (L0 - 10.5 * (i + 1)) + '" width="68" height="10.5" fill="' + (i % 2 ? '#3c8c47' : '#42954d') + '"/>';
+  const st = 'fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="0.3"';
+  s += '<path d="M3 0 V' + L0 + ' H71 V0" ' + st + '/>';
+  s += '<line x1="3" x2="71" y1="' + (L0 - 52.5) + '" y2="' + (L0 - 52.5) + '" ' + st + '/><circle cx="37" cy="' + (L0 - 52.5) + '" r="9.15" ' + st + '/>';
+  s += '<rect x="' + (37 - 20.16) + '" y="' + (L0 - 16.5) + '" width="40.32" height="16.5" ' + st + '/><rect x="' + (37 - 9.16) + '" y="' + (L0 - 5.5) + '" width="18.32" height="5.5" ' + st + '/>';
+  s += '<rect x="' + (37 - 3.66) + '" y="' + L0 + '" width="7.32" height="1.6" ' + st + '/><circle cx="37" cy="' + (L0 - 11) + '" r="0.35" fill="#fff"/>';
+  s += '<path d="M' + (37 - 7.3) + ' ' + (L0 - 16.5) + ' A9.15 9.15 0 0 1 ' + (37 + 7.3) + ' ' + (L0 - 16.5) + '" ' + st + '/>';
+  s += '<text x="37" y="2.6" fill="rgba(255,255,255,0.55)" font-size="2" text-anchor="middle">sens de l\'attaque ↑</text>';
+  return s + '</svg>';
+}
+// place n° i sur le dessin : largeur telle quelle, profondeur un peu étirée pour que les lignes se lisent
+const placeXY = pl => ({ left: (37 + pl.x) / 74 * 100, top: (L0 - (pl.role === 'GK' ? 7 : 20 + 1.3 * pl.d)) / 74 * 100 });
+function token(id, pl) {
+  const j = byId[id], off = pl && !accepte(pl).includes(j.poste);
+  const sub = pl ? (off ? 'hors poste' : fmt(j.note)) : fmt(j.note);
+  return '<div class="tok' + (off ? ' off' : '') + (UI.sel === id ? ' sel' : '') + '" data-tok="' + id + '" title="' + esc(j.nom) + ' — ' + POSTES[j.poste] + ', note ' + fmt(j.note) + (pl ? ' — place : ' + esc(pl.label) + (off ? ' (hors poste)' : '') : '') + '">' +
+    '<div class="ball">' + j.poste + (off ? '<i>!</i>' : '') + '</div><div class="nm">' + esc(nomCourt(j)) + '</div><div class="sub">' + sub + '</div></div>';
+}
+function drawTac() {
+  const f = forme(), pls = f.places;
+  $('forms').innerHTML = D.formations.map(x => '<button data-form="' + x.id + '" class="' + (x.id === S.formation ? 'on' : '') + '">' + x.name + '</button>').join('');
+  let h = pitchSvg();
+  pls.forEach((pl, i) => { const p = placeXY(pl); h += '<div class="spot drop" data-drop="p' + i + '" style="left:' + p.left.toFixed(2) + '%;top:' + p.top.toFixed(2) + '%">' + (S.lineup[i] ? token(S.lineup[i], pl) : '') + '</div>'; });
+  $('pitch').innerHTML = h;
+  $('bench').innerHTML = S.bench.map((id, k) => '<div class="drop" data-drop="b' + k + '">' + token(id, null) + '</div>').join('');
+  // composition, place par place
+  const offs = [];
+  $('compo').innerHTML = pls.map((pl, i) => { const j = byId[S.lineup[i]], off = !accepte(pl).includes(j.poste); if (off) offs.push(j); return '<tr><td>' + esc(pl.label) + '</td><td>' + esc(j.nom) + '</td><td>' + tag(j.poste) + '</td><td class="' + (off ? 'offp' : 'muted') + '">' + (off ? 'hors poste' : fmt(j.note)) + '</td></tr>'; }).join('');
+  const moy = S.lineup.reduce((s, id) => s + byId[id].note, 0) / 11;
+  $('teamInfo').textContent = 'Titulaires : note globale moyenne ' + fmt(moy) + ' · ' + (offs.length ? offs.length + ' joueur' + (offs.length > 1 ? 's' : '') + ' hors poste' : 'tout le monde à son poste') + ' · effectif ' + euros(depense()) + ' sur ' + D.budget + ' M€';
+  // consignes
+  const preset = D.presets.find(p => D.tactics.every(c => p.t[c.key] === S.tac[c.key]));
+  $('cons').innerHTML = '<span class="k" title="Un jeu des cinq consignes prêt à l\'emploi">Tactique</span><select class="preset" id="preset">' + D.presets.map(p => '<option value="' + p.id + '"' + (preset === p ? ' selected' : '') + ' title="' + esc(p.help) + '">' + esc(p.name) + '</option>').join('') + (preset ? '' : '<option selected value="">Personnalisée</option>') + '</select>' +
+    D.tactics.map(c => '<span class="k" title="' + esc(c.help) + '">' + c.label + '</span><select data-tac="' + c.key + '" class="' + (S.tac[c.key] ? 'set' : '') + '">' + c.options.map((o, k) => '<option value="' + (k - 1) + '"' + (S.tac[c.key] === k - 1 ? ' selected' : '') + '>' + o + '</option>').join('') + '</select>').join('');
+  $('nom').value = S.nom;
+}
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'preset' && t.value) { const p = D.presets.find(x => x.id === t.value); Object.assign(S.tac, p.t); drawTac(); }
+  else if (t.dataset && t.dataset.tac) { S.tac[t.dataset.tac] = +t.value; drawTac(); }
+});
+$('forms').addEventListener('click', e => { const b = e.target.closest('[data-form]'); if (b) { S.formation = b.dataset.form; drawTac(); } });
+$('auto').onclick = autoPlace;
+$('nom').oninput = () => { S.nom = $('nom').value; };
+
+// échange deux emplacements : « p3 » = place n° 3, « b1 » = 2e place du banc
+function swap(a, b) {
+  if (a === b) return;
+  const get = k => k[0] === 'p' ? S.lineup[+k.slice(1)] : S.bench[+k.slice(1)];
+  const set = (k, v) => { if (k[0] === 'p') S.lineup[+k.slice(1)] = v; else S.bench[+k.slice(1)] = v; };
+  const va = get(a), vb = get(b); set(a, vb); set(b, va);
+  const pls = forme().places;
+  const who = k => { const id = get(k); return id ? byId[id] : null; };
+  for (const k of [a, b]) if (k[0] === 'p') { const j = who(k), pl = pls[+k.slice(1)]; if (j) say(j.nom + ' → ' + pl.label + (accepte(pl).includes(j.poste) ? '' : ' (hors poste)')); }
+  if (a[0] === 'b' && b[0] === 'b') say('Ordre du banc changé.');
+}
+// glisser-déposer à la souris ou au doigt (événements « pointer ») ; un simple clic sélectionne, un second clic échange
+const DRAG = { id: null, from: null, x0: 0, y0: 0, on: false, ghost: null, over: null };
+document.addEventListener('pointerdown', e => {
+  const t = e.target.closest('.tok'); if (!t || !t.closest('#vTac')) return;
+  e.preventDefault();
+  DRAG.id = t.dataset.tok; DRAG.from = t.closest('[data-drop]').dataset.drop; DRAG.x0 = e.clientX; DRAG.y0 = e.clientY; DRAG.on = false; DRAG.el = t;
+});
+document.addEventListener('pointermove', e => {
+  if (!DRAG.id) return;
+  if (!DRAG.on && Math.hypot(e.clientX - DRAG.x0, e.clientY - DRAG.y0) > 6) {
+    DRAG.on = true; DRAG.ghost = DRAG.el.cloneNode(true); DRAG.ghost.classList.add('ghost'); document.body.appendChild(DRAG.ghost); DRAG.el.classList.add('dragging');
+  }
+  if (!DRAG.on) return;
+  DRAG.ghost.style.left = e.clientX + 'px'; DRAG.ghost.style.top = e.clientY + 'px';
+  const d = dropAt(e.clientX, e.clientY);
+  if (DRAG.over && DRAG.over !== d) DRAG.over.classList.remove('over');
+  if (d) d.classList.add('over'); DRAG.over = d;
+});
+function dropAt(x, y) { const el = document.elementFromPoint(x, y); return el && el.closest('#vTac [data-drop]'); }
+function endDrag(e, cancel) {
+  if (!DRAG.id) return;
+  if (DRAG.on) {
+    const d = !cancel && dropAt(e.clientX, e.clientY);
+    DRAG.ghost.remove(); if (DRAG.over) DRAG.over.classList.remove('over');
+    if (d) swap(DRAG.from, d.dataset.drop);
+    UI.sel = null; drawTac();
+  } else if (!cancel) {      // clic : sélection, puis échange au second clic
+    if (UI.sel && UI.sel !== DRAG.id) { const a = where(UI.sel); UI.sel = null; swap(a, DRAG.from); }
+    else UI.sel = UI.sel === DRAG.id ? null : DRAG.id;
+    drawTac();
+  }
+  DRAG.id = null; DRAG.on = false; DRAG.over = null;
+}
+document.addEventListener('pointerup', e => endDrag(e, false));
+document.addEventListener('pointercancel', e => endDrag(e, true));
+const where = id => { const i = S.lineup.indexOf(id); return i >= 0 ? 'p' + i : 'b' + S.bench.indexOf(id); };
+
+// ---------- enregistrer, exporter ----------
+let sayT = 0;
+function say(t, warn) { $('msg').textContent = t; $('msg').style.color = warn ? 'var(--warn)' : ''; clearTimeout(sayT); sayT = setTimeout(() => { $('msg').textContent = ''; }, 6000); }
+const CLE = 'construction-equipe';
+function load() { try { const s = JSON.parse(localStorage.getItem(CLE) || 'null'); return s && Array.isArray(s.squad) && s.squad.every(id => byId[id]) ? s : null; } catch (e) { return null; } }
+$('save').onclick = () => {
+  const s = { squad: S.squad, lineup: S.lineup, bench: S.bench, formation: S.formation, tac: S.tac, nom: S.nom, quand: new Date().toISOString() };
+  try { localStorage.setItem(CLE, JSON.stringify(s)); say('Équipe enregistrée dans ce navigateur.'); }
+  catch (e) { say('Impossible d\'enregistrer dans ce navigateur. Utilisez « Exporter ».', true); }
+};
+function drawSaved() {
+  const s = load();
+  $('savedLine').hidden = !s;
+  if (s) $('savedLine').innerHTML = 'Équipe enregistrée : « ' + esc(s.nom || 'Mon équipe') + ' » (' + (D.formations.find(f => f.id === s.formation) || {}).name + ', ' + s.squad.length + ' joueurs). <a href="#" id="resume">Reprendre cette équipe</a>';
+}
+document.addEventListener('click', e => {
+  if (e.target.id !== 'resume') return;
+  e.preventDefault(); const s = load(); if (!s) return;
+  Object.assign(S, { squad: s.squad.slice(), lineup: s.lineup ? s.lineup.slice() : null, formation: s.formation || '442', tac: Object.assign({}, S.tac, s.tac), nom: s.nom || '' });
+  if (manque().length) show('vBuy'); else { ranger(); show('vTac'); }
+});
+// Fichier exporté : une équipe au format de equipes.json, prête à y être recopiée.
+// Le moteur range les joueurs par leur code de poste du 4-4-2 (G, AG, DCG… ATD) puis place le joueur de rang i à la place n° i de la formation
+// (voir « Les formations » dans CLAUDE.md : en 4-3-3, le joueur noté ATG joue milieu intérieur gauche). Donc chaque titulaire reçoit ici
+// le code de poste de la place où on l'a déposé, pas celui de son poste naturel : avec la même formation, il jouera exactement là.
+// Son poste naturel est gardé à part (« poste_naturel »), comme le nom de la place (« place ») ; le moteur ignore ces deux lignes.
+function exportTeam() {
+  const pls = forme().places, nom = (S.nom || 'Mon équipe').trim() || 'Mon équipe';
+  const slug = nom.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'mon-equipe';
+  const notes = j => { const o = {}; for (const [k] of D.qualities) o[k] = j.notes[k]; return o; };
+  return {
+    id: slug, nom, description: 'Équipe construite dans equipe.html : ' + forme().name + ', effectif de ' + euros(depense()) + ' sur un budget de ' + D.budget + ' M€.',
+    formation: S.formation, consignes: Object.assign({}, S.tac),
+    joueurs: pls.map((pl, i) => { const j = byId[S.lineup[i]]; return { poste: pl.code, numero: pl.num, nom: j.nom, place: pl.label, poste_naturel: j.poste, notes: notes(j) }; }),
+    remplacants: S.bench.map((id, k) => { const j = byId[id]; return { numero: 12 + k, nom: j.nom, poste_naturel: j.poste, notes: notes(j) }; }),
+  };
+}
+$('export').onclick = () => {
+  const T = exportTeam();
+  // une ligne par joueur, comme dans equipes.json
+  const one = o => JSON.stringify(o).replace(/":/g, '": ').replace(/,"/g, ', "').replace(/^\{/, '{ ').replace(/\}$/, ' }').replace(/\{"/g, '{ "').replace(/\}\}/g, '} }');
+  const txt = '{\n  "id": ' + JSON.stringify(T.id) + ',\n  "nom": ' + JSON.stringify(T.nom) + ',\n  "description": ' + JSON.stringify(T.description) + ',\n  "formation": ' + JSON.stringify(T.formation) +
+    ',\n  "consignes": ' + one(T.consignes) + ',\n  "joueurs": [\n' + T.joueurs.map(j => '    ' + one(j)).join(',\n') + '\n  ],\n  "remplacants": [\n' + T.remplacants.map(j => '    ' + one(j)).join(',\n') + '\n  ]\n}\n';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt], { type: 'application/json' })); a.download = 'equipe-' + T.id + '.json';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  say('Fichier « equipe-' + T.id + '.json » téléchargé.');
+};
+
+drawSaved();
+show('vHome');
+</script>
+</body>
+</html>

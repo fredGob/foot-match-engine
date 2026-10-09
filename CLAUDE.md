@@ -69,11 +69,14 @@ Les arrêts de jeu ont une durée réaliste (une touche 17 secondes, une sortie 
 | `index.html` | La page : avant-match, lecture, barre de temps, consignes, série de matchs. |
 | `equipes.json` | **Le fichier des équipes** : quatre équipes, onze joueurs chacune, vingt notes par joueur. Se modifie à la main. |
 | `equipes.js` | Donne les équipes du fichier aux outils en ligne de commande (`equipe=elite`). |
-| `build.js` | Assemble le tout (page, moteur, dessin, statistiques, équipes) en un seul fichier `match.html`. |
+| `build.js` | Assemble le tout (page, moteur, dessin, statistiques, équipes) en un seul fichier `match.html`, et fait aussi `equipe.html`. |
+| `construction.html` | La page de construction d'équipe (source) : accueil, achat des joueurs, placement sur le terrain. `node build.js` en fait `equipe.html`, le fichier à ouvrir. |
+| `joueurs.json` | **La base de joueurs à acheter** : 120 joueurs inventés, vingt notes chacun, et le budget. Se modifie à la main. |
+| `tools/joueurs.js` | Fabrique `joueurs.json` (graine fixe : toujours les mêmes joueurs) et calcule le budget. Contient la formule de la note globale et du prix. |
 | `sim.js` | Simule beaucoup de matchs sans affichage et donne les moyennes. |
 | `check.js` | Vérifie que le moteur ne déraille pas : sans consignes, avec consignes, et entre équipes de niveaux différents. |
 | `README.md`, `docs/apercu.png` | La présentation du projet sur GitHub, avec une capture d'écran de la page. |
-| `tools/` | Outils de contrôle : test de la page, vrai navigateur, effet des consignes, tournoi entre les équipes, énergie, qui passe à qui, possession (comment chaque équipe perd le ballon), images. |
+| `tools/` | Outils de contrôle : test de la page, vrai navigateur, test de la page de construction d'équipe (`tools/equipe.js`), effet des consignes, tournoi entre les équipes, énergie, qui passe à qui, possession (comment chaque équipe perd le ballon), images. |
 
 ## Comment le moteur fonctionne
 
@@ -160,6 +163,37 @@ Tournoi après le n° 79 (`tools/profile.js formation=A formation=B 40`, équipe
 | 4-3-3 | | 9-10-21 · 1,29 – 1,37 | 20-12-8 · 1,31 – 0,83 | 13-12-15 · 1,24 – 1,15 |
 | 4-2-3-1 | | | 19-8-13 · 1,30 – 1,07 | 11-12-17 · 1,30 – 1,24 |
 | 3-5-2 | | | | 12-12-16 · 0,97 – 0,99 |
+
+## Construction d'équipe
+
+Une **deuxième page**, séparée du match : `equipe.html` (double-clic pour l'ouvrir, comme `match.html` ; la refaire avec `node build.js`). Captures : `docs/equipe-accueil.png`, `docs/equipe-achat.png`, `docs/equipe-fiche.png`, `docs/equipe-tactique.png`, `docs/equipe-telephone.png`.
+
+1. **Accueil** : deux grands choix, « Construire mon équipe » et « Match rapide » (qui ouvre `match.html`, posé dans le même dossier). Si une équipe a été enregistrée, l'accueil propose de la reprendre.
+2. **Achat des joueurs.** Une base de **120 joueurs inventés** (`joueurs.json`). On achète **16 joueurs** avec un **budget de 29 M€**, dont au moins **2 gardiens, 5 défenseurs, 5 milieux et 3 attaquants**. Le bouton « Valider mon équipe » reste grisé tant qu'il manque quelque chose, et la page dit quoi (« Il manque : 1 attaquant de plus »). Budget restant en haut. Filtres par poste, tri par note, prix, poste, nom ou âge, case « Seulement ceux que je peux payer ». Clic sur un joueur : sa fiche avec ses vingt notes (en jaune, celles qui comptent pour son poste).
+3. **Placement.** Choix de la formation (les cinq du moteur ; le dessin des places vient de `engine.js`). On **fait glisser** les joueurs sur les onze places du terrain ; les cinq autres sont sur le banc. Au doigt, on peut aussi toucher un joueur puis l'autre pour les échanger. Un joueur hors de son poste naturel a un rond orange « ! » et la mention « hors poste ». « Placement automatique » met le meilleur joueur de chaque poste. On règle aussi les cinq consignes, ou une tactique prédéfinie. Tableau « Composition » : chaque place, son joueur, hors poste ou non.
+4. **« Enregistrer l'équipe »** la garde dans le navigateur. **« Exporter »** télécharge un fichier `equipe-<nom>.json` au format de `equipes.json`, à recopier dans la liste `equipes` de ce fichier. **On ne lance pas encore de match** depuis cette page (choix de Frédéric).
+
+**Postes naturels** dans `joueurs.json` : `G`, `AG`, `DC` (défenseur central, gauche ou droit), `AD`, `MG`, `MC` (milieu axial, récupérateur ou organisateur), `MD`, `AT` (attaquant, mobile ou avant-centre). Combien : 12 G, 11 AG, 22 DC, 11 AD, 12 MG, 24 MC, 12 MD, 16 AT. Qui convient à quelle place : gardien au but ; DC en défense centrale ; AG / AD en latéral (et MG / MD aussi en piston) ; MC au milieu axial (AT aussi en milieu offensif axial) ; MG / MD au milieu de côté (AG / AD aussi en piston) ; AT en attaque (MG / MD aussi en ailier). Sinon : hors poste.
+
+**Comment les joueurs sont fabriqués** (`node tools/joueurs.js`, graine 2026) : chaque joueur a un niveau de 6 à 19 pour ses points forts, en courbe en cloche autour de 12,5 (peu de vedettes, beaucoup de joueurs moyens), et chaque poste reçoit toute la gamme. Ses notes suivent le profil de son poste dans l'équipe Élite de `equipes.json` (mêmes points forts et points faibles), plus un petit hasard, un point fort personnel (+2) et un point faible personnel (−2). Réflexes et jeu de mains à 5 pour un joueur de champ. `node tools/joueurs.js 7` fabrique une autre base (graine 7) ; `node tools/joueurs.js calcul` refait le calcul du budget après une modification à la main.
+
+**Note globale et prix** (formules dans `tools/joueurs.js`, utilisées par `build.js`) :
+
+- Note globale : moyenne des notes, où les notes clés du poste comptent trois fois (par exemple tacle, placement, anticipation, jeu de tête et sang-froid pour un DC ; réflexes, mains, placement, anticipation et sang-froid pour un gardien). Réflexes et mains ne comptent pas pour un joueur de champ, ni dribble, finition, appels, goût du risque et tacle pour un gardien. Dans la base : de 5,9 à 16,9.
+- Prix en millions d'euros : 0,4 × 1,4^(note − 8), soit 40 % de plus par point : 10 → 0,8 M€, 12 → 1,5, 14 → 3,0, 16 → 5,9. Le moins cher coûte 0,2 M€, le plus cher 8,0 M€. Les 16 plus chers coûtent 78,6 M€.
+- **Budget serré : 29 M€.** Calcul (`tools/joueurs.js`) : avec la même formule, les titulaires de `equipes.json` ont en moyenne 15,7 (Élite), 13,6 (Élevé), 11,7 (Moyen) et 9,6 (Faible). Le budget paie onze titulaires à mi-chemin entre Moyen et Élevé (12,7 de moyenne, 21,5 M€), plus cinq remplaçants au niveau Moyen (7,2 M€). Onze titulaires de niveau Élevé coûteraient à eux seuls 27,7 M€, de niveau Élite 60,2 M€ : on ne peut pas n'acheter que des vedettes, il faut choisir où mettre l'argent.
+
+**Ce que fait l'export, et comment le moteur le lit.** Le moteur range les onze joueurs par leur code de poste du 4-4-2 (`G`, `AG`, `DCG`… `ATD`), puis met le joueur de rang n à la place n de la formation (voir le tableau de « Les formations » : en 4-3-3, le joueur noté `ATG` joue milieu intérieur gauche). L'export donne donc à chaque titulaire le code de la **place où on l'a déposé**, pas celui de son poste naturel : avec la formation exportée, il joue exactement là. Le fichier garde aussi, pour chaque joueur, `place` (nom de la place) et `poste_naturel`, puis `formation`, `consignes` et `remplacants` (cinq joueurs) ; le moteur ignore ces lignes pour l'instant. Vérifié par `tools/equipe.js` : le moteur lit l'équipe exportée, chacun est à sa place, et un match se joue.
+
+Ce qui n'est pas fait :
+
+- **Lancer un match** avec l'équipe construite. Pour l'instant : exporter, recopier dans `equipes.json`, `node build.js`, puis la choisir dans `match.html` et y régler à la main la formation et les consignes notées dans le fichier.
+- **Les remplaçants** ne servent à rien dans le match (pas de remplacements dans le moteur).
+- La page de match ne lit pas encore la formation ni les consignes du fichier exporté.
+- La note globale et le prix sont une première formule, réglée à l'œil : une vedette à 8 M€ vaut-elle vraiment cinq joueurs moyens ? À juger en jouant.
+- Être hors poste ne change rien dans le moteur : le joueur joue avec ses notes, à la place qu'on lui donne.
+
+Tester la page : `node build.js && node tools/equipe.js` (Chromium sans fenêtre, par Playwright : achats, validation, formation, glisser à la souris, consignes, enregistrement, export lu par le moteur, reprise, téléphone ; captures dans `docs/`).
 
 ## Les consignes
 
@@ -530,6 +564,7 @@ Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la pos
 | 78 | Demande de Frédéric : le choix des formations, « un choix important pour le moteur » | Cinq formations (place, rôle et côté de chaque joueur) ; choix dans la page avant et pendant le match ; `formation=` dans les outils | 4-4-2 identique au match près. Contre un 4-4-2 (20 matchs, standard, consignes neutres) : **4-3-3 14-5-1** (occasions 1,48 – 0,98), 5-3-2 10-5-5, 3-5-2 9-8-3, 4-2-3-1 8-7-5. Toutes battent le 4-4-2 : à étudier. Vérifié dans Chromium et avec `tools/page.js` |
 | 79 | Principe de Frédéric : aucune formation n'est meilleure en soi, chacune a ses forces et ses faiblesses selon l'adversaire. Mesuré (40 matchs par côté, `tools/profile.js formation=433 formation=442`) : 4-3-3 contre 4-4-2, 41 victoires, 21 nuls, 18 défaites. Le 4-3-3 fait tourner le ballon par ses centraux et son milieu défensif (46 et 40 passes reçues par central, contre 19 pour le 4-4-2) : les deux attaquants du 4-4-2 laissent le milieu à trois libre | L'attaquant qui ne presse pas, quand l'adversaire construit chez lui, se place entre le porteur et le milieu adverse libre le plus proche (fiche « Coupe la passe vers le n°… »). Essai abandonné : l'arrière latéral qui monte quand son couloir est libre (aucun effet) | 4-3-3 contre 4-4-2 : occasions 1,38 – 1,07 → 1,20 – 1,17. 4-4-2 contre 4-4-2 : 1,30 occasions par équipe (1,36 avant) |
 | 80 | Tournoi des formations après ce changement (40 matchs par affiche, standard, consignes neutres) | — | Voir « Les formations ». 4-2-3-1 et 4-3-3 restent les plus fortes, 3-5-2 perd contre toutes, 5-3-2 bat nettement le 4-4-2 |
+| 81 | Demande de Frédéric : construire son équipe avec un budget, puis la placer. Ses choix : 120 joueurs inventés, budget serré, 16 joueurs (au moins 2 gardiens, 5 défenseurs, 5 milieux, 3 attaquants), glisser les joueurs sur le terrain, pas encore de match | Page séparée `equipe.html` (source `construction.html`) : accueil (« Construire mon équipe » / « Match rapide »), achat, placement, consignes, enregistrement et export au format de `equipes.json`. Base `joueurs.json` fabriquée par `tools/joueurs.js`. Moteur, `index.html` et `match.html` inchangés | Budget 29 M€ (titulaires entre Moyen et Élevé). Vérifié dans Chromium (`tools/equipe.js`, ordinateur et téléphone, aucune erreur) ; l'équipe exportée est lue par le moteur, chacun à la place où on l'a déposé. `check.js 20` sans anomalie |
 | 58 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 %. Entre niveaux voisins : toujours 48 à 52 %. Élite contre Faible : 10,2 à 0,05. Passes réussies : l'équipe forte n'en réussit toujours pas plus que l'autre contre le même adversaire |
 
 | 59 | Demande de Frédéric : l'équipe forte doit garder le ballon. Découverte : le « goût du risque » de Faible (7,8) la rendait plus prudente que l'Élite (13,9) | Prudence et patience dépendent aussi de la lucidité : un joueur lucide sait ce que coûte une passe forcée et attend avant de forcer (rien à 14) | Seul : +1 à 3 points de possession |
@@ -610,8 +645,8 @@ Après le point « l'équipe forte garde le ballon », pause sur le moteur et tr
 
 ## Développement futur du jeu (idée de Frédéric, 9 octobre 2026)
 
-- **Construire son équipe avec un budget.** Le joueur reçoit un budget de départ et achète ses joueurs dans une base de données (des joueurs inventés pour commencer). Plus un joueur est fort, plus il coûte cher : le budget oblige à faire des choix.
-- **À l'ouverture du jeu**, deux choix : « Construire mon équipe » ou « Match rapide ». Le premier mène à une page de construction d'équipe.
+- **Construire son équipe avec un budget.** Le joueur reçoit un budget de départ et achète ses joueurs dans une base de données (des joueurs inventés pour commencer). Plus un joueur est fort, plus il coûte cher : le budget oblige à faire des choix. **Première version faite (n° 81)** : voir « Construction d'équipe ».
+- **À l'ouverture du jeu**, deux choix : « Construire mon équipe » ou « Match rapide ». Le premier mène à une page de construction d'équipe. **Fait (n° 81)**, dans `equipe.html`.
 
 ## Ce qui n'existe pas encore
 
