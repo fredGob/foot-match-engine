@@ -131,6 +131,7 @@
         <button data-speed="1" class="on">×1</button><button data-speed="2">×2</button><button data-speed="4">×4</button><button data-speed="8">×8</button><button data-speed="16">×16</button>
       </span>
       <label><input type="checkbox" id="intents"> Montrer où chaque joueur veut aller</label>
+      <label><input type="checkbox" id="labels"> Montrer l'intention de chaque joueur</label>
       <label title="Pendant un arrêt de jeu (touche, coup franc, sortie de but…), la lecture va six fois plus vite"><input type="checkbox" id="skip" checked> Passer vite les arrêts de jeu</label>
       <span class="group" style="margin-left: auto">Durée
         <select id="duration"><option value="5400" selected>90 min</option><option value="2700">45 min</option><option value="1200">20 min</option><option value="600">10 min (essais)</option></select>
@@ -330,7 +331,8 @@
       if (playing && !pending && !scrub && !series && $('busy').hidden) {
         const dead = $('skip').checked && rec.D[Math.min(Math.floor(cur / DT), rec.n - 1)];
         cur = Math.min(end, cur + dt * speed * (dead ? 6 : 1)); if (cur >= end) { playing = false; nextHud = 0; } }
-      R.drawMatch(ctx, W, H, view, show(cur), { intents: $('intents').checked, selected });
+      const stopped = !!rec.D[Math.min(Math.floor(cur / DT), rec.n - 1)];
+      R.drawMatch(ctx, W, H, view, show(cur), { intents: $('intents').checked, labels: $('labels').checked, selected, clock: { time: mmss(cur), score: $('goals').textContent, dead: stopped && cur > 0 && cur < end } });
       if (ts >= nextHud) { hud(); nextHud = ts + 150; }
     }
     requestAnimationFrame(frame);

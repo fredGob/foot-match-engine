@@ -85,6 +85,20 @@ function drawMatch(ctx, W, H, m, alpha, opts) {
     ctx.fillStyle = '#fff'; ctx.fillText(String(p.num), x, y + 0.05 * s);
   }
 
+  // intention de chaque joueur, écrite sous lui (le joueur sélectionné a déjà son étiquette)
+  if (opts.labels) {
+    ctx.font = '500 ' + Math.max(9, Math.round(0.95 * s)) + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    const th = Math.max(12, 1.45 * s);
+    for (const q of pos) {
+      const p = q.p, txt = p.intent.label;
+      if (!txt || p.id === opts.selected) continue;
+      const tw = ctx.measureText(txt).width + 6, x = X(q.x), y = Y(q.y) + r * 1.25;
+      ctx.fillStyle = 'rgba(12,16,20,0.62)'; ctx.fillRect(x - tw / 2, y, tw, th);
+      ctx.fillStyle = p.team === 0 ? '#bcd3ff' : '#ffc2bd'; ctx.fillText(txt, x, y + th / 2 + 0.5);
+    }
+  }
+
   // étiquette du joueur sélectionné : son nom et ce qu'il fait
   if (opts.selected >= 0) {
     const q = pos[opts.selected], txt = q.p.name + ' · ' + q.p.intent.label;
@@ -100,6 +114,14 @@ function drawMatch(ctx, W, H, m, alpha, opts) {
   ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(X(bx) + 0.1 * s, Y(by) + 0.12 * s, 0.42 * s, 0.34 * s, 0, 0, 2 * Math.PI); ctx.fill();
   ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1b1b1b'; ctx.lineWidth = Math.max(1, 0.1 * s);
   ctx.beginPath(); ctx.arc(X(bx), Y(by) - bz * 0.45 * s, br, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+  // chrono façon télé, dans la marge au-dessus du terrain : temps de jeu, score, arrêt de jeu
+  if (opts.clock) {
+    const c = opts.clock, txt = c.time + (c.score ? '   ' + c.score : '') + (c.dead ? '   Arrêt de jeu' : '');
+    ctx.font = '700 ' + Math.max(12, Math.round(1.6 * s)) + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
+    const tw = ctx.measureText(txt).width + 16, th = Math.max(18, Math.min(2.4 * s, MY * s - 4)), lx = X(-HL), ly = Y(-HW) - (MY * s + th) / 2;
+    ctx.fillStyle = 'rgba(12,16,20,0.85)'; ctx.fillRect(lx, ly, tw, th);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, lx + 8, ly + th / 2 + 0.5);
+  }
 }
 
 return { drawMatch, drawPitch, toWorld };

@@ -42,7 +42,7 @@ Comment la page fonctionne :
 5. **Numéro de match.** Il fixe le hasard (et les noms des joueurs de l'équipe standard). Même numéro, mêmes équipes et mêmes consignes aux mêmes instants : exactement le même match. « Rejouer ce match » repart du coup d'envoi avec les consignes affichées.
 6. **Série de matchs** (sous le terrain). Simule beaucoup de matchs avec les équipes et les consignes affichées et donne les moyennes des deux équipes côte à côte. C'est le seul moyen honnête de juger une consigne : un match isolé ne prouve rien, car après un changement toute la suite part ailleurs.
 
-Aussi dans la page : vitesse ×1 à ×16, clic sur un joueur pour lire ce qu'il fait (s'il suit ou non une consigne, sa fraîcheur, ses notes), case pour voir où chaque joueur veut aller, choix de la durée (90, 45, 20 ou 10 minutes). Les statistiques ont une ligne « Fraîcheur des joueurs » : c'est là qu'on voit ce que coûte un pressing.
+Aussi dans la page : chrono façon télé dans le coin du terrain (temps, score, « Arrêt de jeu »), vitesse ×1 à ×16, clic sur un joueur pour lire ce qu'il fait (s'il suit ou non une consigne, sa fraîcheur, ses notes), case pour voir où chaque joueur veut aller, case pour écrire sous chaque joueur son intention (« Presse le n°7 », « Se démarque »… ; capture `docs/intentions.png`), choix de la durée (90, 45, 20 ou 10 minutes). Les statistiques ont une ligne « Fraîcheur des joueurs » : c'est là qu'on voit ce que coûte un pressing.
 
 Les arrêts de jeu ont une durée réaliste (une touche 17 secondes, une sortie de but 30, un corner 34…). Pour ne pas attendre, la case « Passer vite les arrêts de jeu » (cochée par défaut) les lit six fois plus vite.
 
@@ -464,6 +464,7 @@ Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la pos
 | 56 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 % (40 à 44 % avant). Entre niveaux proches : toujours environ 50 %. Équipe standard inchangée (3,2 buts, 1 265 passes, 86,7 %) |
 
 | 57 | Demande de Frédéric : un joueur fort réussit mieux son pressing. Nouvel outil `tools/duels.js` : le pressing de l'Élite reprenait le ballon 24 % du temps, celui de Faible 16 %. Ce sont surtout les attaquants qui pressent, et le moteur ne jugeait un duel que sur la note de tacle, leur point faible | Duel : tacle et anticipation contre dribble et sang-froid. Pression : un presseur vif, agressif et qui anticipe ferme mieux le porteur. Interception : un joueur qui anticipe coupe la passe d'un peu plus loin. Rien ne change à 14 (équipe standard identique au match près) | Pressing de l'Élite : 31 % de ballons repris, Faible : 14 %. Possession de l'Élite : 59 % |
+| 58b | Demande de Frédéric (interface, pour déboguer) : voir l'intention de chaque joueur, et un chrono | Case « Montrer l'intention de chaque joueur » ; chrono façon télé au-dessus du terrain (le chrono du haut de page, petit et gris, passait inaperçu) | Vérifié dans Chromium et avec `tools/page.js` |
 | 58 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 %. Entre niveaux voisins : toujours 48 à 52 %. Élite contre Faible : 10,2 à 0,05. Passes réussies : l'équipe forte n'en réussit toujours pas plus que l'autre contre le même adversaire |
 
 ## Ce qui ne va pas encore
