@@ -1,7 +1,7 @@
 // Vérifie que le moteur reste sain sur beaucoup de matchs : pas de valeur aberrante, pas de match qui se fige,
 // et deux simulations de la même graine strictement identiques.
 // Chaque graine est jouée trois fois : consignes neutres, puis consignes tirées au hasard avec un changement en cours de match,
-// puis deux équipes du fichier equipes.json (niveaux différents) avec des consignes au hasard.
+// puis deux équipes du fichier equipes.json (niveaux différents ou clubs de Ligue 1) avec des consignes au hasard.
 // Usage : node check.js [nombre de matchs] [durée en secondes]
 const E = require('./engine.js'), Eq = require('./equipes.js');
 const n = +process.argv[2] || 100, duration = +process.argv[3] || 600, problems = [];

@@ -31,12 +31,22 @@
   .card h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 
   /* écran d'accueil : deux grands choix */
-  .home { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 860px; margin: 8vh auto 0; }
+  .home { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; max-width: 1100px; margin: 8vh auto 0; }
   .big { display: flex; flex-direction: column; gap: 8px; padding: 28px 24px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--text); text-align: left; text-decoration: none; cursor: pointer; font: inherit; }
   .big:hover { border-color: var(--accent); }
   .big b { font-size: 24px; font-weight: 650; }
   .big span { color: var(--muted); }
   .saved { grid-column: 1 / -1; text-align: center; }
+  .big b { overflow-wrap: anywhere; }
+  /* choix d'un club de Ligue 1 */
+  .clubs { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  .club { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); text-align: left; font: inherit; cursor: pointer; }
+  .club:hover { border-color: var(--accent); }
+  .club .top { display: flex; align-items: baseline; gap: 8px; }
+  .club .rk { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 2.2em; }
+  .club b { font-size: 18px; font-weight: 650; }
+  .club .avg { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .club .stars { font-size: 12.5px; color: var(--muted); }
 
   /* achats */
   .buy { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 12px 14px; align-items: start; }
@@ -145,8 +155,18 @@
   <section id="vHome">
     <div class="home">
       <button class="big" id="goBuild"><b>Construire mon équipe</b><span>Un budget, une base de 120 joueurs : achetez seize joueurs, puis choisissez la formation et placez-les.</span></button>
-      <a class="big" href="match.html" id="goQuick"><b>Match rapide</b><span>Ouvre le match (match.html) avec les équipes déjà prêtes : standard, élite, élevé, moyen, faible.</span></a>
+      <button class="big" id="goClubs"><b>Prendre une équipe de Ligue 1</b><span>Les dix premiers du championnat 2025-26, avec leurs joueurs (notes du jeu EA Sports FC 27) : choisissez un club, puis la formation et le placement.</span></button>
+      <a class="big" href="match.html" id="goQuick"><b>Match rapide</b><span>Ouvre le match (match.html) avec les équipes déjà prêtes : standard, élite, élevé, moyen, faible et les dix clubs de Ligue 1.</span></a>
       <div class="saved muted" id="savedLine" hidden></div>
+    </div>
+  </section>
+
+  <!-- choix d'un club de Ligue 1 (clubs de equipes.json) -->
+  <section id="vClubs" hidden>
+    <div class="card">
+      <h2>Les dix premiers de Ligue 1 (saison 2025-26)</h2>
+      <p class="hint" style="margin-top:0">Notes du jeu EA Sports FC 27 (octobre 2026), converties sur 20. La note à droite est la note globale moyenne des onze titulaires. Pas d'achat ici : on prend l'effectif du club tel quel.</p>
+      <div class="clubs" id="clubs"></div>
     </div>
   </section>
 
@@ -241,7 +261,11 @@ function accepte(pl) {
 
 // ---------- état ----------
 const byId = {}; for (const j of D.joueurs) byId[j.id] = j;
-const S = { squad: [], lineup: null, bench: [], formation: '442', tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0 }, nom: '' };
+// joueurs des clubs de Ligue 1 (identifiants « psg-0 »… : ils ne sont pas dans la liste d'achat)
+const CLUBS = D.clubs || [];
+for (const C of CLUBS) for (const j of C.titulaires.concat(C.remplacants)) byId[j.id] = j;
+// S.club : identifiant du club choisi (« Prendre une équipe de Ligue 1 »), ou null pour une équipe construite avec le budget
+const S = { squad: [], lineup: null, bench: [], formation: '442', tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0 }, nom: '', club: null };
 const UI = { poste: 'tous', sort: 'note', afford: false, sel: null };
 const $ = id => document.getElementById(id);
 const fmt = (x, d) => x.toFixed(d == null ? 1 : d).replace('.', ',');
@@ -255,10 +279,14 @@ const tag = p => '<span class="tag ' + LIGNE[p] + '">' + p + '</span>';
 
 // ---------- écrans ----------
 function show(v) {
-  for (const k of ['vHome', 'vBuy', 'vTac']) $(k).hidden = k !== v;
+  for (const k of ['vHome', 'vClubs', 'vBuy', 'vTac']) $(k).hidden = k !== v;
+  const club = v === 'vClubs' || (v === 'vTac' && S.club);
   $('steps').hidden = v === 'vHome'; $('home').hidden = v === 'vHome';
-  $('st1').classList.toggle('on', v === 'vBuy'); $('st2').classList.toggle('on', v === 'vTac');
-  $('title').textContent = v === 'vHome' ? 'Moteur de match' : 'Construire mon équipe';
+  $('st1').textContent = club ? '1. Choisir le club' : '1. Acheter les joueurs';
+  $('st1').classList.toggle('on', v === 'vBuy' || v === 'vClubs'); $('st2').classList.toggle('on', v === 'vTac');
+  $('title').textContent = v === 'vHome' ? 'Moteur de match' : club ? 'Équipe de Ligue 1' : 'Construire mon équipe';
+  $('back').textContent = S.club ? 'Changer de club' : 'Retour aux achats';
+  if (v === 'vClubs') drawClubs();
   if (v === 'vBuy') drawBuy();
   if (v === 'vTac') drawTac();
   window.scrollTo(0, 0);
@@ -336,10 +364,31 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 $('sort').onchange = () => { UI.sort = $('sort').value; drawBuy(); };
 $('afford').onchange = () => { UI.afford = $('afford').checked; drawBuy(); };
-$('goBuild').onclick = () => show('vBuy');
+$('goBuild').onclick = () => { if (S.club) Object.assign(S, { squad: [], lineup: null, bench: [], nom: '', club: null }); show('vBuy'); };
+$('goClubs').onclick = () => show('vClubs');
 $('home').onclick = () => { drawSaved(); show('vHome'); };
 $('validate').onclick = () => { if (manque().length) return; ranger(); show('vTac'); };
-$('back').onclick = () => show('vBuy');
+$('back').onclick = () => show(S.club ? 'vClubs' : 'vBuy');
+
+// ---------- clubs de Ligue 1 ----------
+const moyenne = L => L.reduce((s, j) => s + j.note, 0) / L.length;
+function drawClubs() {
+  $('clubs').innerHTML = CLUBS.map(C => {
+    const best = C.titulaires.slice().sort((a, b) => b.note - a.note).slice(0, 3).map(j => esc(j.nom) + ' ' + fmt(j.note)).join(' · ');
+    return '<button class="club" data-club="' + esc(C.id) + '" title="' + esc(C.description || '') + '"><div class="top"><span class="rk">' + C.classement + (C.classement === 1 ? 'er' : 'e') + '</span><b>' + esc(C.nom) +
+      '</b><span class="avg">' + fmt(moyenne(C.titulaires)) + '</span></div><div class="stars">' + best + '</div><div class="stars">' + (C.titulaires.length + C.remplacants.length) + ' joueurs dont ' + C.remplacants.length + ' remplaçants</div></button>';
+  }).join('');
+}
+// choisir un club : ses onze titulaires à leur place du 4-4-2 (rang n de l'effectif = place n de la formation), les remplaçants sur le banc
+function pickClub(id) {
+  const C = CLUBS.find(x => x.id === id); if (!C) return;
+  const pls = D.formations.find(f => f.id === '442').places;
+  Object.assign(S, { club: C.id, nom: C.nom, formation: '442', tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0 },
+    squad: C.titulaires.concat(C.remplacants).map(j => j.id), lineup: pls.map(pl => (C.titulaires.find(j => j.place === pl.code) || {}).id || null), bench: C.remplacants.map(j => j.id) });
+  if (S.lineup.some(x => !x)) ranger();
+  show('vTac'); say('Effectif de ' + C.nom + ' en place (4-4-2). Changez la formation, faites glisser les joueurs, réglez les consignes.');
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-club]'); if (b) pickClub(b.dataset.club); });
 
 // ---------- tactique : placement ----------
 // S.lineup[i] = joueur à la place n° i de la formation (rang i de l'effectif du 4-4-2 dans le moteur) ; S.bench = les cinq autres.
@@ -396,7 +445,8 @@ function drawTac() {
   const offs = [];
   $('compo').innerHTML = pls.map((pl, i) => { const j = byId[S.lineup[i]], off = !accepte(pl).includes(j.poste); if (off) offs.push(j); return '<tr><td>' + esc(pl.label) + '</td><td>' + esc(j.nom) + '</td><td>' + tag(j.poste) + '</td><td class="' + (off ? 'offp' : 'muted') + '">' + (off ? 'hors poste' : fmt(j.note)) + '</td></tr>'; }).join('');
   const moy = S.lineup.reduce((s, id) => s + byId[id].note, 0) / 11;
-  $('teamInfo').textContent = 'Titulaires : note globale moyenne ' + fmt(moy) + ' · ' + (offs.length ? offs.length + ' joueur' + (offs.length > 1 ? 's' : '') + ' hors poste' : 'tout le monde à son poste') + ' · effectif ' + euros(depense()) + ' sur ' + D.budget + ' M€';
+  $('teamInfo').textContent = 'Titulaires : note globale moyenne ' + fmt(moy) + ' · ' + (offs.length ? offs.length + ' joueur' + (offs.length > 1 ? 's' : '') + ' hors poste' : 'tout le monde à son poste') + ' · ' +
+    (S.club ? 'effectif du club : ' + S.squad.length + ' joueurs (pas de budget)' : 'effectif ' + euros(depense()) + ' sur ' + D.budget + ' M€');
   // consignes
   const preset = D.presets.find(p => D.tactics.every(c => p.t[c.key] === S.tac[c.key]));
   $('cons').innerHTML = '<span class="k" title="Un jeu des six consignes prêt à l\'emploi">Tactique</span><select class="preset" id="preset">' + D.presets.map(p => '<option value="' + p.id + '"' + (preset === p ? ' selected' : '') + ' title="' + esc(p.help) + '">' + esc(p.name) + '</option>').join('') + (preset ? '' : '<option selected value="">Personnalisée</option>') + '</select>' +
@@ -466,7 +516,7 @@ function say(t, warn) { $('msg').textContent = t; $('msg').style.color = warn ? 
 const CLE = 'construction-equipe';
 function load() { try { const s = JSON.parse(localStorage.getItem(CLE) || 'null'); return s && Array.isArray(s.squad) && s.squad.every(id => byId[id]) ? s : null; } catch (e) { return null; } }
 $('save').onclick = () => {
-  const s = { squad: S.squad, lineup: S.lineup, bench: S.bench, formation: S.formation, tac: S.tac, nom: S.nom, quand: new Date().toISOString() };
+  const s = { squad: S.squad, lineup: S.lineup, bench: S.bench, formation: S.formation, tac: S.tac, nom: S.nom, club: S.club, quand: new Date().toISOString() };
   try { localStorage.setItem(CLE, JSON.stringify(s)); say('Équipe enregistrée dans ce navigateur.'); }
   catch (e) { say('Impossible d\'enregistrer dans ce navigateur. Utilisez « Exporter ».', true); }
 };
@@ -478,8 +528,9 @@ function drawSaved() {
 document.addEventListener('click', e => {
   if (e.target.id !== 'resume') return;
   e.preventDefault(); const s = load(); if (!s) return;
-  Object.assign(S, { squad: s.squad.slice(), lineup: s.lineup ? s.lineup.slice() : null, formation: s.formation || '442', tac: Object.assign({}, S.tac, s.tac), nom: s.nom || '' });
-  if (manque().length) show('vBuy'); else { ranger(); show('vTac'); }
+  Object.assign(S, { squad: s.squad.slice(), lineup: s.lineup ? s.lineup.slice() : null, formation: s.formation || '442', tac: Object.assign({}, S.tac, s.tac), nom: s.nom || '', club: s.club || null });
+  if (S.club) { ranger(); if (s.bench) S.bench = s.bench.filter(id => S.bench.includes(id)).concat(S.bench.filter(id => !s.bench.includes(id))); show('vTac'); }      // club : pas d'achats, on garde aussi l'ordre du banc
+  else if (manque().length) show('vBuy'); else { ranger(); show('vTac'); }
 });
 // Fichier exporté : une équipe au format de equipes.json, prête à y être recopiée.
 // Le moteur range les joueurs par leur code de poste du 4-4-2 (G, AG, DCG… ATD) puis place le joueur de rang i à la place n° i de la formation
@@ -491,7 +542,8 @@ function exportTeam() {
   const slug = nom.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'mon-equipe';
   const notes = j => { const o = {}; for (const [k] of D.qualities) o[k] = j.notes[k]; return o; };
   return {
-    id: slug, nom, description: 'Équipe construite dans equipe.html : ' + forme().name + ', effectif de ' + euros(depense()) + ' sur un budget de ' + D.budget + ' M€.',
+    id: slug, nom, description: S.club ? 'Effectif de ' + CLUBS.find(C => C.id === S.club).nom + ' (Ligue 1 2025-26, notes EA Sports FC 27), placé dans equipe.html : ' + forme().name + '.'
+      : 'Équipe construite dans equipe.html : ' + forme().name + ', effectif de ' + euros(depense()) + ' sur un budget de ' + D.budget + ' M€.',
     formation: S.formation, consignes: Object.assign({}, S.tac),
     joueurs: pls.map((pl, i) => { const j = byId[S.lineup[i]]; return { poste: pl.code, numero: pl.num, nom: j.nom, place: pl.label, poste_naturel: j.poste, notes: notes(j) }; }),
     remplacants: S.bench.map((id, k) => { const j = byId[id]; return { numero: 12 + k, nom: j.nom, poste_naturel: j.poste, notes: notes(j) }; }),

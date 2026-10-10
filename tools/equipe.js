@@ -2,12 +2,15 @@
 // accueil, achat d'un effectif valable (vrais clics), bouton « Valider » bloqué tant qu'il manque quelque chose, fiche d'un joueur,
 // écran tactique, changement de formation, joueurs glissés à la souris, consignes, enregistrement, export, reprise après rechargement,
 // affichage sur téléphone. Le fichier exporté est ensuite lu par le moteur : chaque joueur doit jouer à la place où on l'a déposé.
-// Captures d'écran dans docs/ (equipe-accueil.png, equipe-achat.png, equipe-fiche.png, equipe-tactique.png, equipe-telephone*.png).
+// Puis « Prendre une équipe de Ligue 1 » : liste des dix clubs, choix du PSG, écran tactique déjà rempli (titulaires de equipes.json à leur
+// place, remplaçants sur le banc), glisser un joueur, formation, export lu par le moteur.
+// Captures d'écran dans docs/ (equipe-accueil.png, equipe-achat.png, equipe-fiche.png, equipe-tactique.png, equipe-telephone*.png,
+// equipe-ligue1.png, equipe-ligue1-tactique.png).
 // Usage : node build.js && node tools/equipe.js
 const fs = require('fs'), os = require('os'), path = require('path');
 const ROOT = path.join(__dirname, '..'), DOCS = path.join(ROOT, 'docs');
 let pw; try { pw = require('playwright'); } catch (e) { pw = require('/opt/node22/lib/node_modules/playwright'); }
-const E = require(path.join(ROOT, 'engine.js'));
+const E = require(path.join(ROOT, 'engine.js')), EQ = require(path.join(ROOT, 'equipes.json'));
 const fails = [], errors = [];
 const check = (ok, what, detail) => { console.log((ok ? '  ok    ' : '  ÉCHEC ') + what + (detail ? ' — ' + detail : '')); if (!ok) fails.push(what); };
 
@@ -30,7 +33,7 @@ function choisir(D) {
   const shot = async name => { await page.screenshot({ path: path.join(DOCS, name) }); console.log('        capture : docs/' + name); };
 
   console.log('Accueil');
-  check(await page.isVisible('#goBuild') && await page.isVisible('#goQuick'), 'deux grands choix : « Construire mon équipe » et « Match rapide »');
+  check(await page.isVisible('#goBuild') && await page.isVisible('#goClubs') && await page.isVisible('#goQuick'), 'trois grands choix : « Construire mon équipe », « Prendre une équipe de Ligue 1 » et « Match rapide »');
   check((await page.getAttribute('#goQuick', 'href')) === 'match.html', '« Match rapide » mène à match.html');
   await shot('equipe-accueil.png');
 
@@ -131,6 +134,53 @@ function choisir(D) {
   await page.click('#resume');
   check(await page.isVisible('#pitch') && JSON.stringify(await page.evaluate('S.lineup')) === JSON.stringify(saved.lineup) && await page.evaluate('S.formation') === '433', 'équipe reprise : même formation, mêmes places');
 
+  console.log('Prendre une équipe de Ligue 1');
+  await page.click('#home'); await page.click('#goClubs');
+  const clubs = EQ.equipes.filter(T => T.championnat);
+  check(await page.isVisible('#clubs') && (await page.$$('#clubs .club')).length === clubs.length && clubs.length === 10, 'liste des dix clubs', (await page.$$eval('#clubs .club b', b => b.map(x => x.textContent))).join(', '));
+  await shot('equipe-ligue1.png');
+  await page.click('#clubs .club[data-club="psg"]');
+  const PSG = clubs.find(T => T.id === 'psg');
+  const order = ['G', 'AG', 'DCG', 'DCD', 'AD', 'MG', 'MCG', 'MCD', 'MD', 'ATG', 'ATD'];      // rang de l'effectif du 4-4-2 dans le moteur
+  const want = order.map(c => PSG.joueurs.find(j => j.poste === c).nom);
+  check(await page.isVisible('#pitch') && (await page.$$('#pitch .tok')).length === 11 && (await page.$$('#bench .tok')).length === PSG.remplacants.length,
+    'PSG choisi : écran tactique, 11 titulaires sur le terrain, ' + PSG.remplacants.length + ' remplaçants sur le banc');
+  check(JSON.stringify(await page.evaluate('S.lineup.map(id => byId[id].nom)')) === JSON.stringify(want) && await page.evaluate('S.formation') === '442', 'chaque titulaire à sa place du 4-4-2 de equipes.json', want.join(', '));
+  check(/pas de budget/.test(await page.textContent('#teamInfo')) && (await page.textContent('#back')) === 'Changer de club' && /Choisir le club/.test(await page.textContent('#st1')), 'pas de budget affiché, bouton « Changer de club »', await page.textContent('#teamInfo'));
+  // le remplaçant attaquant glissé sur l'attaquant mobile (place n° 9 en 4-4-2)
+  const kb = await page.evaluate(`S.bench.findIndex(id => byId[id].poste === 'AT')`), sub = await page.evaluate('S.bench[' + kb + ']'), ac = await page.evaluate('S.lineup[9]');
+  await drag('[data-drop="b' + kb + '"]', '[data-drop="p9"]');
+  check(await page.evaluate('S.lineup[9]') === sub && await page.evaluate('S.bench[' + kb + ']') === ac, 'glisser le remplaçant attaquant sur l\'attaquant mobile : échangés', await page.evaluate('byId[S.lineup[9]].nom'));
+  await page.click('#forms button[data-form="4231"]');
+  check(await page.evaluate('S.formation') === '4231', 'formation 4-2-3-1 choisie');
+  await page.selectOption('#preset', 'possession');
+  await shot('equipe-ligue1-tactique.png');
+  await page.click('#save');
+  const saved2 = await page.evaluate(`JSON.parse(localStorage.getItem('construction-equipe'))`);
+  check(saved2 && saved2.club === 'psg' && saved2.formation === '4231', 'enregistrée (club, formation)');
+  const [dl2] = await Promise.all([page.waitForEvent('download'), page.click('#export')]);
+  const tmp2 = path.join(os.tmpdir(), 'equipe-export-l1-' + process.pid + '.json'); await dl2.saveAs(tmp2);
+  const T2 = JSON.parse(fs.readFileSync(tmp2, 'utf8')); fs.unlinkSync(tmp2);
+  check(dl2.suggestedFilename() === 'equipe-paris-sg.json' && T2.joueurs.length === 11 && T2.remplacants.length === PSG.remplacants.length && T2.formation === '4231', 'fichier exporté', dl2.suggestedFilename() + ' · ' + T2.description);
+  const all = PSG.joueurs.concat(PSG.remplacants);
+  check(T2.joueurs.concat(T2.remplacants).every(j => JSON.stringify(j.notes) === JSON.stringify(all.find(x => x.nom === j.nom).notes)), 'les notes exportées sont celles de equipes.json');
+  let ok2 = true, det2 = '';
+  try {
+    const m = E.createMatch({ seed: 4, duration: 120, teams: [T2, PSG], formations: [T2.formation, '442'], tactics: [T2.consignes, {}] });
+    const lineup = await page.evaluate('S.lineup.map(id => byId[id].nom)'), labels = await page.evaluate('forme().places.map(p => p.label)');
+    for (let i = 0; i < 11; i++) { const p = m.teams[0].players[i]; if (p.name !== lineup[i] || (i > 0 && p.poste !== labels[i])) { ok2 = false; det2 += ' place ' + i + ' : ' + p.name + ' (' + p.poste + ')'; } }
+    while (m.mode !== 'over') E.step(m);
+    det2 = det2 || 'match de 2 minutes joué contre le PSG de equipes.json, ' + m.teams[0].score + '-' + m.teams[1].score + ' ; ' + m.teams[0].players.slice(5, 11).map(p => p.name + ' : ' + p.poste).join(', ');
+  } catch (e) { ok2 = false; det2 = e.message; }
+  check(ok2, 'le moteur lit l\'équipe exportée, chacun à sa place', det2);
+  await page.reload();
+  await page.click('#resume');
+  check(await page.isVisible('#pitch') && await page.evaluate('S.club') === 'psg' && JSON.stringify(await page.evaluate('S.lineup')) === JSON.stringify(saved2.lineup), 'club repris après rechargement : même formation, mêmes places');
+  await page.click('#back');
+  check(await page.isVisible('#clubs'), '« Changer de club » ramène à la liste des clubs');
+  await page.click('#home'); await page.click('#goBuild');
+  check(await page.evaluate('S.squad.length') === 0 && await page.evaluate('S.club') === null, '« Construire mon équipe » après un club : effectif vide, budget entier');
+
   console.log('Téléphone (390 × 844)');
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const pp = await phone.newPage();
@@ -143,6 +193,8 @@ function choisir(D) {
   await pp.click('#goBuild');
   check(await noScroll(), 'achats : pas de défilement de côté');
   await pp.screenshot({ path: path.join(DOCS, 'equipe-telephone-achat.png') }); console.log('        capture : docs/equipe-telephone-achat.png');
+  await pp.click('#home'); await pp.click('#goClubs');
+  check(await noScroll(), 'liste des clubs : pas de défilement de côté');
   await pp.click('#home'); await pp.click('#resume');
   check(await noScroll(), 'tactique : pas de défilement de côté');
   await pp.screenshot({ path: path.join(DOCS, 'equipe-telephone.png') }); console.log('        capture : docs/equipe-telephone.png');

@@ -32,7 +32,10 @@ const pick = async (team, key, v) => { const s = d.querySelector(`#tactics selec
   console.log('Équipes');
   const squadSel = team => d.querySelector(`#squads select[data-team="${team}"]`);
   const pickSquad = async (team, id) => { const s = squadSel(team); s.value = id; s.dispatchEvent(new w.Event('change')); await wait(400); };
-  check(squadSel(0) && squadSel(0).options.length === 5, 'on peut choisir l\'équipe standard ou l\'une des quatre équipes du fichier', squadSel(0) ? [...squadSel(0).options].map(o => o.textContent).join(', ') : '');
+  const groups = squadSel(0) ? [...squadSel(0).querySelectorAll('optgroup')].map(g => g.label + ' : ' + [...g.querySelectorAll('option')].map(o => o.textContent).join(', ')) : [];
+  check(squadSel(0) && squadSel(0).options.length === 15 && groups.length === 2 && /^Niveaux : Standard, Élite/.test(groups[0]) && /^Ligue 1 2025-26 : Paris SG/.test(groups[1]), 'on peut choisir l\'équipe standard, l\'une des quatre équipes de niveau ou l\'un des dix clubs de Ligue 1 (deux groupes)', groups.join(' | '));
+  await pickSquad(0, 'psg'); await pickSquad(1, 'lorient');
+  check(/Paris SG/.test($('name0').textContent) && /Lorient/.test($('name1').textContent) && !$('pre').hidden, 'Paris SG contre Lorient : les noms s\'affichent, match à l\'arrêt', $('name0').textContent + ' / ' + $('name1').textContent);
   await pickSquad(0, 'elite'); await pickSquad(1, 'faible');
   check(/Élite/.test($('name0').textContent) && /Faible/.test($('name1').textContent) && /^00:00/.test($('clock').textContent) && !$('pre').hidden, 'Élite contre Faible : les noms s\'affichent et le match reste à l\'arrêt', $('name0').textContent + ' / ' + $('name1').textContent);
   for (let x = 200; x < 1000 && /Cliquez/.test($('player').textContent); x += 40) for (let y = 150; y < 650 && /Cliquez/.test($('player').textContent); y += 40) { $('pitch').onclick({ clientX: x, clientY: y }); await wait(30); }

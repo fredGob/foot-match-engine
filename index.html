@@ -197,7 +197,7 @@
     <div class="card" id="squadCard">
       <h2>Équipes</h2>
       <table class="tac" id="squads"></table>
-      <div class="muted small" style="margin-top: 8px">Standard : tous les joueurs à 14. Les autres équipes viennent du fichier equipes.json. Changer d'équipe remet le match au coup d'envoi.</div>
+      <div class="muted small" style="margin-top: 8px">Standard : tous les joueurs à 14. Les autres équipes viennent du fichier equipes.json : quatre niveaux, puis les dix premiers de Ligue 1 2025-26 (notes du jeu EA Sports FC 27). Changer d'équipe remet le match au coup d'envoi.</div>
     </div>
     <div class="card">
       <h2>Consignes</h2>
@@ -569,7 +569,12 @@
 
   // choix des équipes : changer d'équipe remet le match au coup d'envoi, avec les consignes affichées
   if (TEAMS.length) {
-    const sel = team => '<select data-team="' + team + '" aria-label="Équipe des ' + (team ? 'Rouges' : 'Bleus') + '"><option value="">Standard</option>' + TEAMS.map(T => '<option value="' + esc(T.id) + '" title="' + esc(T.description || '') + '">' + esc(T.nom) + '</option>').join('') + '</select>';
+    // deux groupes dans la liste : les équipes de niveau (élite, élevé…), puis les clubs d'un championnat (champ « championnat » dans equipes.json)
+    const opt = T => '<option value="' + esc(T.id) + '" title="' + esc(T.description || '') + '">' + esc(T.nom) + '</option>';
+    const champs = [...new Set(TEAMS.filter(T => T.championnat).map(T => T.championnat))];
+    const opts = champs.length ? '<optgroup label="Niveaux"><option value="">Standard</option>' + TEAMS.filter(T => !T.championnat).map(opt).join('') + '</optgroup>' +
+      champs.map(c => '<optgroup label="' + esc(c) + '">' + TEAMS.filter(T => T.championnat === c).map(opt).join('') + '</optgroup>').join('') : '<option value="">Standard</option>' + TEAMS.map(opt).join('');
+    const sel = team => '<select data-team="' + team + '" aria-label="Équipe des ' + (team ? 'Rouges' : 'Bleus') + '">' + opts + '</select>';
     $('squads').innerHTML = '<tr><th><span class="dot" style="background: var(--blue)"></span> Bleus</th><th></th><th>Rouges <span class="dot" style="background: var(--red)"></span></th></tr><tr><td>' + sel(0) + '</td><td class="k" style="cursor: default">Équipe</td><td>' + sel(1) + '</td></tr>';
     document.querySelectorAll('#squads select').forEach(s => s.onchange = () => { squad[+s.dataset.team] = s.value; s.classList.toggle('set', s.value !== ''); s.blur(); if (rec) newMatch(seed); });
   } else $('squadCard').hidden = true;

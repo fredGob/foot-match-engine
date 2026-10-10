@@ -39,6 +39,7 @@ Chaque équipe a six consignes à trois positions. Une consigne est une **intent
 
 - **Standard** : tous les joueurs ont 14 sur 20 partout. Deux équipes strictement égales, pour que seules les consignes fassent la différence.
 - **Élite, Élevé, Moyen, Faible** : quatre équipes de niveaux différents, avec des notes selon le poste. Elles sont dans `equipes.json`.
+- **Les dix premiers de Ligue 1 2025-26** (Paris SG, Lens, Lille, Lyon, Marseille, Rennes, Monaco, Strasbourg, Toulouse, Lorient) : onze titulaires et des remplaçants par club, avec les notes du jeu EA Sports FC 27 converties sur 20 (`node tools/ligue1.js`). On les trouve dans `match.html` et dans `equipe.html` (« Prendre une équipe de Ligue 1 »).
 
 `equipes.json` se modifie à la main : une ligne par joueur, vingt notes de 1 à 20. Après une modification, `node build.js` refait `match.html`.
 
@@ -50,7 +51,7 @@ Il faut [Node.js](https://nodejs.org) (testé avec la version 26). Le moteur lui
 node build.js                   # refait match.html après une modification
 node check.js 200               # vérifie que le moteur ne déraille pas
 node sim.js 60 1 5400           # 60 matchs de 90 minutes : moyennes comparées au vrai football
-node tools/levels.js 60         # tournoi entre les quatre équipes de equipes.json
+node tools/levels.js 60         # tournoi entre les quatre équipes de niveau (ou : node tools/levels.js 20 ligue1)
 node tools/tactics.js 60 5400   # effet de chaque consigne, une par une
 ```
 
@@ -73,7 +74,7 @@ Les tests de la page demandent une installation, une seule fois : `cd tools && n
 | `render.js` | Le dessin du terrain. |
 | `stats.js` | Les statistiques d'un match ou d'une série. |
 | `index.html` | La page, avant assemblage. |
-| `equipes.json` | Les quatre équipes de niveaux différents. |
+| `equipes.json` | Les quatre équipes de niveaux différents et les dix clubs de Ligue 1. |
 | `sim.js`, `check.js`, `tools/` | Simulations, vérifications et outils de mesure. |
 | `CLAUDE.md` | Le carnet du projet : fonctionnement du moteur, mesures, journal des essais, défauts connus. |
 

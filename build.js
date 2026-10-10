@@ -1,5 +1,5 @@
 // Assemble index.html, engine.js, render.js, stats.js et les équipes de equipes.json en un seul fichier autonome : match.html.
-// Fait aussi la page de construction d'équipe : construction.html et joueurs.json → equipe.html (voir en bas).
+// Fait aussi la page de construction d'équipe : construction.html, joueurs.json et les clubs de equipes.json → equipe.html (voir en bas).
 // Usage : node build.js
 const fs = require('fs'), path = require('path');
 const read = f => fs.readFileSync(path.join(__dirname, f), 'utf8');
@@ -41,11 +41,21 @@ console.log('match.html écrit (' + Math.round(html.length / 1024) + ' ko, ' + t
     for (const k in j.notes) if (!noms.includes(k)) throw new Error(who + ' : note inconnue « ' + k + ' »');
     j.note = J.noteGlobale(j); j.prix = J.prix(j.note);
   }
-  const data = { budget: base.budget, joueurs: base.joueurs, cles: J.CLES, formations, presets: E.PRESETS,
+  // les clubs de equipes.json (champ « championnat ») : leurs seize joueurs, pour le choix « Prendre une équipe de Ligue 1 ».
+  // Poste naturel : « poste_naturel » du fichier, sinon déduit de la place du 4-4-2 (DCG → DC…) ; note globale et prix : mêmes formules que la base.
+  const NAT = { G: 'G', AG: 'AG', DCG: 'DC', DCD: 'DC', AD: 'AD', MG: 'MG', MCG: 'MC', MCD: 'MC', MD: 'MD', ATG: 'AT', ATD: 'AT' };
+  const clubs = teams.equipes.filter(T => T.championnat).map(T => {
+    const one = (j, k) => { const o = { id: T.id + '-' + k, nom: j.nom, poste: j.poste_naturel || NAT[j.poste], notes: j.notes, fc: j.fc, source: j.source };
+      if (!J.CLES[o.poste]) throw new Error('equipes.json, ' + T.nom + ', ' + j.nom + ' : poste naturel inconnu « ' + o.poste + ' »');
+      o.note = J.noteGlobale(o); o.prix = J.prix(o.note); return o; };
+    return { id: T.id, nom: T.nom, championnat: T.championnat, classement: T.classement, description: T.description,
+      titulaires: T.joueurs.map((j, k) => Object.assign(one(j, k), { place: j.poste })), remplacants: (T.remplacants || []).map((j, k) => one(j, 11 + k)) };
+  });
+  const data = { budget: base.budget, joueurs: base.joueurs, clubs, cles: J.CLES, formations, presets: E.PRESETS,
     tactics: E.TACTICS.map(c => ({ key: c.key, label: c.label, options: c.options, help: c.help })), qualities: E.QUALITIES.map(q => [q[1], q[2]]) };
   let page = read('construction.html');
   if (!page.includes('/*DONNEES*/null')) throw new Error('emplacement des données introuvable dans construction.html');
   page = page.replace('/*DONNEES*/null', () => JSON.stringify(data).replace(/<\/script/g, '<\\/script'));
   fs.writeFileSync(path.join(__dirname, 'equipe.html'), page);
-  console.log('equipe.html écrit (' + Math.round(page.length / 1024) + ' ko, ' + base.joueurs.length + ' joueurs, budget ' + base.budget + ' M€)');
+  console.log('equipe.html écrit (' + Math.round(page.length / 1024) + ' ko, ' + base.joueurs.length + ' joueurs, budget ' + base.budget + ' M€, ' + clubs.length + ' clubs)');
 }
