@@ -1,4 +1,5 @@
-// Assemble index.html, engine.js, render.js, stats.js et les équipes de equipes.json en un seul fichier autonome : match.html
+// Assemble index.html, engine.js, render.js, stats.js et les équipes de equipes.json en un seul fichier autonome : match.html.
+// Fait aussi la page de construction d'équipe : construction.html, joueurs.json et les clubs de equipes.json → equipe.html (voir en bas).
 // Usage : node build.js
 const fs = require('fs'), path = require('path');
 const read = f => fs.readFileSync(path.join(__dirname, f), 'utf8');
@@ -15,3 +16,46 @@ if (!html.includes('/*EQUIPES*/null')) throw new Error('emplacement des équipes
 html = html.replace('/*EQUIPES*/null', () => JSON.stringify({ equipes: teams.equipes }).replace(/<\/script/g, '<\\/script'));
 fs.writeFileSync(path.join(__dirname, 'match.html'), html);
 console.log('match.html écrit (' + Math.round(html.length / 1024) + ' ko, ' + teams.equipes.length + ' équipes : ' + teams.equipes.map(T => T.nom).join(', ') + ')');
+
+// ---------- deuxième page : la construction d'équipe (construction.html + joueurs.json → equipe.html) ----------
+// Elle n'embarque pas le moteur : seulement les données dont elle a besoin, lues ici dans engine.js (formations, tactiques prédéfinies,
+// consignes, noms des notes) et dans joueurs.json (note globale et prix calculés par les formules de tools/joueurs.js).
+{
+  const src = read('engine.js');
+  // SLOTS (places du 4-4-2) et POSTE (noms des places) ne sont pas exportés par le moteur : on les relit dans son texte
+  const grab = name => { const r = src.match(new RegExp('\\nconst ' + name + ' = ([\\[{][\\s\\S]*?[\\]}]);\\n')); if (!r) throw new Error(name + ' introuvable dans engine.js'); return new Function('return ' + r[1])(); };
+  const SLOTS = grab('SLOTS'), POSTE = grab('POSTE');
+  const codeOf = i => Object.keys(E.PLACES).find(k => E.PLACES[k] === SLOTS[i].slot);
+  // place n° i de chaque formation (rang i de l'effectif du 4-4-2, code de poste dans equipes.json) ; pour le dessin :
+  // x = largeur (−34 à 34, gauche négative), d = profondeur depuis la ligne défensive (moyenne défense / attaque ; gardien −15)
+  const formations = E.FORMATIONS.map(f => ({ id: f.id, name: f.name, places: SLOTS.map((s0, i) => {
+    const s = Object.assign({}, s0, f.slots && f.slots[i] || {});
+    return { code: codeOf(i), num: s0.num, label: s.poste || POSTE[s0.slot], role: s.role, side: s.side, x: (s.yD + s.yA) / 2, d: s.role === 'GK' ? -15 : (s.dD + s.dA) / 2 };
+  }) }));
+  const base = JSON.parse(read('joueurs.json')), J = require('./tools/joueurs.js'), noms = E.QUALITIES.map(q => q[1]), vus = new Set();
+  for (const j of base.joueurs) {      // fichier mal rempli : on s'arrête avec un message clair
+    const who = 'joueurs.json, ' + (j.nom || j.id || '?');
+    if (!J.CLES[j.poste]) throw new Error(who + ' : poste inconnu « ' + j.poste + ' » (postes : ' + Object.keys(J.CLES).join(', ') + ')');
+    if (!j.id || vus.has(j.id)) throw new Error(who + ' : identifiant manquant ou en double « ' + j.id + ' »'); vus.add(j.id);
+    for (const k of noms) if (typeof (j.notes || {})[k] !== 'number' || !(j.notes[k] >= 1 && j.notes[k] <= 20)) throw new Error(who + ' : la note « ' + k + ' » doit être un nombre de 1 à 20');
+    for (const k in j.notes) if (!noms.includes(k)) throw new Error(who + ' : note inconnue « ' + k + ' »');
+    j.note = J.noteGlobale(j); j.prix = J.prix(j.note);
+  }
+  // les clubs de equipes.json (champ « championnat ») : leurs seize joueurs, pour le choix « Prendre une équipe de Ligue 1 ».
+  // Poste naturel : « poste_naturel » du fichier, sinon déduit de la place du 4-4-2 (DCG → DC…) ; note globale et prix : mêmes formules que la base.
+  const NAT = { G: 'G', AG: 'AG', DCG: 'DC', DCD: 'DC', AD: 'AD', MG: 'MG', MCG: 'MC', MCD: 'MC', MD: 'MD', ATG: 'AT', ATD: 'AT' };
+  const clubs = teams.equipes.filter(T => T.championnat).map(T => {
+    const one = (j, k) => { const o = { id: T.id + '-' + k, nom: j.nom, poste: j.poste_naturel || NAT[j.poste], notes: j.notes, fc: j.fc, source: j.source };
+      if (!J.CLES[o.poste]) throw new Error('equipes.json, ' + T.nom + ', ' + j.nom + ' : poste naturel inconnu « ' + o.poste + ' »');
+      o.note = J.noteGlobale(o); o.prix = J.prix(o.note); return o; };
+    return { id: T.id, nom: T.nom, championnat: T.championnat, classement: T.classement, description: T.description,
+      titulaires: T.joueurs.map((j, k) => Object.assign(one(j, k), { place: j.poste })), remplacants: (T.remplacants || []).map((j, k) => one(j, 11 + k)) };
+  });
+  const data = { budget: base.budget, joueurs: base.joueurs, clubs, cles: J.CLES, formations, presets: E.PRESETS,
+    tactics: E.TACTICS.map(c => ({ key: c.key, label: c.label, options: c.options, help: c.help })), qualities: E.QUALITIES.map(q => [q[1], q[2]]) };
+  let page = read('construction.html');
+  if (!page.includes('/*DONNEES*/null')) throw new Error('emplacement des données introuvable dans construction.html');
+  page = page.replace('/*DONNEES*/null', () => JSON.stringify(data).replace(/<\/script/g, '<\\/script'));
+  fs.writeFileSync(path.join(__dirname, 'equipe.html'), page);
+  console.log('equipe.html écrit (' + Math.round(page.length / 1024) + ' ko, ' + base.joueurs.length + ' joueurs, budget ' + base.budget + ' M€, ' + clubs.length + ' clubs)');
+}

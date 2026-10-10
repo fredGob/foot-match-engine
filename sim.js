@@ -8,13 +8,13 @@ const E = require('./engine.js'), St = require('./stats.js'), Eq = require('./eq
 
 const n = +process.argv[2] || 100, seed0 = +process.argv[3] || 1, duration = +process.argv[4] || 600;
 const sides = [Eq.side(process.argv[5]), Eq.side(process.argv[6])], tactics = sides.map(x => x.tactics), teams = sides.map(x => x.team);
-const tactical = tactics.some(t => Object.values(t).some(v => v)) || teams.some(Boolean);
+const tactical = tactics.some(t => Object.values(t).some(v => v)) || teams.some(Boolean) || sides.some(x => x.formation);
 const keys = ['goals', 'shots', 'onTarget', 'xg', 'passes', 'tackles', 'interceptions', 'blocks', 'fouls', 'corners', 'offsides', 'saves'];
 const acc = St.create(), count = {};
 let play = 0, t0 = Date.now();
 
 for (let i = 0; i < n; i++) {
-  const m = E.createMatch({ seed: seed0 + i, duration, tactics, teams });
+  const m = E.createMatch({ seed: seed0 + i, duration, tactics, teams, formations: sides.map(x => x.formation) });
   while (m.mode !== 'over') E.step(m);
   St.add(acc, m); play += m.playT;
   for (const k in m.count) count[k] = (count[k] || 0) + m.count[k];

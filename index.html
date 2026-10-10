@@ -17,6 +17,27 @@
   .score .clock { color: var(--muted); font-size: 16px; font-weight: 500; min-width: 110px; }
   main { min-width: 0; }
   .stage { position: relative; }
+  .tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 8px; color: var(--muted); }
+  .tabs .group button { border-radius: 0; margin-left: -1px; }
+  .tabs .group button:first-child { border-radius: 7px 0 0 7px; margin-left: 0; }
+  .tabs .group button:last-child { border-radius: 0 7px 7px 0; }
+  #statsCtl { display: flex; flex-basis: 100%; flex-wrap: wrap; align-items: center; gap: 8px 14px; }      /* toujours sur sa propre ligne, sous Match / Statistiques */
+  .tabs [hidden], #statsCtl[hidden] { display: none; }
+  .tip { position: absolute; pointer-events: none; padding: 6px 10px; border-radius: 6px; background: rgba(12, 16, 20, 0.92); border: 1px solid var(--line); font-size: 13px; white-space: nowrap; }
+  .tip[hidden] { display: none; }
+  .stage.stats .pre, .stage.stats .end { display: none; }
+  .numbers { position: absolute; inset: 0; overflow: auto; padding: 14px 18px; background: var(--panel); border-radius: 10px; }
+  .numbers[hidden] { display: none; }
+  .numbers .sides { display: flex; justify-content: space-between; max-width: 640px; margin: 0 auto 4px; font-weight: 600; }
+  .numbers table { max-width: 640px; margin: 0 auto; font-size: 15px; }
+  .numbers td { padding: 3px 8px; }
+  body.coach .godonly { display: none !important; }
+  .modehint { font-size: 12.5px; color: var(--muted); }
+  body:not(.coach) .coachonly { display: none !important; }
+  .heatkey { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+  .heatkey i { display: inline-block; width: 90px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, rgba(255,236,179,0.4), #ffc466, #f2852e, #c94816, #8c1c0a); }
+  .statsnote { margin: 6px 8px 0; font-size: 13px; color: var(--muted); }
+  .statsnote b { color: var(--text); font-weight: 600; }
   canvas { display: block; width: 100%; aspect-ratio: 114 / 75; border-radius: 10px; cursor: pointer; }
   .end, .busy { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(10, 14, 18, 0.72); border-radius: 10px; font-size: 26px; font-weight: 650; }
   .end[hidden], .busy[hidden], .pre[hidden] { display: none; }
@@ -29,6 +50,9 @@
   /* barre de temps : repères au-dessus, curseur dessous */
   .timeline { margin-top: 8px; }
   .marks { position: relative; height: 16px; margin: 0 8px; }
+  .timeline { position: relative; }
+  .future { position: absolute; right: 8px; top: 16px; height: 20px; background: repeating-linear-gradient(135deg, rgba(17, 21, 26, 0.75) 0 6px, rgba(17, 21, 26, 0.45) 6px 12px); pointer-events: none; border-left: 2px solid var(--accent); }
+  .future span { position: absolute; left: 4px; top: -15px; font-size: 11px; color: var(--accent); white-space: nowrap; }
   .mark { position: absolute; bottom: 1px; transform: translateX(-50%); padding: 0; border: 0; border-radius: 0; background: none; cursor: pointer; }
   .mark.shot { width: 3px; height: 8px; opacity: 0.75; }
   .mark.goal { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--accent); }
@@ -72,6 +96,8 @@
   .tac td:first-child, .tac td:last-child { width: 31%; font-weight: 400; }
   .tac td.k { font-size: 13px; cursor: help; }
   .tac select.set { border-color: var(--accent); }
+  .tac tr.presets td { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .tac select.preset { font-weight: 600; }
 
   #log { height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
   #log div { display: flex; gap: 8px; }
@@ -106,21 +132,37 @@
   </div>
 
   <main>
+    <div class="tabs">
+      <span class="group" title="Mode God : on règle les deux équipes, on voit les intentions et toute la suite du match. Mode Coach It : on dirige les Bleus seulement, comme un vrai entraîneur, sans voir la suite."><button data-mode="god" class="on">Mode God</button><button data-mode="coach">Mode Coach It</button></span>
+      <span class="group"><button id="tabMatch" class="on">Match</button><button id="tabStats">Statistiques</button></span>
+      <span id="statsCtl" hidden>
+        <span class="group"><button data-st-map="num" class="on">Chiffres</button><button data-st-map="heat">Carte de chaleur</button><button data-st-map="net">Réseau de passes</button></span>
+        <span class="group" id="stSrc" hidden><button data-st-src="match" class="on">Ce match</button><button data-st-src="series" id="stSrcSeries">Série</button></span>
+        <span class="group" id="stTeams"><button data-st-team="0" class="on">Bleus</button><button data-st-team="1">Rouges</button></span>
+        <select id="stPlayer" aria-label="Joueur de la carte de chaleur"></select>
+        <span class="heatkey" id="heatKey">peu <i></i> beaucoup de temps</span>
+      </span>
+    </div>
     <div class="stage">
       <canvas id="pitch"></canvas>
       <div class="end" id="end" hidden><div id="endText"></div><div class="row"><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
       <div class="pre" id="pre" hidden><div>Réglez vos consignes, puis donnez le coup d'envoi.</div><button id="kick" class="main">Lancer le match</button></div>
       <div class="busy" id="busy" hidden>Calcul du match…</div>
+      <div class="tip" id="tip" hidden></div>
+      <div class="numbers" id="numbers" hidden><div class="sides" id="numSides"></div><table id="stats"></table><table id="statsSeries" hidden></table></div>
     </div>
 
+    <div class="statsnote" id="statsNote" hidden></div>
     <div class="timeline">
       <div class="marks" id="marks"></div>
+      <div class="future coachonly" id="future"><span>direct</span></div>
       <input type="range" id="time" min="0" max="600" step="0.05" value="0" aria-label="Position dans le match">
       <div class="legend">
         <span><i class="mark goal" style="position: static; transform: none; background: var(--blue)"></i>but</span>
         <span><i class="mark shot" style="position: static; transform: none; background: var(--blue)"></i>tir</span>
         <span><i class="mark tactic" style="position: static; transform: rotate(45deg); background: var(--blue)"></i>changement de consigne</span>
         <span>Faites glisser la barre, ou flèches ← → pour reculer et avancer de 5 secondes.</span>
+        <span class="coachonly">Mode Coach It : on peut revoir le passé, jamais la suite du match.</span>
       </div>
     </div>
 
@@ -130,7 +172,8 @@
       <span class="group">Vitesse
         <button data-speed="1" class="on">×1</button><button data-speed="2">×2</button><button data-speed="4">×4</button><button data-speed="8">×8</button><button data-speed="16">×16</button>
       </span>
-      <label><input type="checkbox" id="intents"> Montrer où chaque joueur veut aller</label>
+      <label class="godonly"><input type="checkbox" id="intents"> Montrer où chaque joueur veut aller</label>
+      <label class="godonly"><input type="checkbox" id="labels"> Montrer l'intention de chaque joueur</label>
       <label title="Pendant un arrêt de jeu (touche, coup franc, sortie de but…), la lecture va six fois plus vite"><input type="checkbox" id="skip" checked> Passer vite les arrêts de jeu</label>
       <span class="group" style="margin-left: auto">Durée
         <select id="duration"><option value="5400" selected>90 min</option><option value="2700">45 min</option><option value="1200">20 min</option><option value="600">10 min (essais)</option></select>
@@ -138,7 +181,7 @@
       <span class="group">Match n°<input type="number" id="seed" min="1" step="1"><button id="load">Rejouer ce match</button><button id="new">Nouveau match</button></span>
     </div>
 
-    <div class="card series">
+    <div class="card series godonly">
       <h2>Série de matchs</h2>
       <div class="bar">
         <label>Nombre de matchs <input type="number" id="nSeries" min="1" max="5000" step="1" value="20"></label>
@@ -154,7 +197,7 @@
     <div class="card" id="squadCard">
       <h2>Équipes</h2>
       <table class="tac" id="squads"></table>
-      <div class="muted small" style="margin-top: 8px">Standard : tous les joueurs à 14. Les autres équipes viennent du fichier equipes.json. Changer d'équipe remet le match au coup d'envoi.</div>
+      <div class="muted small" style="margin-top: 8px">Standard : tous les joueurs à 14. Les autres équipes viennent du fichier equipes.json : quatre niveaux, puis les dix premiers de Ligue 1 2025-26 (notes du jeu EA Sports FC 27). Changer d'équipe remet le match au coup d'envoi.</div>
     </div>
     <div class="card">
       <h2>Consignes</h2>
@@ -169,10 +212,6 @@
     <div class="card">
       <h2>Fil du match</h2>
       <div id="log"></div>
-    </div>
-    <div class="card">
-      <h2>Statistiques</h2>
-      <table id="stats"></table>
     </div>
   </aside>
 </div>
@@ -195,6 +234,12 @@
   let seed = 1, duration = 5400, tac0 = [blank(), blank()], changes = [], pending = true;
   let rec = null, view = null, cur = 0, end = 5400, playing = false, scrub = false, speed = 1, last = 0;
   let selected = -1, shown = 0, W = 0, H = 0, nextHud = 0, series = null;
+  // page Statistiques : onglet, équipe, carte (chaleur ou réseau de passes), joueur de la carte de chaleur (-1 : toute l'équipe)
+  // mode God : tout voir, régler les deux équipes ; mode Coach It : les Bleus seulement, sans voir la suite (live : jusqu'où le match a été joué)
+  let mode = 'god', live = 0, marked = -1;
+  const coach = () => mode === 'coach';
+  let lastSeries = null, stSrc = 'match';
+  let tab = 'match', stTeam = 0, stMap = 'num', stPlayer = -1, stData = null, stKey = '', stAt = 0, hoverNode = -1;
   // équipes du fichier equipes.json (mises dans la page par build.js) ; squad : l'équipe choisie pour chaque camp, '' = équipe standard (tous à 14)
   const TEAMS = (window.MatchTeams && window.MatchTeams.equipes) || [];
   let squad = ['', ''];
@@ -208,15 +253,23 @@
   const tickOf = t => Math.round(t / DT);
   // consignes en vigueur à un instant donné
   function tacAt(tick) { const t = [Object.assign({}, tac0[0]), Object.assign({}, tac0[1])]; for (const c of changes) if (c.tick <= tick) t[c.team][c.key] = c.v; return t; }
-  function describe(t) { const on = TAC.filter(c => t[c.key]).map(c => c.label + ' : ' + c.options[t[c.key] + 1].toLowerCase()); return on.length ? on.join(' · ') : 'consignes neutres'; }
+  function describe(t) { const fo = (E.FORMATIONS.find(f => f.id === (t.formation || '442')) || {}).name, on = TAC.filter(c => t[c.key]).map(c => c.label + ' : ' + c.options[t[c.key] + 1].toLowerCase()); return fo + ' · ' + (on.length ? on.join(' · ') : 'consignes neutres'); }
 
   // ---------- calcul et enregistrement du match ----------
   // full = false : seulement l'image du coup d'envoi (avant-match)
   function simulate(full) {
-    const m = E.createMatch({ seed, duration, tactics: tac0, teams: teamsOf(squad) }), key = seed + '|' + squad.join('|');
+    const m = E.createMatch({ seed, duration, tactics: tac0, teams: teamsOf(squad), formations: tac0.map(t => t.formation || '442') }), key = seed + '|' + squad.join('|');
     const cap = full ? Math.round(duration / DT) + 4 : 1;
     const buf = buffers[cap] || (buffers[cap] = { P: new Float32Array(cap * NP * F), B: new Float32Array(cap * 4), L: new Uint16Array(cap * NP), N: new Uint16Array(cap * NP), K: new Uint8Array(cap * NP), D: new Uint8Array(cap) });
-    const r = Object.assign({ n: 0, texts: [''], kinds: [], stats: [], events: m.events }, buf);
+    const r = Object.assign({ n: 0, texts: [''], kinds: [], stats: [], events: m.events, passes: [] }, buf);
+    // passes jouées (pour le réseau de passes) : on note chaque passe au départ, et on la range quand on connaît son issue
+    const open = []; let lastQ = null;
+    const trackPasses = () => {
+      const q = m.pass;
+      if (q && q !== lastQ && q.kind === 'pass' && q.type !== 'tete' && q.from) open.push({ q, t: m.t, team: q.from.team, from: q.from.id, to: q.to ? q.to.id : -1 });
+      lastQ = q;
+      for (let j = open.length - 1; j >= 0; j--) if (open[j].q.ended) { const o = open.splice(j, 1)[0]; r.passes.push({ t: o.t, team: o.team, from: o.from, to: o.to, ok: o.q.how === 'ok' }); }
+    };
     const textId = new Map([['', 0]]), kindId = new Map();
     const id = (map, list, s) => { let i = map.get(s); if (i === undefined) { i = list.length; list.push(s); map.set(s, i); } return i; };
     const capture = f => {
@@ -234,14 +287,19 @@
     let f = 0, ci = 0;
     capture(0);
     while (full && m.mode !== 'over' && f < cap - 1) {
-      for (; ci < changes.length && changes[ci].tick <= m.tick; ci++) E.setTactics(m, changes[ci].team, { [changes[ci].key]: changes[ci].v });
-      E.step(m); capture(++f);
+      for (; ci < changes.length && changes[ci].tick <= m.tick; ci++) {
+        const c = changes[ci];
+        if (c.key === 'formation') { E.setFormation(m, c.team, c.v); continue; }
+        if (c.preset) { const grp = {}; let cj = ci; for (; cj < changes.length && changes[cj].tick === c.tick && changes[cj].team === c.team && changes[cj].preset === c.preset; cj++) grp[changes[cj].key] = changes[cj].v; E.setTactics(m, c.team, grp, c.preset); ci = cj - 1; }
+        else E.setTactics(m, c.team, { [c.key]: c.v });
+      }
+      E.step(m); capture(++f); trackPasses();
     }
     r.n = f + 1;
     rec = r; end = full ? f * DT : duration;
     if (!view || view.key !== key) {
-      view = { seed, key, icpt: null, teams: m.teams.map(T => ({ name: T.name, club: T.club, color: T.color })), ball: { x: 0, y: 0, z: 0, px: 0, py: 0, pz: 0, owner: null },
-        players: m.players.map(p => ({ id: p.id, team: p.team, num: p.num, name: p.name, role: p.role, poste: p.poste, a: p.a, x: 0, y: 0, px: 0, py: 0, face: 0, v: 0, stam: 1, dist: 0, intent: { type: 'position', label: '', note: null, tx: 0, ty: 0 } })) };
+      view = { seed, key, icpt: null, teams: m.teams.map(T => ({ name: T.name, club: T.club, color: T.color, dir: T.dir })), ball: { x: 0, y: 0, z: 0, px: 0, py: 0, pz: 0, owner: null },
+        players: m.players.map(p => ({ id: p.id, idx: p.idx, team: p.team, num: p.num, name: p.name, role: p.role, poste: p.poste, a: p.a, x: 0, y: 0, px: 0, py: 0, face: 0, v: 0, stam: 1, dist: 0, intent: { type: 'position', label: '', note: null, tx: 0, ty: 0 } })) };
     }
     $('time').max = end; $('time').disabled = !full; $('pre').hidden = full; $('name0').textContent = view.teams[0].name + (view.teams[0].club ? ' · ' + view.teams[0].club : ''); $('name1').textContent = (view.teams[1].club ? view.teams[1].club + ' · ' : '') + view.teams[1].name;
     drawMarks(); shown = -1; nextHud = 0;
@@ -264,6 +322,7 @@
   function drawMarks() {
     const box = $('marks'); box.innerHTML = '';
     for (const e of rec.events) {
+      if (coach() && e.t > live + 1e-6) break;                       // Coach It : pas de repères dans le futur
       let cls = null, team = e.team;
       if (e.kind === 'goal') cls = 'goal'; else if (e.kind === 'tactic') cls = 'tactic';
       else if (e.kind === 'shot') cls = 'shot'; else if (e.kind === 'save' || e.kind === 'block') { cls = 'shot'; team = 1 - e.team; }      // l'événement est noté côté défenseur
@@ -288,6 +347,11 @@
 
   function hud() {
     const tick = Math.min(tickOf(cur), rec.n - 1), ev = rec.events;
+    if (coach()) {
+      let k = 0; while (k < ev.length && ev[k].t <= live + 1e-6) k++; if (k !== marked) { marked = k; drawMarks(); }
+      const fu = $('future'), w = $('marks').getBoundingClientRect().width;      // la suite du match, hors d'atteinte
+      fu.hidden = pending; fu.style.width = Math.max(0, w * (1 - live / end)) + 'px';
+    }
     let n = 0, s0 = 0, s1 = 0;
     for (; n < ev.length && ev[n].t <= cur + 1e-6; n++) if (ev[n].kind === 'goal') { if (ev[n].team === 0) s0++; else s1++; }
     $('goals').textContent = s0 + ' – ' + s1;
@@ -306,22 +370,155 @@
     const st = rec.stats[Math.min(Math.floor(tick / 10), rec.stats.length - 1)];
     $('stats').innerHTML = statRows(St.rowsOf(st[0], st[1]));
     // consignes en vigueur à cet instant
-    const t = tacAt(tick);
-    document.querySelectorAll('#tactics select').forEach(sel => { const v = String(t[+sel.dataset.team][sel.dataset.key]); if (sel.value !== v && document.activeElement !== sel) sel.value = v; sel.classList.toggle('set', v !== '0'); });
-    $('tacHint').textContent = pending ? 'Choisissez les consignes des deux équipes pour le coup d\'envoi. Vous pourrez les changer en cours de match.' : tick <= 0 ? 'Au coup d\'envoi : un changement vaut pour tout le match.' : 'Un changement s\'applique à partir de ' + mmss(cur) + ' et réécrit la suite du match.';
+    const t = tacAt(coach() ? Math.min(tickOf(live), rec.n - 1) : tick);      // Coach It : les consignes en vigueur au moment du direct
+    document.querySelectorAll('#tactics select[data-formation]').forEach(sel => { const v = t[+sel.dataset.formation].formation || '442'; if (sel.value !== v && document.activeElement !== sel) sel.value = v; sel.classList.toggle('set', v !== '442'); });
+    document.querySelectorAll('#tactics select[data-preset]').forEach(sel => { const id = presetOf(t[+sel.dataset.preset]); if (sel.value !== id && document.activeElement !== sel) sel.value = id; const P = PRE.find(P => P.id === id); sel.title = P ? P.help : 'Consignes réglées à la main'; });
+    document.querySelectorAll('#tactics select[data-key]').forEach(sel => { const v = String(t[+sel.dataset.team][sel.dataset.key]); if (sel.value !== v && document.activeElement !== sel) sel.value = v; sel.classList.toggle('set', v !== '0'); });
+    if (coach()) $('tacHint').textContent = pending ? 'Choisissez les consignes de votre équipe (les Bleus). L\'adversaire joue avec des consignes neutres.' : 'Un changement s\'applique au moment du direct (' + mmss(live) + '), même si vous revoyez une action plus ancienne.';
+    else $('tacHint').textContent = pending ? 'Choisissez les consignes des deux équipes pour le coup d\'envoi. Vous pourrez les changer en cours de match.' : tick <= 0 ? 'Au coup d\'envoi : un changement vaut pour tout le match.' : 'Un changement s\'applique à partir de ' + mmss(cur) + ' et réécrit la suite du match.';
     if (selected >= 0) {
       const p = view.players[selected], T = view.teams[p.team];
       $('player').className = '';
       $('player').innerHTML = '<div class="who"><span class="dot" style="background:' + T.color + '"></span> n°' + p.num + ' ' + esc(p.name) + '</div>'
         + '<div class="muted">' + p.poste + ' · ' + T.name + (T.club ? ' (' + esc(T.club) + ')' : '') + '</div>'
-        + '<div class="doing">' + esc(p.intent.label) + (p.intent.note ? '<span class="note">' + esc(p.intent.note) + '</span>' : '') + '</div>'
+        + (coach() ? '' : '<div class="doing">' + esc(p.intent.label) + (p.intent.note ? '<span class="note">' + esc(p.intent.note) + '</span>' : '') + '</div>')
         + '<div class="muted" style="margin-bottom:8px">' + (p.v * 3.6).toFixed(0) + ' km/h · fraîcheur ' + Math.round(100 * p.stam) + ' % · ' + (p.dist / 1000).toFixed(2) + ' km parcourus</div>'
         + '<div class="attrs">' + attrsOf(p).map(k => '<div class="attr"><span>' + k[1] + '</span><b>' + Math.round(p.a[k[0]] * 20) + '</b></div>').join('') + '</div>';
     }
     const over = !pending && cur >= end - 1e-6 && !scrub;
     if (over) $('endText').textContent = view.teams[0].name + ' ' + s0 + ' – ' + s1 + ' ' + view.teams[1].name;
-    $('end').hidden = !over;
+    $('end').hidden = !over || tab === 'stats';
     $('play').textContent = pending ? 'Lancer le match' : playing ? 'Pause' : 'Lecture';
+  }
+
+  // ---------- page Statistiques : carte de chaleur et réseau de passes, jusqu'à l'instant affiché ----------
+  const teamName = t => view.teams[t].name + (view.teams[t].club ? ' (' + view.teams[t].club + ')' : '');
+  const way = t => view.teams[t].dir > 0 ? 'attaquent vers la droite →' : '← attaquent vers la gauche';
+  function heatGrid(f1) {
+    const g = new Float32Array(R.HEAT.cols * R.HEAT.rows);
+    for (let f = 0; f <= f1; f += 4) {
+      if (rec.D[f]) continue;                                        // ballon en jeu seulement
+      for (const p of view.players) {
+        if (stPlayer >= 0 ? p.id !== stPlayer : (p.team !== stTeam || p.role === 'GK')) continue;
+        const k = (f * NP + p.id) * F, c = R.heatCell(rec.P[k], rec.P[k + 1]); if (c >= 0) g[c]++;
+      }
+    }
+    return g;
+  }
+  function passNetwork(f1) {
+    const tEnd = f1 * DT, ps = view.players.filter(p => p.team === stTeam), idx = new Map(ps.map((p, i) => [p.id, i]));
+    const sx = ps.map(() => 0), sy = ps.map(() => 0); let n = 0;
+    for (let f = 0; f <= f1; f += 5) {                               // position moyenne quand son équipe a le ballon
+      const o = rec.B[f * 4 + 3]; if (o < 0 || view.players[o].team !== stTeam) continue;
+      ps.forEach((p, i) => { const k = (f * NP + p.id) * F; sx[i] += rec.P[k]; sy[i] += rec.P[k + 1]; }); n++;
+    }
+    const made = ps.map(() => 0), ok = ps.map(() => 0), got = ps.map(() => 0), pair = new Map();
+    for (const q of rec.passes) {
+      if (q.t > tEnd || q.team !== stTeam) continue;
+      const a = idx.get(q.from); made[a]++;
+      if (q.ok && q.to >= 0 && idx.has(q.to)) { const b = idx.get(q.to); ok[a]++; got[b]++; const k = Math.min(a, b) + '-' + Math.max(a, b); pair.set(k, (pair.get(k) || 0) + 1); }
+    }
+    let maxInv = 1; ps.forEach((p, i) => { maxInv = Math.max(maxInv, made[i] + got[i]); });
+    const nodes = ps.map((p, i) => ({ x: n ? sx[i] / n : view.players[p.id].x, y: n ? sy[i] / n : view.players[p.id].y, num: p.num, name: p.name, size: (made[i] + got[i]) / maxInv, made: made[i], ok: ok[i], got: got[i] }));
+    let maxPair = 0; for (const v of pair.values()) maxPair = Math.max(maxPair, v);
+    const cut = Math.max(1, Math.round(0.15 * maxPair)), edges = [];
+    for (const [k, v] of pair) if (v >= cut) { const [a, b] = k.split('-').map(Number); edges.push({ a, b, n: v }); }
+    edges.sort((x, y) => y.n - x.n);
+    return { nodes, edges, cut };
+  }
+  // cartes de la série : même dessin, données cumulées sur tous les matchs de la série
+  function seriesData() {
+    const S = lastSeries, M = S.maps, n = S.done, team = view.players.filter(p => p.team === stTeam).sort((a, b) => a.idx - b.idx);
+    if (stMap === 'heat') {
+      const g = new Float32Array(R.HEAT.cols * R.HEAT.rows), one = stPlayer >= 0 ? view.players[stPlayer].idx : -1;
+      M.heat[stTeam].forEach((h, i) => { if (one >= 0 ? i === one : i !== 0) for (let c = 0; c < g.length; c++) g[c] += h[c]; });
+      return { grid: g, n };
+    }
+    const inv = M.made[stTeam].map((x, i) => x + M.got[stTeam][i]), maxInv = Math.max(1, ...inv);
+    const nodes = team.map(p => { const P = M.pos[stTeam][p.idx]; return { x: P[2] ? P[0] / P[2] : 0, y: P[2] ? P[1] / P[2] : 0, num: p.num, name: p.poste || p.name, size: inv[p.idx] / maxInv, made: Math.round(M.made[stTeam][p.idx] / n), ok: Math.round(M.ok[stTeam][p.idx] / n), got: Math.round(M.got[stTeam][p.idx] / n) }; });
+    const at = new Map(team.map((p, k) => [p.idx, k]));
+    let maxPair = 0; for (const v of M.pair[stTeam].values()) maxPair = Math.max(maxPair, v);
+    const cut = Math.max(1, Math.round(0.15 * maxPair)), edges = [];
+    for (const [k, v] of M.pair[stTeam]) if (v >= cut) { const [a, b] = k.split('-').map(Number); edges.push({ a: at.get(a), b: at.get(b), n: v }); }
+    edges.sort((x, y) => y.n - x.n);
+    return { nodes, edges, cut: Math.round(cut / n * 10) / 10, n, perMatch: true };
+  }
+  function drawStats(ts) {
+    const ser = stSrc === 'series' && lastSeries;
+    $('stats').hidden = !!ser; $('statsSeries').hidden = !ser;
+    if (ser) {
+      const S = lastSeries, desc = t => (clubOf(S.squad[t]) ? clubOf(S.squad[t]) + ' · ' : '') + describe(S.tac[t]);
+      if (stMap === 'num') {
+        R.drawPitch(ctx, W, H);
+        const sides = '<span><span class="dot" style="background: var(--blue)"></span> Bleus</span><span>Rouges <span class="dot" style="background: var(--red)"></span></span>';
+        if ($('numSides').innerHTML !== sides) $('numSides').innerHTML = sides;
+        if ($('statsSeries').dataset.n !== String(S.done)) { $('statsSeries').innerHTML = statRows(St.rows(S.acc)); $('statsSeries').dataset.n = S.done; }
+        $('statsNote').textContent = 'Moyennes par match sur la série de ' + S.done + ' matchs. Bleus : ' + desc(0) + '. Rouges : ' + desc(1) + '.';
+        return;
+      }
+      const key = ['série', S.done, stTeam, stMap, stPlayer].join('|');
+      if (key !== stKey) {
+        stKey = key; stData = seriesData();
+        const who = stPlayer >= 0 ? 'n°' + view.players[stPlayer].num + ' (' + (view.players[stPlayer].poste || '') + ')' : 'toute l\'équipe (sans le gardien)';
+        if (stMap === 'heat') $('statsNote').innerHTML = '<b>Carte de chaleur</b> — série de ' + S.done + ' matchs, ' + (stTeam ? 'Rouges' : 'Bleus') + ' (' + esc(desc(stTeam)) + '), ' + esc(who) + ', ballon en jeu. Les ' + (stTeam ? 'Rouges' : 'Bleus') + ' ' + way(stTeam) + '.';
+        else {
+          const N = stData.nodes, top = stData.edges.slice(0, 5).map(e => 'n°' + N[e.a].num + ' ↔ n°' + N[e.b].num + ' : ' + Math.round(e.n / S.done)).join(' · ');
+          const tot = N.reduce((a, q) => a + q.made, 0), okT = N.reduce((a, q) => a + q.ok, 0);
+          $('statsNote').innerHTML = '<b>Réseau de passes</b> — série de ' + S.done + ' matchs, ' + (stTeam ? 'Rouges' : 'Bleus') + ' (' + esc(desc(stTeam)) + ') : ' + tot + ' passes par match, ' + (tot ? Math.round(100 * okT / tot) : 0) + ' % réussies. Positions moyennes quand l\'équipe a le ballon. Les ' + (stTeam ? 'Rouges' : 'Bleus') + ' ' + way(stTeam) + '.' + (top ? '<br>Associations les plus fréquentes (passes réussies par match) : ' + esc(top) + '.' : '');
+        }
+      }
+      if (stMap === 'heat') R.drawHeat(ctx, W, H, stData.grid);
+      else R.drawNetwork(ctx, W, H, stData.nodes, stData.edges, view.teams[stTeam].color, hoverNode);
+      return;
+    }
+    if (stMap === 'num') {                                           // les chiffres : le tableau remplace le terrain
+      R.drawPitch(ctx, W, H);
+      const sides = '<span><span class="dot" style="background: var(--blue)"></span> ' + esc(teamName(0)) + '</span><span>' + esc(teamName(1)) + ' <span class="dot" style="background: var(--red)"></span></span>';
+      if ($('numSides').innerHTML !== sides) $('numSides').innerHTML = sides;
+      $('statsNote').textContent = rec.n <= 1 ? 'Lancez le match pour voir les statistiques.' : 'Statistiques du match de 00:00 à ' + mmss(Math.min(tickOf(cur), rec.n - 1) * DT) + '.';
+      return;
+    }
+    const f1 = Math.min(tickOf(cur), rec.n - 1), key = [stTeam, stMap, stPlayer, rec.n, view.key].join('|');
+    if (key !== stKey || (f1 !== stData.f1 && ts - stAt > 250)) {
+      stKey = key; stAt = ts;
+      stData = stMap === 'heat' ? { f1, grid: heatGrid(f1) } : Object.assign({ f1 }, passNetwork(f1));
+      const span = 'de 00:00 à ' + mmss(f1 * DT);
+      if (rec.n <= 1) $('statsNote').textContent = 'Lancez le match pour voir les statistiques.';
+      else if (stMap === 'heat') {
+        const who = stPlayer >= 0 ? 'n°' + view.players[stPlayer].num + ' ' + view.players[stPlayer].name : 'toute l\'équipe (sans le gardien)';
+        $('statsNote').innerHTML = '<b>Carte de chaleur</b> — ' + esc(teamName(stTeam)) + ', ' + esc(who) + ', ' + span + ', ballon en jeu. Les ' + esc(view.teams[stTeam].name) + ' ' + way(stTeam) + '.';
+      } else {
+        const N = stData.nodes, top = stData.edges.slice(0, 5).map(e => 'n°' + N[e.a].num + ' ↔ n°' + N[e.b].num + ' : ' + e.n).join(' · ');
+        const tot = N.reduce((a, q) => a + q.made, 0), okT = N.reduce((a, q) => a + q.ok, 0);
+        $('statsNote').innerHTML = '<b>Réseau de passes</b> — ' + esc(teamName(stTeam)) + ', ' + span + ' : ' + tot + ' passes, ' + (tot ? Math.round(100 * okT / tot) : 0) + ' % réussies. Chaque joueur est à sa position moyenne quand son équipe a le ballon ; plus le rond est gros, plus il touche le ballon ; plus le trait est épais, plus les deux joueurs se passent le ballon (traits à partir de ' + stData.cut + ' passes réussies). Les ' + esc(view.teams[stTeam].name) + ' ' + way(stTeam) + '.'
+          + (top ? '<br>Associations les plus fréquentes : ' + esc(top) + '.' : '');
+      }
+    }
+    if (stMap === 'heat') R.drawHeat(ctx, W, H, stData.grid);
+    else R.drawNetwork(ctx, W, H, stData.nodes, stData.edges, view.teams[stTeam].color, hoverNode);
+  }
+  function fillPlayers() {
+    const sel = $('stPlayer'); sel.innerHTML = '<option value="-1">Toute l\'équipe</option>' + view.players.filter(p => p.team === stTeam).map(p => '<option value="' + p.id + '">n°' + p.num + (stSrc === 'series' && lastSeries ? '' : ' ' + esc(p.name)) + (p.poste ? ' (' + esc(p.poste) + ')' : '') + '</option>').join('');
+    sel.value = String(stPlayer);
+  }
+  function setTab(t) {
+    tab = t; $('tabMatch').classList.toggle('on', t === 'match'); $('tabStats').classList.toggle('on', t === 'stats');
+    $('statsCtl').hidden = t !== 'stats'; $('statsNote').hidden = t !== 'stats'; document.querySelector('.stage').classList.toggle('stats', t === 'stats');
+    $('tip').hidden = true; hoverNode = -1; stKey = ''; nextHud = 0;
+    if (t === 'stats') fillPlayers();
+    setStats({});
+  }
+  function setStats(o) {
+    if (o.src) { stSrc = o.src; stKey = ''; fillPlayers(); }
+    document.querySelectorAll('[data-st-src]').forEach(b => b.classList.toggle('on', b.dataset.stSrc === stSrc));
+    if (o.team !== undefined && o.team !== stTeam) { stTeam = o.team; stPlayer = -1; fillPlayers(); }
+    if (o.map) stMap = o.map;
+    if (o.player !== undefined) { stPlayer = o.player; $('stPlayer').value = String(stPlayer); }
+    document.querySelectorAll('[data-st-team]').forEach(b => b.classList.toggle('on', +b.dataset.stTeam === stTeam));
+    document.querySelectorAll('[data-st-map]').forEach(b => b.classList.toggle('on', b.dataset.stMap === stMap));
+    $('stPlayer').hidden = stMap !== 'heat'; $('heatKey').hidden = stMap !== 'heat'; $('stTeams').hidden = stMap === 'num';
+    $('numbers').hidden = !(tab === 'stats' && stMap === 'num');
+    $('tip').hidden = true; hoverNode = -1; stKey = '';
   }
 
   function frame(ts) {
@@ -330,14 +527,19 @@
       if (playing && !pending && !scrub && !series && $('busy').hidden) {
         const dead = $('skip').checked && rec.D[Math.min(Math.floor(cur / DT), rec.n - 1)];
         cur = Math.min(end, cur + dt * speed * (dead ? 6 : 1)); if (cur >= end) { playing = false; nextHud = 0; } }
-      R.drawMatch(ctx, W, H, view, show(cur), { intents: $('intents').checked, selected });
+      if (!pending && cur > live) live = cur;                        // le direct avance avec la lecture
+      if (tab === 'stats') drawStats(ts);
+      else {
+      const stopped = !!rec.D[Math.min(Math.floor(cur / DT), rec.n - 1)];
+      R.drawMatch(ctx, W, H, view, show(cur), { intents: !coach() && $('intents').checked, labels: !coach() && $('labels').checked, hideMind: coach(), selected, clock: { time: mmss(cur), score: $('goals').textContent, dead: stopped && cur > 0 && cur < end } });
+      }
       if (ts >= nextHud) { hud(); nextHud = ts + 150; }
     }
     requestAnimationFrame(frame);
   }
 
   // ---------- commandes ----------
-  function seek(t) { if (pending) return; cur = Math.min(end, Math.max(0, t)); nextHud = 0; }
+  function seek(t) { if (pending) return; cur = Math.min(coach() ? live : end, Math.max(0, t)); nextHud = 0; }      // Coach It : pas au-delà du direct
   // calcule le match en entier (coup d'envoi, ou suite réécrite après un changement de consigne)
   function rebuild(then) {
     const go = () => { simulate(true); $('busy').hidden = true; if (cur > end) cur = end; if (then) then(); };
@@ -346,39 +548,55 @@
   // nouveau match : on revient à l'avant-match, terrain en place et match à l'arrêt
   function newMatch(s) {
     tac0 = rec ? tacAt(tickOf(cur)) : tac0; changes = [];           // les consignes affichées deviennent celles du coup d'envoi
-    seed = s; cur = 0; selected = -1; playing = false; pending = true;
+    seed = s; cur = 0; live = 0; marked = -1; selected = -1; playing = false; pending = true;
     $('seed').value = seed;
     $('player').className = 'muted'; $('player').textContent = 'Cliquez sur un joueur pour voir ce qu\'il est en train de faire.';
     simulate(false);
   }
-  function launch() { if (!pending) return; pending = false; cur = 0; playing = true; rebuild(); }
-  function setTactic(team, key, v) {
+  function launch() { if (!pending) return; pending = false; cur = 0; live = 0; marked = -1; playing = true; rebuild(); }
+  function setTactic(team, key, v) { setTactics(team, { [key]: v }); }
+  // plusieurs consignes d'un coup (tactique prédéfinie) : un seul recalcul
+  function setTactics(team, obj, preset) {
     if (!rec) return;
-    if (pending) { tac0[team][key] = v; simulate(false); return; }
-    const tick = Math.min(tickOf(cur), rec.n - 1);
-    if (tacAt(tick)[team][key] === v) return;
-    if (tick <= 0) { tac0[team][key] = v; changes = []; }
-    else { changes = changes.filter(c => c.tick < tick || (c.tick === tick && !(c.team === team && c.key === key))); changes.push({ tick, team, key, v }); }
+    if (coach() && team !== 0) return;
+    if (pending) { Object.assign(tac0[team], obj); simulate(false); nextHud = 0; return; }
+    const tick = Math.min(tickOf(coach() ? live : cur), rec.n - 1), now = tacAt(tick), keys = Object.keys(obj).filter(k => now[team][k] !== obj[k]);
+    if (!keys.length) return;
+    if (tick <= 0) { for (const k of keys) tac0[team][k] = obj[k]; changes = []; }
+    else for (const k of keys) { changes = changes.filter(c => c.tick < tick || (c.tick === tick && !(c.team === team && c.key === k))); changes.push({ tick, team, key: k, v: obj[k], preset }); }
     rebuild();
   }
 
   // choix des équipes : changer d'équipe remet le match au coup d'envoi, avec les consignes affichées
   if (TEAMS.length) {
-    const sel = team => '<select data-team="' + team + '" aria-label="Équipe des ' + (team ? 'Rouges' : 'Bleus') + '"><option value="">Standard</option>' + TEAMS.map(T => '<option value="' + esc(T.id) + '" title="' + esc(T.description || '') + '">' + esc(T.nom) + '</option>').join('') + '</select>';
+    // deux groupes dans la liste : les équipes de niveau (élite, élevé…), puis les clubs d'un championnat (champ « championnat » dans equipes.json)
+    const opt = T => '<option value="' + esc(T.id) + '" title="' + esc(T.description || '') + '">' + esc(T.nom) + '</option>';
+    const champs = [...new Set(TEAMS.filter(T => T.championnat).map(T => T.championnat))];
+    const opts = champs.length ? '<optgroup label="Niveaux"><option value="">Standard</option>' + TEAMS.filter(T => !T.championnat).map(opt).join('') + '</optgroup>' +
+      champs.map(c => '<optgroup label="' + esc(c) + '">' + TEAMS.filter(T => T.championnat === c).map(opt).join('') + '</optgroup>').join('') : '<option value="">Standard</option>' + TEAMS.map(opt).join('');
+    const sel = team => '<select data-team="' + team + '" aria-label="Équipe des ' + (team ? 'Rouges' : 'Bleus') + '">' + opts + '</select>';
     $('squads').innerHTML = '<tr><th><span class="dot" style="background: var(--blue)"></span> Bleus</th><th></th><th>Rouges <span class="dot" style="background: var(--red)"></span></th></tr><tr><td>' + sel(0) + '</td><td class="k" style="cursor: default">Équipe</td><td>' + sel(1) + '</td></tr>';
     document.querySelectorAll('#squads select').forEach(s => s.onchange = () => { squad[+s.dataset.team] = s.value; s.classList.toggle('set', s.value !== ''); s.blur(); if (rec) newMatch(seed); });
   } else $('squadCard').hidden = true;
   const showSquads = () => document.querySelectorAll('#squads select').forEach(s => { s.value = squad[+s.dataset.team]; s.classList.toggle('set', s.value !== ''); });
 
   // tableau des consignes
+  const PRE = E.PRESETS || [];
+  const presetOf = t => { const P = PRE.find(P => TAC.every(c => (P.t[c.key] || 0) === t[c.key])); return P ? P.id : ''; };
+  const formSel = team => '<select class="preset" data-formation="' + team + '" aria-label="Formation des ' + (team ? 'Rouges' : 'Bleus') + '">' + E.FORMATIONS.map(f => '<option value="' + f.id + '">' + f.name + '</option>').join('') + '</select>';
+  const preSel = team => '<select class="preset" data-preset="' + team + '" aria-label="Tactique des ' + (team ? 'Rouges' : 'Bleus') + '"><option value="">Personnalisée</option>' + PRE.map(P => '<option value="' + P.id + '" title="' + esc(P.help) + '">' + esc(P.name) + '</option>').join('') + '</select>';
   $('tactics').innerHTML = '<tr><th><span class="dot" style="background: var(--blue)"></span> Bleus</th><th></th><th>Rouges <span class="dot" style="background: var(--red)"></span></th></tr>'
+    + '<tr class="presets"><td>' + formSel(0) + '</td><td class="k" title="La formation place les onze joueurs. Les joueurs gardent leur rang dans l\'effectif : en 4-3-3, les milieux de côté deviennent ailiers.">Formation</td><td>' + formSel(1) + '</td></tr>'
+    + '<tr class="presets"><td>' + preSel(0) + '</td><td class="k" title="Une tactique règle les six consignes d\'un coup. Vous pouvez ensuite changer une consigne : la tactique devient « Personnalisée ».">Tactique</td><td>' + preSel(1) + '</td></tr>'
     + TAC.map(c => { const sel = team => '<select data-team="' + team + '" data-key="' + c.key + '" aria-label="' + esc(c.label) + ' des ' + (team ? 'Rouges' : 'Bleus') + '">' + c.options.map((o, i) => '<option value="' + (i - 1) + '"' + (i === 1 ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';
       return '<tr><td>' + sel(0) + '</td><td class="k" title="' + esc(c.help) + '">' + esc(c.label) + '</td><td>' + sel(1) + '</td></tr>'; }).join('');
-  document.querySelectorAll('#tactics select').forEach(sel => sel.onchange = () => { setTactic(+sel.dataset.team, sel.dataset.key, +sel.value); sel.blur(); });
+  document.querySelectorAll('#tactics select[data-key]').forEach(sel => sel.onchange = () => { setTactic(+sel.dataset.team, sel.dataset.key, +sel.value); sel.blur(); });
+  document.querySelectorAll('#tactics select[data-formation]').forEach(sel => sel.onchange = () => { setTactics(+sel.dataset.formation, { formation: sel.value }); sel.blur(); nextHud = 0; });
+  document.querySelectorAll('#tactics select[data-preset]').forEach(sel => sel.onchange = () => { const P = PRE.find(P => P.id === sel.value); if (P) setTactics(+sel.dataset.preset, P.t, P.name); sel.blur(); nextHud = 0; });
   $('neutral').onclick = () => {
     if (!rec) return;
     if (pending) { tac0 = [blank(), blank()]; simulate(false); return; }
-    const tick = Math.min(tickOf(cur), rec.n - 1), t = tacAt(tick);
+    const tick = Math.min(tickOf(coach() ? live : cur), rec.n - 1), t = tacAt(tick);
     if (!TAC.some(c => t[0][c.key] || t[1][c.key]) && !changes.some(c => c.tick >= tick)) return;      // tout est déjà neutre à partir d'ici
     if (tick <= 0) { tac0 = [blank(), blank()]; changes = []; }
     else {
@@ -402,11 +620,46 @@
   $('duration').onchange = () => { duration = +$('duration').value; newMatch(seed); };
   const time = $('time');
   time.addEventListener('pointerdown', () => { scrub = true; });
-  time.addEventListener('input', () => { cur = +time.value; nextHud = 0; });
+  time.addEventListener('input', () => { cur = +time.value; if (coach() && cur > live) { cur = live; time.value = cur; } nextHud = 0; });
   const release = () => { if (scrub) { scrub = false; nextHud = 0; } };
   time.addEventListener('change', release); window.addEventListener('pointerup', release);
+  function setMode(md) {
+    if (md === mode) return;
+    mode = md; document.body.classList.toggle('coach', coach());
+    document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+    document.querySelectorAll('#tactics select[data-team="1"], #tactics select[data-preset="1"], #tactics select[data-formation="1"]').forEach(sel => { sel.disabled = coach(); sel.title = coach() ? 'Mode Coach It : l\'adversaire joue avec des consignes neutres' : ''; });
+    const heads = document.querySelectorAll('#squads th, #tactics th');
+    heads.forEach(th => { const t = th.textContent.trim(); if (/Bleus|Votre équipe/.test(t)) th.lastChild.textContent = coach() ? ' Votre équipe' : ' Bleus'; if (/Rouges|Adversaire/.test(t)) th.firstChild.textContent = coach() ? 'Adversaire ' : 'Rouges '; });
+    if (coach()) { tac0 = [rec ? tacAt(tickOf(cur))[0] : tac0[0], blank()]; changes = []; }
+    newMatch(seed);
+    if (coach()) tac0[1] = blank();
+    simulate(false); nextHud = 0;
+  }
+  document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+  $('tabMatch').onclick = () => setTab('match');
+  $('tabStats').onclick = () => setTab('stats');
+  document.querySelectorAll('[data-st-team]').forEach(b => b.onclick = () => setStats({ team: +b.dataset.stTeam }));
+  document.querySelectorAll('[data-st-map]').forEach(b => b.onclick = () => setStats({ map: b.dataset.stMap }));
+  document.querySelectorAll('[data-st-src]').forEach(b => b.onclick = () => setStats({ src: b.dataset.stSrc }));
+  $('stPlayer').onchange = () => setStats({ player: +$('stPlayer').value });
+  // réseau de passes : survol d'un joueur = sa bulle ; clic = sa carte de chaleur
+  cv.addEventListener('mousemove', ev => {
+    if (tab !== 'stats' || stMap !== 'net' || !stData || !stData.nodes) return;
+    const r = cv.getBoundingClientRect(), px = ev.clientX - r.left, py = ev.clientY - r.top, i = R.nodeAt(W, H, stData.nodes, px, py), tip = $('tip');
+    hoverNode = i;
+    if (i < 0) { tip.hidden = true; return; }
+    const q = stData.nodes[i];
+    const pm = stData.perMatch ? ' par match' : '';
+    tip.innerHTML = '<b>n°' + q.num + ' ' + esc(q.name) + '</b><br>' + q.made + ' passes données' + pm + ', ' + (q.made ? Math.round(100 * q.ok / q.made) : 0) + ' % réussies<br>' + q.got + ' passes reçues' + pm + '<br><span class="muted">Clic : sa carte de chaleur</span>';
+    tip.hidden = false; tip.style.left = Math.min(px + 14, r.width - tip.offsetWidth - 4) + 'px'; tip.style.top = Math.max(4, py - tip.offsetHeight - 10) + 'px';
+  });
+  cv.addEventListener('mouseleave', () => { hoverNode = -1; $('tip').hidden = true; });
   cv.onclick = ev => {
     const r = cv.getBoundingClientRect(), w = R.toWorld(W, H, ev.clientX - r.left, ev.clientY - r.top);
+    if (tab === 'stats') {
+      if (stMap === 'net' && hoverNode >= 0) { const q = stData.nodes[hoverNode], p = view.players.find(x => x.team === stTeam && x.num === q.num); setStats({ map: 'heat', player: p.id }); }
+      return;
+    }
     let best = -1, bd = 3;
     for (const p of view.players) { const d = Math.hypot(p.x - w.x, p.y - w.y); if (d < bd) { bd = d; best = p.id; } }
     selected = best === selected ? -1 : best; nextHud = 0;
@@ -425,7 +678,9 @@
   function runSeries() {
     if (series) { series.stop = true; return; }
     const n = Math.min(5000, Math.max(1, Math.floor(+$('nSeries').value) || 1));
-    series = { n, done: 0, acc: St.create(), m: null, list: [], base: randomSeed(), tac: tacAt(pending ? 0 : tickOf(cur)), squad: squad.slice(), duration, stop: false, t0: performance.now() };
+    const grid = () => new Float32Array(R.HEAT.cols * R.HEAT.rows), eleven = f => Array.from({ length: 11 }, f);
+    series = { n, done: 0, acc: St.create(), m: null, list: [], base: randomSeed(),
+      maps: { heat: [eleven(grid), eleven(grid)], pos: [eleven(() => [0, 0, 0]), eleven(() => [0, 0, 0])], made: [eleven(() => 0), eleven(() => 0)], ok: [eleven(() => 0), eleven(() => 0)], got: [eleven(() => 0), eleven(() => 0)], pair: [new Map(), new Map()] }, tac: tacAt(pending ? 0 : tickOf(cur)), squad: squad.slice(), duration, stop: false, t0: performance.now() };
     $('runSeries').textContent = 'Arrêter'; $('prog').hidden = false; $('progFill').style.width = '0';
     $('seriesOut').innerHTML = '';
     setTimeout(seriesStep, 0);
@@ -433,9 +688,9 @@
   function seriesStep() {
     const S = series, t0 = performance.now();
     while (!S.stop && S.done < S.n && performance.now() - t0 < 30) {
-      if (!S.m) S.m = E.createMatch({ seed: S.base + S.done, duration: S.duration, tactics: S.tac, teams: teamsOf(S.squad) });
-      for (let k = 0; k < 300 && S.m.mode !== 'over'; k++) E.step(S.m);
-      if (S.m.mode === 'over') { St.add(S.acc, S.m); S.list.push({ seed: S.m.seed, a: S.m.teams[0].score, b: S.m.teams[1].score }); S.m = null; S.done++; }
+      if (!S.m) S.m = E.createMatch({ seed: S.base + S.done, duration: S.duration, tactics: S.tac, teams: teamsOf(S.squad), formations: S.tac.map(t => t.formation || '442') });
+      for (let k = 0; k < 300 && S.m.mode !== 'over'; k++) { E.step(S.m); mapStep(S); }
+      if (S.m.mode === 'over') { S.open = []; St.add(S.acc, S.m); S.list.push({ seed: S.m.seed, a: S.m.teams[0].score, b: S.m.teams[1].score }); S.m = null; S.done++; }
     }
     $('progFill').style.width = (100 * S.done / S.n) + '%';
     const left = S.done ? (performance.now() - S.t0) / S.done * (S.n - S.done) / 1000 : 0;
@@ -446,15 +701,34 @@
     $('seriesHint').textContent = 'Avec les équipes et les consignes affichées à droite, et la durée choisie. Sert à voir ce qu\'un réglage change en moyenne.';
     if (S.done) showSeries(S);
   }
+  // cartes de la série : on cumule les positions (carte de chaleur) et les passes (réseau), poste par poste
+  function mapStep(S) {
+    const m = S.m, M = S.maps;
+    if (m.mode === 'play' && m.tick % 4 === 0) {
+      for (const p of m.players) { const c = R.heatCell(p.x, p.y); if (c >= 0) M.heat[p.team][p.idx][c]++; }
+      const o = m.ball.owner;
+      if (o && m.tick % 8 === 0) for (const p of m.teams[o.team].players) { const P = M.pos[o.team][p.idx]; P[0] += p.x; P[1] += p.y; P[2]++; }
+    }
+    const q = m.pass, open = S.open || (S.open = []);
+    if (q && q !== S.lastQ && q.kind === 'pass' && q.type !== 'tete' && q.from) open.push(q);
+    S.lastQ = q;
+    for (let j = open.length - 1; j >= 0; j--) if (open[j].ended) {
+      const x = open.splice(j, 1)[0], t = x.from.team, a = x.from.idx; M.made[t][a]++;
+      if (x.how === 'ok' && x.to && x.to.team === t) { const b = x.to.idx; M.ok[t][a]++; M.got[t][b]++; const k = Math.min(a, b) + '-' + Math.max(a, b); M.pair[t].set(k, (M.pair[t].get(k) || 0) + 1); }
+    }
+  }
   function showSeries(S) {
+    lastSeries = S; $('stSrc').hidden = false; $('stSrcSeries').textContent = 'Série (' + S.done + ' matchs)';
     const A = S.acc, w0 = A.teams[0].wins, w1 = A.teams[1].wins, n = A.n, part = (v, cls, col) => v ? '<div class="' + cls + '" style="flex:' + v + (col ? ';background:' + col : '') + '" title="' + v + ' sur ' + n + '">' + v + '</div>' : '';
     const best = S.list.filter(x => x.a + x.b > 0).sort((x, y) => (y.a + y.b) - (x.a + x.b) || Math.abs(y.a - y.b) - Math.abs(x.a - x.b)).slice(0, 10);
     $('seriesOut').innerHTML = '<div class="sides"><div><span class="dot" style="background: var(--blue)"></span> <b>Bleus</b> — ' + esc((clubOf(S.squad[0]) ? clubOf(S.squad[0]) + ' · ' : '') + describe(S.tac[0])) + '</div><div><b>Rouges</b> <span class="dot" style="background: var(--red)"></span> — ' + esc((clubOf(S.squad[1]) ? clubOf(S.squad[1]) + ' · ' : '') + describe(S.tac[1])) + '</div></div>'
       + '<div class="wdl">' + part(w0, 'w', 'var(--blue)') + part(A.draws, 'd') + part(w1, 'w', 'var(--red)') + '</div>'
       + '<div class="muted small" style="margin-top: 4px">' + n + ' matchs de ' + (S.duration / 60) + ' min : ' + w0 + ' victoire' + (w0 > 1 ? 's' : '') + ' des Bleus, ' + A.draws + ' nul' + (A.draws > 1 ? 's' : '') + ', ' + w1 + ' victoire' + (w1 > 1 ? 's' : '') + ' des Rouges. Moyennes par match :</div>'
       + '<table>' + statRows(St.rows(A)) + '</table>'
+      + '<div style="margin-top: 8px"><button id="seriesMaps">Voir les cartes de la série</button></div>'
       + (best.length ? '<div class="chips"><span class="muted">Revoir un match de la série :</span>' + best.map(x => '<button data-seed="' + x.seed + '">n°' + x.seed + ' · ' + x.a + '–' + x.b + '</button>').join('') + '</div>' : '')
       + '<div class="muted small" style="margin-top: 10px">À lire avec prudence : il y a peu de buts par match, donc le nombre de victoires change beaucoup d\'une série à l\'autre. Les lignes « avec le ballon », « sans le ballon » et « effort » sont fiables dès 30 à 50 matchs.</div>';
+    $('seriesMaps').onclick = () => { setTab('stats'); setStats({ src: 'series', map: 'heat' }); window.scrollTo({ top: 0, behavior: 'smooth' }); };
     $('seriesOut').querySelectorAll('[data-seed]').forEach(b => b.onclick = () => {
       tac0 = [Object.assign({}, S.tac[0]), Object.assign({}, S.tac[1])]; squad = S.squad.slice(); showSquads(); fresh();
       if (duration !== S.duration) { duration = S.duration; $('duration').value = duration; }

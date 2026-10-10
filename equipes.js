@@ -10,18 +10,21 @@ function get(id) {
 }
 // « equipe=elite,press=1 » → { team: l'équipe (ou null), tactics: { press: 1 } }
 function side(str) {
-  const out = { team: null, tactics: {} };
+  const out = { team: null, tactics: {}, formation: null };
   for (const kv of (str || '').split(',')) {
     const [k, v] = kv.split('='); if (!k) continue;
     if (k === 'equipe') out.team = get(v);
+    else if (k === 'formation') { if (!E.FORMATIONS.some(f => f.id === v)) { console.error('formation inconnue : ' + v + ' (formations : ' + E.FORMATIONS.map(f => f.id).join(', ') + ')'); process.exit(1); } out.formation = v; }
+    else if (k === 'tactique') { const P = E.PRESETS.find(x => x.id === v); if (!P) { console.error('tactique inconnue : ' + v + ' (tactiques : ' + E.PRESETS.map(x => x.id).join(', ') + ')'); process.exit(1); } Object.assign(out.tactics, P.t); }
     else if (E.TACTICS.some(c => c.key === k)) out.tactics[k] = +v;
-    else { console.error('réglage inconnu : ' + k + ' (réglages : equipe, ' + E.TACTICS.map(c => c.key).join(', ') + ')'); process.exit(1); }
+    else { console.error('réglage inconnu : ' + k + ' (réglages : equipe, formation, tactique, ' + E.TACTICS.map(c => c.key).join(', ') + ')'); process.exit(1); }
   }
   return out;
 }
 // texte court pour les titres : « Élite, pressing : harceler »
 function name(s) {
   const tac = E.TACTICS.filter(c => s.tactics[c.key]).map(c => c.label.toLowerCase() + ' : ' + c.options[s.tactics[c.key] + 1].toLowerCase());
-  return [s.team ? s.team.nom : 'standard'].concat(tac.length ? tac : ['consignes neutres']).join(', ');
+  const f = s.formation ? [E.FORMATIONS.find(x => x.id === s.formation).name] : [];
+  return [s.team ? s.team.nom : 'standard'].concat(f, tac.length ? tac : ['consignes neutres']).join(', ');
 }
 module.exports = { list, get, side, name };
