@@ -7,7 +7,8 @@ Frédéric veut créer un jeu d'entraîneur de football centré sur la tactique 
 Étape actuelle (9 octobre 2026, sixième séance : les niveaux pèsent sur la possession, la passe, la vision et le pressing ; interface : modes, tactiques, statistiques, formations) : un moteur qui simule un match de 90 minutes entre deux équipes, avec **cinq formations au choix** (4-4-2, 4-3-3, 4-2-3-1, 3-5-2, 5-3-2) et **six consignes tactiques réglables par équipe**, avant et pendant le match. Il y a deux sortes d'équipes :
 
 - l'équipe **standard**, où tous les joueurs ont 14 sur 20 partout. Elle sert à comparer les consignes entre deux équipes strictement égales ;
-- **quatre équipes de niveaux différents** (élite, élevé, moyen, faible), avec des notes selon le poste, gardées dans le fichier `equipes.json`.
+- **quatre équipes de niveaux différents** (élite, élevé, moyen, faible), avec des notes selon le poste, gardées dans le fichier `equipes.json` ;
+- **les dix premiers de Ligue 1 2025-26** (Paris SG, Lens, Lille, Lyon, Marseille, Rennes, Monaco, Strasbourg, Toulouse, Lorient), avec les notes du jeu EA Sports FC 27 converties sur 20, dans le même fichier (voir « Les clubs de Ligue 1 »).
 
 Le code est sur GitHub : `fredGob/foot-match-engine`, branche `main`.
 
@@ -40,7 +41,7 @@ Le fichier à ouvrir est `match.html` : il contient tout et s'ouvre dans n'impor
 
 Comment la page fonctionne (mode God) :
 
-1. **Avant-match.** Le terrain est en place, le match est à l'arrêt. On choisit les équipes (cadre « Équipes », à droite) et les consignes des deux camps (cadre « Consignes »). Rien n'est calculé. « Standard » : tous les joueurs à 14. Les autres choix sont les équipes de `equipes.json`. Changer d'équipe en cours de match remet le match au coup d'envoi.
+1. **Avant-match.** Le terrain est en place, le match est à l'arrêt. On choisit les équipes (cadre « Équipes », à droite) et les consignes des deux camps (cadre « Consignes »). Rien n'est calculé. « Standard » : tous les joueurs à 14. Les autres choix sont les équipes de `equipes.json`, en deux groupes : « Niveaux » (Élite, Élevé, Moyen, Faible) puis « Ligue 1 2025-26 » (les dix clubs). Changer d'équipe en cours de match remet le match au coup d'envoi.
 2. **« Lancer le match ».** La page calcule alors le match entier (environ 1,5 seconde pour 90 minutes), puis le lit comme une vidéo.
 3. **Barre de temps.** On la fait glisser pour aller à n'importe quel instant, en avant comme en arrière. Flèches ← → : 5 secondes. Boutons −10 s et +10 s. Les repères sur la barre sont les buts (ronds), les tirs (petits traits) et les changements de consigne (losanges) ; un clic dessus y amène.
 4. **Changer une consigne en cours de match.** Le changement s'applique à partir de l'instant affiché : le passé ne bouge pas, toute la suite est recalculée. Il est noté dans le fil du match.
@@ -67,8 +68,9 @@ Les arrêts de jeu ont une durée réaliste (une touche 17 secondes, une sortie 
 | `render.js` | Le dessin du terrain vu de dessus, et des cartes de la page Statistiques (chaleur, réseau de passes). |
 | `stats.js` | Les statistiques affichées (un match ou une série), partagées par la page et les outils. |
 | `index.html` | La page : avant-match, lecture, barre de temps, consignes, série de matchs. |
-| `equipes.json` | **Le fichier des équipes** : quatre équipes, onze joueurs chacune, vingt notes par joueur. Se modifie à la main. |
-| `equipes.js` | Donne les équipes du fichier aux outils en ligne de commande (`equipe=elite`). |
+| `equipes.json` | **Le fichier des équipes** : quatre équipes de niveau et dix clubs de Ligue 1, onze joueurs chacune (et des remplaçants pour les clubs), vingt notes par joueur. Se modifie à la main. |
+| `tools/ligue1.js` | Fabrique les dix clubs de Ligue 1 de `equipes.json` : notes FC 27 trouvées, joueurs supposés, formule de conversion sur 20. Le relancer efface les retouches à la main sur ces dix clubs. |
+| `equipes.js` | Donne les équipes du fichier aux outils en ligne de commande (`equipe=elite`, `equipe=psg`…). |
 | `build.js` | Assemble le tout (page, moteur, dessin, statistiques, équipes) en un seul fichier `match.html`, et fait aussi `equipe.html`. |
 | `construction.html` | La page de construction d'équipe (source) : accueil, achat des joueurs, placement sur le terrain. `node build.js` en fait `equipe.html`, le fichier à ouvrir. |
 | `joueurs.json` | **La base de joueurs à acheter** : 120 joueurs inventés, vingt notes chacun, et le budget. Se modifie à la main. |
@@ -137,6 +139,66 @@ Comment les quatre équipes ont été construites. **Choix de Frédéric (10 oct
 
 Chaque poste a ses points forts (par exemple tacle, placement, anticipation et jeu de tête pour un défenseur central ; finition, appels et sang-froid pour un avant-centre) et ses points faibles, de 1 à 9 points plus bas (la finition d'un défenseur, le tacle d'un attaquant). Le milieu axial gauche récupère, le droit organise ; l'attaquant gauche est mobile, le droit est un avant-centre. Chaque note varie ensuite d'un point en plus ou en moins d'un joueur à l'autre. Un joueur de champ a 5 en réflexes et en jeu de mains.
 
+### Les clubs de Ligue 1 (n° 96, 10 octobre 2026)
+
+Demande de Frédéric : dix équipes tirées des vrais clubs, les dix premiers de la dernière saison terminée de Ligue 1 (2025-26, finie le 17 mai 2026). Classement final : 1. Paris SG (76 points), 2. Lens (70), 3. Lille (61), 4. Lyon (60), 5. Marseille (59), 6. Rennes (59), 7. Monaco (54), 8. Strasbourg (53), 9. Toulouse (45), 10. Lorient (45). Les sources ne sont pas d'accord sur l'ordre de Marseille et Rennes (59 points chacun), ni sur celui de Toulouse et Lorient (45).
+
+Dans `equipes.json`, chaque club a un identifiant (`psg`, `lens`, `lille`, `lyon`, `marseille`, `rennes`, `monaco`, `strasbourg`, `toulouse`, `lorient`), deux lignes en plus, `championnat` (« Ligue 1 2025-26 ») et `classement`, onze titulaires et trois à cinq `remplacants`. Chaque joueur a aussi `poste_naturel`, `fc` (sa note générale dans le jeu) et `source`. Le moteur ignore ces lignes et les remplaçants (il n'a pas de remplacements). Les titulaires sont rangés comme les autres équipes : `MCG` récupérateur, `MCD` organisateur, `ATG` attaquant mobile, `ATD` avant-centre.
+
+**D'où viennent les notes.** Le jeu EA Sports FC 27 est sorti fin septembre 2026 : ses notes existent. Mais je n'ai pu lire que des extraits des sites (pages officielles d'EA, futbin, fut.gg, fcratings, sportsdunia, wefut), par un moteur de recherche : impossible d'ouvrir les pages elles-mêmes. J'ai donc au mieux, pour chaque joueur, sa note générale et les six valeurs de sa carte (vitesse, tir, passe, dribble, défense, physique ; pour un gardien : plongeon, mains, jeu au pied, réflexes, vitesse, placement), jamais le détail des trente-cinq qualités du jeu. Chaque joueur porte sa `source` :
+
+- « carte » (50 joueurs) : note générale et au moins une partie des six valeurs trouvées ; les valeurs manquantes sont estimées d'après le poste ;
+- « note seule » (50 joueurs) : seule la note générale a été trouvée ;
+- « supposé » (56 joueurs) : joueur de l'effectif 2025-26 que je n'ai pas trouvé dans les notes FC 27 ; sa présence au club et sa note sont des estimations à moi. Le plus souvent des remplaçants, mais aussi des titulaires : 1 à Rennes, 2 à Strasbourg, 3 à Lens, Lyon, Marseille et Monaco, 4 à Toulouse, 7 à Lorient (aucune page d'EA trouvée pour Lorient). Les effectifs ont pu changer pendant l'été 2026 (par exemple Aubameyang est parti à La Corogne, Greenwood n'apparaît plus à Marseille) : les clubs représentent « les dix premiers de 2025-26 avec les notes FC 27 ». Liste dans `tools/ligue1.js`, à corriger à la main si besoin.
+
+**La conversion** (`tools/ligue1.js`), en deux temps :
+
+1. Des six valeurs de la carte aux vingt notes, sur l'échelle du jeu (1 à 99) : vitesse ← vitesse ; accélération ← vitesse (un peu plus pour un ailier, moins pour un défenseur central) ; endurance et volume de course ← physique et note générale, plus pour un latéral ou un milieu, moins pour un avant-centre ; passe ← passe ; vision ← passe, plus pour un milieu ; prise de balle ← dribble et passe ; dribble ← dribble ; finition ← tir ; tacle ← défense ; placement ← défense et note générale ; anticipation, lucidité, sang-froid ← note générale (et défense pour l'anticipation) ; agressivité ← physique et défense ; goût du risque ← dribble et tir ; jeu de tête ← physique, et défense pour un défenseur ou tir pour un attaquant ; appels ← tir et vitesse ; pour un gardien, réflexes ← plongeon et réflexes, mains ← mains, placement ← placement, passe ← jeu au pied. Un joueur de champ a 5 en réflexes et en jeu de mains.
+2. De l'échelle du jeu à nos notes, une seule formule pour tous : **note = (valeur + 3) / 6**, arrondie, entre 1 et 20. Ainsi 93 → 16, 87 → 15, 81 → 14, 75 → 13, 69 → 12, 45 → 8, 30 → 6. La pente (6 points du jeu pour 1 point chez nous) est forte : les quatre équipes de niveau ne s'étendent que sur 3 points de points forts, alors que le PSG et Lorient sont à 14 points d'écart dans le jeu. Le décalage a été réglé pour que le PSG soit un peu au-dessus de l'Élite et Lorient au niveau de Moyen.
+
+Résultat (moyenne des vingt notes des titulaires, réflexes et mains compris ; moyenne des cinq meilleures notes de chaque titulaire ; note générale moyenne des titulaires dans le jeu) :
+
+| Équipe | Moyenne | Points forts | Note FC 27 |
+|---|---|---|---|
+| Élite (repère) | 12,6 | 16,0 | — |
+| Paris SG | 13,0 | 15,6 | 87,6 |
+| Élevé (repère) | 11,6 | 14,7 | — |
+| Marseille | 11,8 | 14,0 | 78,4 |
+| Lyon, Lille | 11,7 | 14,1 | 78,2 |
+| Monaco | 11,7 | 14,0 | 78,0 |
+| Lens | 11,6 | 13,9 | 77,7 |
+| Rennes | 11,6 | 13,9 | 77,8 |
+| Strasbourg | 11,5 | 13,9 | 77,2 |
+| Toulouse | 11,2 | 13,3 | 74,6 |
+| Lorient | 11,0 | 13,2 | 73,2 |
+| Moyen (repère) | 10,8 | 13,6 | — |
+
+Comme dans le jeu, le PSG est loin devant, puis sept clubs presque égaux (77 à 78), puis Toulouse et Lorient. Les profils des joueurs viennent de leur carte : Nuno Mendes et Hakimi ont 16 en vitesse, Pacho 16 en tacle, Panichelli 14 de la tête, Dembélé 16 en dribble. Mais comme on n'a que six valeurs par joueur, deux joueurs de même poste et de même carte ont les mêmes notes.
+
+**Tournoi des clubs** (`node tools/levels.js 20 ligue1`, 20 matchs de 90 minutes par affiche, consignes neutres, 4-4-2, avec Élite et Moyen pour repère ; 50 minutes sur 4 cœurs). Classement, chaque équipe contre les onze autres :
+
+| Rang | Équipe | Points par match | Victoires | Buts pour – contre | Possession | Vrai rang 2025-26 |
+|---|---|---|---|---|---|---|
+| 1 | Paris SG | 2,68 | 87 % | 3,9 – 0,7 | 51 % | 1 |
+| 2 | Élite (repère) | 2,47 | 79 % | 3,3 – 0,8 | 51 % | — |
+| 3 | Lyon | 1,68 | 48 % | 2,2 – 1,8 | 51 % | 4 |
+| 4 | Lille | 1,62 | 49 % | 1,9 – 1,7 | 51 % | 3 |
+| 5 | Monaco | 1,40 | 40 % | 1,8 – 1,8 | 50 % | 7 |
+| 6 | Strasbourg | 1,36 | 39 % | 1,9 – 2,0 | 50 % | 8 |
+| 7 | Marseille | 1,34 | 40 % | 1,7 – 1,8 | 51 % | 5 |
+| 8 | Lens | 1,21 | 34 % | 1,5 – 2,0 | 51 % | 2 |
+| 9 | Rennes | 1,17 | 33 % | 1,6 – 2,1 | 50 % | 6 |
+| 10 | Toulouse | 0,97 | 27 % | 1,4 – 2,5 | 49 % | 9 |
+| 11 | Moyen (repère) | 0,56 | 14 % | 1,1 – 3,0 | 46 % | — |
+| 12 | Lorient | 0,55 | 13 % | 1,0 – 2,9 | 48 % | 10 |
+
+Ce que ça montre :
+
+- **Le haut et le bas sont justes** : le PSG est premier, un peu au-dessus de l'Élite (contre elle : 10 victoires, 4 nuls, 6 défaites ; 2,1 buts à 1,4), et bat les autres clubs 80 à 100 fois sur 100. Toulouse et Lorient sont en bas ; Lorient vaut l'équipe Moyen (7 victoires, 6 nuls, 7 défaites entre eux).
+- **Au milieu, l'ordre ne suit pas le vrai classement** : Lens (2e en vrai) n'est que 8e, Lyon et Lille passent devant. Normal : dans le jeu, ces sept clubs ont tous 77 à 78 de moyenne, et sur 20 matchs par affiche un écart de 0,3 point par match peut tenir au hasard. Le vrai Lens a fait mieux que ses notes FC 27.
+- **La possession reste vers 50 %**, même PSG contre Lorient (52 %) : c'est le défaut déjà connu (« l'équipe forte n'a pas assez le ballon »), pas un défaut des clubs.
+- Les clubs du milieu ratent 24 à 30 contrôles par match, Lorient 31 à 40 (défaut déjà connu : trop de contrôles ratés sous 13 de prise de balle).
+
 ## Les formations
 
 Cinq formations dans `engine.js` (`FORMATIONS`) : 4-4-2, 4-3-3, 4-2-3-1, 3-5-2, 5-3-2. Choix « Formation » en tête du cadre Consignes, avant et pendant le match (noté dans le fil : « Formation des Rouges : 3-5-2 »). Outils : `formation=433`.
@@ -170,7 +232,8 @@ Tournoi après les n° 79 et 82 (`tools/profile.js formation=A formation=B 40`, 
 
 Une **deuxième page**, séparée du match : `equipe.html` (double-clic pour l'ouvrir, comme `match.html` ; la refaire avec `node build.js`). Captures : `docs/equipe-accueil.png`, `docs/equipe-achat.png`, `docs/equipe-fiche.png`, `docs/equipe-tactique.png`, `docs/equipe-telephone.png`.
 
-1. **Accueil** : deux grands choix, « Construire mon équipe » et « Match rapide » (qui ouvre `match.html`, posé dans le même dossier). Si une équipe a été enregistrée, l'accueil propose de la reprendre.
+1. **Accueil** : trois grands choix, « Construire mon équipe », « Prendre une équipe de Ligue 1 » et « Match rapide » (qui ouvre `match.html`, posé dans le même dossier). Si une équipe a été enregistrée, l'accueil propose de la reprendre.
+   - **Prendre une équipe de Ligue 1** (n° 96) : la liste des dix clubs (classement 2025-26, note globale moyenne des titulaires, trois meilleurs joueurs). Un clic sur un club mène directement au placement (étape 3), avec ses titulaires à leur place du 4-4-2 et ses remplaçants sur le banc. Pas d'achat ni de budget : la page affiche « effectif du club ». Le bouton « Retour aux achats » devient « Changer de club ». On change la formation, on fait glisser les joueurs, on règle les consignes, on enregistre et on exporte comme pour une équipe construite. Captures `docs/equipe-ligue1.png`, `docs/equipe-ligue1-tactique.png`.
 2. **Achat des joueurs.** Une base de **120 joueurs inventés** (`joueurs.json`). On achète **16 joueurs** avec un **budget de 29 M€**, dont au moins **2 gardiens, 5 défenseurs, 5 milieux et 3 attaquants**. Le bouton « Valider mon équipe » reste grisé tant qu'il manque quelque chose, et la page dit quoi (« Il manque : 1 attaquant de plus »). Budget restant en haut. Filtres par poste, tri par note, prix, poste, nom ou âge, case « Seulement ceux que je peux payer ». Clic sur un joueur : sa fiche avec ses vingt notes (en jaune, celles qui comptent pour son poste).
 3. **Placement.** Choix de la formation (les cinq du moteur ; le dessin des places vient de `engine.js`). On **fait glisser** les joueurs sur les onze places du terrain ; les cinq autres sont sur le banc. Au doigt, on peut aussi toucher un joueur puis l'autre pour les échanger. Un joueur hors de son poste naturel a un rond orange « ! » et la mention « hors poste ». « Placement automatique » met le meilleur joueur de chaque poste. On règle aussi les cinq consignes, ou une tactique prédéfinie. Tableau « Composition » : chaque place, son joueur, hors poste ou non.
 4. **« Enregistrer l'équipe »** la garde dans le navigateur. **« Exporter »** télécharge un fichier `equipe-<nom>.json` au format de `equipes.json`, à recopier dans la liste `equipes` de ce fichier. **On ne lance pas encore de match** depuis cette page (choix de Frédéric).
@@ -231,7 +294,10 @@ Mesurer les équipes de `equipes.json` :
 
 ```
 node tools/possession.js equipe=elite equipe=faible 20    # comment chaque équipe perd le ballon, passes réussies selon la note et la pression
-node tools/levels.js 60                                   # tournoi : chaque équipe contre chaque autre, 60 matchs de 90 min par affiche (1 min 30)
+node tools/levels.js 60                                   # tournoi entre les quatre équipes de niveau, 60 matchs de 90 min par affiche
+node tools/levels.js 20 ligue1                            # les dix clubs de Ligue 1 plus Élite et Moyen (78 affiches : 50 minutes sur 4 cœurs)
+node tools/levels.js 20 psg,marseille,elite               # seulement ces équipes ; « tout » : les quatorze équipes (91 affiches, long)
+node tools/ligue1.js voir                                 # moyennes des clubs de Ligue 1 ; sans « voir », réécrit ces clubs dans equipes.json
 node sim.js 100 1 5400 equipe=elite equipe=faible         # une affiche en détail : toutes les statistiques des deux équipes
 node tools/profile.js equipe=faible,line=-1 equipe=elite 60   # la même chose avec des consignes, et le détail par demi-heure
 ```
@@ -277,7 +343,7 @@ node tools/crosses.js equipe=faible,line=-1 equipe=elite 12   # centres : joueur
 
 ### Ce que vérifie `check.js`
 
-Sur chaque match : aucune valeur aberrante, aucun joueur trop rapide, ballon jamais loin du terrain, aucune situation figée plus de 25 secondes, aucun arrêt de jeu de plus de 95 secondes. Chaque graine est jouée trois fois : au neutre, puis avec des consignes au hasard et un changement à la mi-match, puis entre deux équipes de `equipes.json` (toutes les affiches reviennent) avec des consignes au hasard. Et la même graine redonne exactement le même match.
+Sur chaque match : aucune valeur aberrante, aucun joueur trop rapide, ballon jamais loin du terrain, aucune situation figée plus de 25 secondes, aucun arrêt de jeu de plus de 95 secondes. Chaque graine est jouée trois fois : au neutre, puis avec des consignes au hasard et un changement à la mi-match, puis entre deux équipes de `equipes.json` (niveaux et clubs de Ligue 1 ; toutes les affiches reviennent au fil des graines) avec des consignes au hasard. Et la même graine redonne exactement le même match.
 
 ## Les repères du vrai football
 
@@ -596,6 +662,7 @@ Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la pos
 | 93 | Piste « l'équipe dominée se regroupe » : en bloc bas + attendre + défendre la surface, Faible concède **plus** contre l'Élite (33 tirs au lieu de 25). Nouvel outil `tools/crosses.js` : l'Élite centre 40 fois par match contre ce bloc (11 face à une défense normale) ; avec 5 défenseurs contre 2 attaquants dans la surface, l'attaquant touche le centre en premier 35 % du temps | Sur un centre dans sa surface, un défenseur va au duel s'il arrive au plus 0,35 s après l'attaquant ; dans sa surface il gagne la tête 12 points plus souvent ; le centreur compte les autres défenseurs près du point de chute (`AIR_DUEL`, `AIR_HOME`, `AIR_CROWD`) | Attaquant premier sur le centre : 35 → 23 %, tir après un centre 26 → 18 %. Élite contre Faible au neutre : 6,4 → 5,4 buts. Mais le bloc bas n'aide toujours pas (6,7 buts concédés). Équipes standard : 2,9 buts, inchangé |
 | 94 | Faible ne tire que 1,3 fois par match contre l'Élite : 2 longs ballons par match (55 pour l'Élite), 44 passes interceptées, attaquants qui restent vers la ligne médiane | Mesuré seulement : Faible en « jeu long » | Faible : 2,7 tirs, 0,47 but ; l'Élite a alors 67 % du ballon (la cible de Frédéric), mais se crée toujours 6,3 occasions. L'écart vient d'une accumulation de petits avantages partout (n° 90), pas d'un défaut unique |
 | 95 | Demande de Frédéric : les équipes faibles doivent jouer long. Mesuré : dans son camp, ni Faible ni l'Élite ne choisissent jamais le long ballon (0 %) ; libre, avancer avec le ballon vaut toujours mieux, et sous pression le long ballon devient trop imprécis. Les seconds ballons, eux, sont bien disputés (Faible en récupère près de la moitié). Essais sans effet : perte d'un long ballon comptée moins cher ; perte en jouant court comptée plus cher pour un joueur peu technique | **Jouer simple** : dans son camp, un joueur dont la passe et la prise de balle sont sous 14 penche de lui-même vers le long ballon vers l'avant, comme une part de la consigne « jeu long » (fiche « Joue simple : allonge vers … », `SIMPLE_LONG` = 1,5 ; rien à 14) | Faible contre Élite : 1,3 → 42 longs ballons par match, possession de l'Élite 55 → 60 %, mais Faible encaisse plus (5,4 → 6,8 buts) sans tirer plus : ses longs ballons arrivent sur des attaquants qui ne sont pas lancés. Tournoi (40 matchs par affiche) : un cran 65 à 90 % de victoires ; possession de l'équipe forte 54 à 60 % contre deux crans et plus ; équipes standard inchangées |
+| 96 | Demande de Frédéric : dix équipes tirées des dix premiers de Ligue 1 2025-26, proposées partout | Notes EA Sports FC 27 (extraits des sites : note générale et six valeurs de carte, quand on les trouve ; 56 joueurs supposés), converties par une seule formule (`tools/ligue1.js`). Dans `equipes.json` (avec remplaçants), dans `match.html` (liste en deux groupes) et dans `equipe.html` (« Prendre une équipe de Ligue 1 » → placement direct). `tools/levels.js` : par défaut les quatre niveaux, ou une liste. Moteur inchangé | PSG 13,0 de moyenne (Élite 12,6), Lorient 11,0 (Moyen 10,8). Tournoi (`node tools/levels.js 20 ligue1`) : PSG 1er (2,68 points par match, juste devant l'Élite), Lorient dernier (au niveau de Moyen), Toulouse 10e ; au milieu, ordre différent du vrai (Lens 8e), les sept clubs ayant presque les mêmes notes ; possession toujours vers 50 %. Vérifié : `tools/equipe.js` (choix du PSG, glisser, formation, export lu par le moteur, reprise, téléphone), `tools/page.js`, Chromium (PSG contre Marseille, mode Coach It), `check.js 20` |
 | 58 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 %. Entre niveaux voisins : toujours 48 à 52 %. Élite contre Faible : 10,2 à 0,05. Passes réussies : l'équipe forte n'en réussit toujours pas plus que l'autre contre le même adversaire |
 
 | 59 | Demande de Frédéric : l'équipe forte doit garder le ballon. Découverte : le « goût du risque » de Faible (7,8) la rendait plus prudente que l'Élite (13,9) | Prudence et patience dépendent aussi de la lucidité : un joueur lucide sait ce que coûte une passe forcée et attend avant de forcer (rien à 14) | Seul : +1 à 3 points de possession |
@@ -616,6 +683,7 @@ Après la sixième séance (à reprendre) :
 - **Consigne « Centres adverses »** : effet encore modeste sur le nombre de centres (12,0 · 11,5 · 10,1). Les centres contrés ne finissent presque jamais en corner.
 - **Pressing haut contre un 3-5-2** (n° 89) : le nouveau placement rend « harceler + bloc haut » gagnant contre un 4-4-2, mais pas contre un 3-5-2. À regarder en mouvement avec Frédéric.
 
+- **Clubs de Ligue 1 (n° 96)** : 56 joueurs sur 156 sont supposés (pas trouvés dans les notes FC 27, surtout à Lorient, Toulouse, Lyon et Marseille), et pour les autres on n'a que la note générale et les six valeurs de la carte : les vingt notes sont reconstruites, pas copiées. À vérifier par Frédéric : les effectifs (transferts de l'été 2026), et si le PSG doit être aussi dominant (87 % de victoires). Les remplaçants ne servent que dans `equipe.html`.
 - **Écarts entre niveaux (n° 92 à 94)** : un cran donne 62 à 82 % de victoires (cible 70 %). Élite – Faible vers 5-0 : acceptable pour Frédéric (« D1 contre D2 »). Restent : l'équipe forte n'a que 51 à 56 % du ballon (cible 65 à 70 %) ; une équipe faible joue maintenant long (n° 95 : 42 longs ballons pour Faible contre l'Élite) mais ses attaquants ne font pas d'appels pour ces ballons, elle encaisse donc plus ; se regrouper (bloc bas) n'aide pas une équipe dominée.
 - **Trop de contrôles ratés pour les équipes faibles** : 28 à 48 par match pour Faible, 20 à 40 pour Moyen (une quinzaine en vrai). L'effet « passe mal ajustée » est sans doute trop fort pour elles.
 - **Vu sur les cartes (n° 63)** : un arrière latéral standard ne passe presque jamais la ligne médiane ; le gardien et les centraux touchent très peu le ballon (10,7 % des passes reçues pour les deux centraux, n° 72). Cause principale trouvée (n° 73) : sous pression dans son camp, le porteur conduit le ballon une fois sur deux au lieu de le donner.
