@@ -96,7 +96,9 @@ const pick = async (team, key, v) => { const s = d.querySelector(`#tactics selec
   await pick(0, 'passing', 1);
   check(JSON.stringify(stat('Passes')) === JSON.stringify(before60), 'changer une consigne à 1 minute ne modifie pas le passé');
   check(d.querySelectorAll('#marks .mark.tactic').length === 1, 'le changement est repéré sur la barre de temps');
-  await goTo(70);
+  const mk = d.querySelector('#marks .mark.tactic'), mkT = mk ? mk.title.slice(0, 5) : '';
+  check(mkT >= '01:00', 'le changement attend le prochain arrêt de jeu après 1 minute', 'fait à ' + mkT);
+  await goTo(599);
   check(/Consigne des Bleus : jeu de passes → long/.test($('log').textContent), 'le changement est noté dans le fil du match');
   await goTo(600);
   const endLong1 = stat('Longs ballons');

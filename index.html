@@ -4,758 +4,182 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Moteur de match</title>
+<!-- Page d'accueil (racine du site) : trois choix (créer son équipe, prendre un club de Ligue 1, match rapide) et, si une équipe
+     a été enregistrée dans la page équipe (equipe.html), la carte « Mon équipe » avec ses titulaires, « Jouer » et « Modifier ».
+     Page autonome, sans données : l'aperçu de l'équipe est lu dans le navigateur (enregistré par equipe.html). -->
 <style>
-  :root { color-scheme: dark; --bg: #11151a; --panel: #1a2028; --line: #2b3440; --text: #e8edf2; --muted: #93a0af; --blue: #2f6fdf; --red: #d8423a; --accent: #ffe45c; }
+  :root { color-scheme: dark; --bg: #0e1216; --panel: #161d25; --line: #2b3440; --text: #e8edf2; --muted: #93a0af; --blue: #2f6fdf; --red: #d8423a; --accent: #ffe45c; --warn: #ff9a3c; --ok: #5cc98a; }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  .app { max-width: 1520px; margin: 0 auto; padding: 12px 16px 24px; display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 12px 14px; }
-  .score { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 16px; font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
-  .score .team { display: flex; align-items: center; gap: 8px; min-width: 110px; }
-  .score .team:first-child { justify-content: flex-end; }
-  .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: none; }
-  .score .goals { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 2px 14px; }
-  .score .clock { color: var(--muted); font-size: 16px; font-weight: 500; min-width: 110px; }
-  main { min-width: 0; }
-  .stage { position: relative; }
-  .tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 8px; color: var(--muted); }
-  .tabs .group button { border-radius: 0; margin-left: -1px; }
-  .tabs .group button:first-child { border-radius: 7px 0 0 7px; margin-left: 0; }
-  .tabs .group button:last-child { border-radius: 0 7px 7px 0; }
-  #statsCtl { display: flex; flex-basis: 100%; flex-wrap: wrap; align-items: center; gap: 8px 14px; }      /* toujours sur sa propre ligne, sous Match / Statistiques */
-  .tabs [hidden], #statsCtl[hidden] { display: none; }
-  .tip { position: absolute; pointer-events: none; padding: 6px 10px; border-radius: 6px; background: rgba(12, 16, 20, 0.92); border: 1px solid var(--line); font-size: 13px; white-space: nowrap; }
-  .tip[hidden] { display: none; }
-  .stage.stats .pre, .stage.stats .end { display: none; }
-  .numbers { position: absolute; inset: 0; overflow: auto; padding: 14px 18px; background: var(--panel); border-radius: 10px; }
-  .numbers[hidden] { display: none; }
-  .numbers .sides { display: flex; justify-content: space-between; max-width: 640px; margin: 0 auto 4px; font-weight: 600; }
-  .numbers table { max-width: 640px; margin: 0 auto; font-size: 15px; }
-  .numbers td { padding: 3px 8px; }
-  body.coach .godonly { display: none !important; }
-  .modehint { font-size: 12.5px; color: var(--muted); }
-  body:not(.coach) .coachonly { display: none !important; }
-  .heatkey { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
-  .heatkey i { display: inline-block; width: 90px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, rgba(255,236,179,0.4), #ffc466, #f2852e, #c94816, #8c1c0a); }
-  .statsnote { margin: 6px 8px 0; font-size: 13px; color: var(--muted); }
-  .statsnote b { color: var(--text); font-weight: 600; }
-  canvas { display: block; width: 100%; aspect-ratio: 114 / 75; border-radius: 10px; cursor: pointer; }
-  .end, .busy { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(10, 14, 18, 0.72); border-radius: 10px; font-size: 26px; font-weight: 650; }
-  .end[hidden], .busy[hidden], .pre[hidden] { display: none; }
-  .pre { position: absolute; left: 0; right: 0; bottom: 7%; display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 16px; font-weight: 500; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
-  .pre > div { padding: 4px 14px; border-radius: 6px; background: rgba(10, 14, 18, 0.78); }
-  .pre button { font-size: 18px; padding: 10px 26px; }
-  .busy { font-size: 18px; font-weight: 500; }
-  .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  [hidden] { display: none !important; }
+  a { color: inherit; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px 40px; }
 
-  /* barre de temps : repères au-dessus, curseur dessous */
-  .timeline { margin-top: 8px; }
-  .marks { position: relative; height: 16px; margin: 0 8px; }
-  .timeline { position: relative; }
-  .future { position: absolute; right: 8px; top: 16px; height: 20px; background: repeating-linear-gradient(135deg, rgba(17, 21, 26, 0.75) 0 6px, rgba(17, 21, 26, 0.45) 6px 12px); pointer-events: none; border-left: 2px solid var(--accent); }
-  .future span { position: absolute; left: 4px; top: -15px; font-size: 11px; color: var(--accent); white-space: nowrap; }
-  .mark { position: absolute; bottom: 1px; transform: translateX(-50%); padding: 0; border: 0; border-radius: 0; background: none; cursor: pointer; }
-  .mark.shot { width: 3px; height: 8px; opacity: 0.75; }
-  .mark.goal { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--accent); }
-  .mark.tactic { width: 9px; height: 9px; bottom: 3px; transform: translateX(-50%) rotate(45deg); border: 2px solid #fff; }
-  #time { display: block; width: 100%; margin: 0; accent-color: var(--accent); cursor: pointer; }
-  .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 4px 8px 0; font-size: 12px; color: var(--muted); }
-  .legend i { display: inline-block; vertical-align: middle; margin-right: 5px; }
+  /* bandeau : un terrain vu de dessus, des flèches de jeu */
+  .hero { position: relative; overflow: hidden; border-radius: 0 0 22px 22px; margin: 0 -16px; padding: 56px 32px 64px; background: linear-gradient(160deg, #173d24 0%, #0f2a19 55%, #0e1216 100%); }
+  .hero svg.deco { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.55; }
+  .hero .in { position: relative; max-width: 1100px; margin: 0 auto; }
+  .hero .kicker { display: inline-flex; align-items: center; gap: 8px; padding: 3px 12px; border-radius: 20px; background: rgba(255, 228, 92, 0.14); color: var(--accent); font-size: 13px; font-weight: 600; letter-spacing: 0.04em; }
+  .hero h1 { margin: 14px 0 8px; font-size: clamp(34px, 6vw, 58px); line-height: 1.05; font-weight: 800; letter-spacing: -0.02em; }
+  .hero p { margin: 0; max-width: 620px; color: #c6d3c9; font-size: 17px; }
 
-  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 10px; color: var(--muted); }
-  button, input[type=number], select { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 6px 12px; }
-  button, select { cursor: pointer; }
-  button:hover, select:hover { border-color: #4a5868; }
-  button.on { background: #2a3a55; border-color: #46639a; }
-  button.main { background: #2a3a55; border-color: #46639a; font-weight: 600; }
-  input[type=number] { width: 86px; }
-  .group { display: flex; align-items: center; gap: 4px; }
-  label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-  aside { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
-  .card h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-  .muted { color: var(--muted); }
-  .small { font-size: 12.5px; }
-  .who { font-size: 16px; font-weight: 650; }
-  .doing { margin: 6px 0 10px; padding: 6px 10px; border-left: 3px solid var(--accent); background: rgba(255, 228, 92, 0.08); border-radius: 0 6px 6px 0; }
-  .doing .note { display: block; margin-top: 2px; font-size: 12.5px; color: var(--accent); }
-  .attrs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; font-size: 13px; }
-  .attr { display: flex; justify-content: space-between; gap: 8px; }
-  .attr b { font-variant-numeric: tabular-nums; }
-  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-  td { padding: 2px 0; text-align: center; }
-  td:first-child { text-align: left; width: 24%; font-weight: 600; }
-  td:last-child { text-align: right; width: 24%; font-weight: 600; }
-  td.k { color: var(--muted); }
-  tr.g td { padding-top: 9px; text-align: center; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); }
+  /* les trois choix */
+  .choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: -34px; position: relative; }
+  .choice { display: flex; flex-direction: column; border-radius: 18px; overflow: hidden; background: var(--panel); border: 1px solid var(--line); text-decoration: none; color: var(--text); transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
+  .choice:hover, .choice:focus-visible { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45); outline: none; }
+  .choice .art { height: 150px; display: flex; align-items: center; justify-content: center; }
+  .choice .art svg { height: 120px; width: auto; max-width: 92%; }
+  .choice.build .art { background: radial-gradient(circle at 30% 20%, #2b5bb0, #172c55); }
+  .choice.club .art { background: radial-gradient(circle at 70% 20%, #8a6a14, #3b2c08); }
+  .choice.quick .art { background: radial-gradient(circle at 50% 10%, #2f8a49, #123d20); }
+  .choice .body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .choice h2 { margin: 0; font-size: 22px; font-weight: 750; }
+  .choice p { margin: 0; color: var(--muted); }
+  .choice .go { margin-top: auto; padding-top: 10px; font-weight: 650; color: var(--accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .chips span { font-size: 12px; padding: 1px 8px; border-radius: 10px; background: #26303c; color: #c9d3de; }
 
-  /* consignes : une ligne par consigne, les Bleus à gauche, les Rouges à droite */
-  .tac th { padding: 0 0 6px; font-weight: 600; }
-  .tac th:first-child { text-align: left; } .tac th:last-child { text-align: right; }
-  .tac td { padding: 3px 0; }
-  .tac select { width: 100%; padding: 5px 6px; }
-  .tac td:first-child, .tac td:last-child { width: 31%; font-weight: 400; }
-  .tac td.k { font-size: 13px; cursor: help; }
-  .tac select.set { border-color: var(--accent); }
-  .tac tr.presets td { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
-  .tac select.preset { font-weight: 600; }
+  /* mon équipe */
+  h3.title { margin: 34px 0 12px; font-size: 13px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .mine { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 20px; padding: 18px; border-radius: 18px; background: var(--panel); border: 1px solid var(--line); }
+  .mine svg { width: 100%; height: auto; border-radius: 12px; display: block; }
+  .mine .who { font-size: 26px; font-weight: 750; line-height: 1.15; }
+  .mine .sub { color: var(--muted); margin-top: 2px; }
+  .facts { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+  .fact { padding: 8px 14px; border-radius: 12px; background: #1d2630; border: 1px solid var(--line); min-width: 110px; }
+  .fact small { display: block; color: var(--muted); font-size: 12px; }
+  .fact b { font-size: 18px; }
+  .xi { columns: 2; column-gap: 18px; font-size: 13.5px; margin: 0 0 14px; padding: 0; list-style: none; }
+  .xi li { display: flex; gap: 8px; break-inside: avoid; padding: 2px 0; border-bottom: 1px solid #222a33; }
+  .xi li span:first-child { color: var(--muted); min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .xi li .off { color: var(--warn); }
+  .btns { display: flex; flex-wrap: wrap; gap: 10px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 10px; border: 1px solid var(--line); background: #1d2630; color: var(--text); text-decoration: none; font-weight: 650; }
+  .btn:hover { border-color: #4a5868; }
+  .btn.main { background: var(--accent); border-color: var(--accent); color: #1b1b10; }
+  .btn.main:hover { filter: brightness(1.05); }
+  .empty { padding: 18px; border-radius: 18px; border: 1px dashed var(--line); color: var(--muted); }
 
-  #log { height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
-  #log div { display: flex; gap: 8px; }
-  #log time { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
-  #log .goal { font-weight: 650; color: var(--accent); }
-  #log .tactic { color: #b9c6d6; font-style: italic; }
+  /* comment ça marche */
+  .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); }
+  .step .n { flex: none; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; background: #2a3a55; }
+  .step b { display: block; }
+  .step span { color: var(--muted); font-size: 14px; }
 
-  /* série de matchs */
-  .series { margin-top: 14px; }
-  .series .bar { margin-top: 0; }
-  .progress { height: 6px; margin-top: 10px; border-radius: 3px; background: var(--line); overflow: hidden; }
-  .progress div { height: 100%; width: 0; background: var(--accent); }
-  .progress[hidden] { display: none; }
-  .sides { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; margin: 12px 0 8px; }
-  .sides div:last-child { text-align: right; }
-  .wdl { display: flex; height: 26px; border-radius: 6px; overflow: hidden; font-weight: 650; font-variant-numeric: tabular-nums; }
-  .wdl div { display: flex; align-items: center; justify-content: center; min-width: 0; overflow: hidden; }
-  .wdl .d { background: #46505c; }
-  .series table { max-width: 620px; margin: 6px auto 0; }
-  .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
-  .teamrow { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
-  .teamrow b { margin-left: auto; }
-  .chips button { padding: 3px 9px; font-size: 13px; }
-  @media (max-width: 980px) { .app { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) {
+    .choices, .steps { grid-template-columns: 1fr; }
+    .mine { grid-template-columns: 1fr; }
+    .mine svg { max-width: 340px; margin: 0 auto; }
+    .hero { padding: 40px 20px 56px; }
+    .hero svg.deco { opacity: 0.22; }
+  }
+  @media (max-width: 520px) { .xi { columns: 1; } }
 </style>
 </head>
 <body>
-<div class="app">
-  <div class="score">
-    <span class="team"><span id="name0"></span><span class="dot" style="background: var(--blue)"></span></span>
-    <span class="goals" id="goals">0 – 0</span>
-    <span class="team"><span class="dot" style="background: var(--red)"></span><span id="name1"></span></span>
-    <span class="clock" id="clock">00:00 / 10:00</span>
+<div class="wrap">
+  <header class="hero">
+    <svg class="deco" viewBox="0 0 1200 420" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <g fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2">
+        <rect x="40" y="30" width="1120" height="360" rx="4"/><line x1="600" y1="30" x2="600" y2="390"/><circle cx="600" cy="210" r="62"/>
+        <rect x="40" y="110" width="120" height="200"/><rect x="1040" y="110" width="120" height="200"/><rect x="40" y="165" width="42" height="90"/><rect x="1118" y="165" width="42" height="90"/>
+      </g>
+      <g fill="none" stroke="#ffe45c" stroke-width="3" stroke-dasharray="10 9" stroke-linecap="round" opacity="0.8">
+        <path d="M720 300 C 820 260, 860 170, 960 150"/><path d="M780 110 C 860 120, 930 170, 1010 205"/>
+      </g>
+      <g fill="#ffe45c" opacity="0.85"><path d="M960 150 l-16 -4 l8 14 z"/><path d="M1010 205 l-10 -13 l-3 16 z"/></g>
+      <g font-family="system-ui" font-weight="700" font-size="15" text-anchor="middle">
+        <g fill="#2f6fdf" stroke="#fff" stroke-width="2.5"><circle cx="720" cy="300" r="15"/><circle cx="780" cy="110" r="15"/><circle cx="880" cy="230" r="15"/><circle cx="700" cy="190" r="15"/></g>
+        <g fill="#d8423a" stroke="#fff" stroke-width="2.5"><circle cx="930" cy="250" r="15"/><circle cx="960" cy="130" r="15"/><circle cx="1000" cy="230" r="15"/><circle cx="1090" cy="210" r="15"/></g>
+        <circle cx="735" cy="310" r="6" fill="#fff"/>
+      </g>
+    </svg>
+    <div class="in">
+      <span class="kicker">⚽ Jeu d'entraîneur</span>
+      <h1>Moteur de match</h1>
+      <p>Un match de 90 minutes où chaque joueur réfléchit par lui-même. Vous gagnez par vos choix : l'équipe, la formation, les consignes, les remplacements.</p>
+    </div>
+  </header>
+
+  <nav class="choices" aria-label="Commencer">
+    <a class="choice build" href="equipe.html#construire" id="goBuild">
+      <div class="art"><svg viewBox="0 0 200 130" aria-hidden="true">
+        <rect x="18" y="8" width="164" height="114" rx="8" fill="#2c6b36" stroke="rgba(255,255,255,.8)" stroke-width="2"/>
+        <line x1="18" y1="65" x2="182" y2="65" stroke="rgba(255,255,255,.6)" stroke-width="1.5"/><circle cx="100" cy="65" r="16" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="1.5"/>
+        <g fill="#2f6fdf" stroke="#fff" stroke-width="2"><circle cx="100" cy="112" r="7"/><circle cx="45" cy="92" r="7"/><circle cx="80" cy="96" r="7"/><circle cx="120" cy="96" r="7"/><circle cx="155" cy="92" r="7"/><circle cx="60" cy="62" r="7"/><circle cx="100" cy="70" r="7"/><circle cx="140" cy="62" r="7"/><circle cx="80" cy="32" r="7"/><circle cx="120" cy="32" r="7"/></g>
+        <g fill="none" stroke="#ffe45c" stroke-width="2.5" stroke-dasharray="5 4"><circle cx="45" cy="34" r="8"/></g>
+        <circle cx="170" cy="22" r="19" fill="#ffe45c"/><text x="170" y="27" font-family="system-ui" font-size="10.5" font-weight="800" text-anchor="middle" fill="#3b2c08">29 M€</text>
+      </svg></div>
+      <div class="body"><h2>Créer mon équipe</h2><p>Un budget de 29 M€ et 120 joueurs : achetez seize joueurs, choisissez la formation, placez-les et réglez vos consignes.</p><span class="go">Construire →</span></div>
+    </a>
+    <a class="choice club" href="equipe.html#clubs" id="goClubs">
+      <div class="art"><svg viewBox="0 0 200 130" aria-hidden="true">
+        <rect x="70" y="58" width="60" height="62" rx="4" fill="#ffe45c"/><rect x="18" y="80" width="52" height="40" rx="4" fill="#d9dee4"/><rect x="130" y="92" width="52" height="28" rx="4" fill="#c98b4a"/>
+        <g font-family="system-ui" font-weight="800" text-anchor="middle"><text x="100" y="100" font-size="26" fill="#3b2c08">1</text><text x="44" y="108" font-size="20" fill="#3d4650">2</text><text x="156" y="113" font-size="17" fill="#4a2c0c">3</text></g>
+        <path d="M84 14 h32 v14 a16 16 0 0 1 -32 0 z" fill="#ffe45c"/><path d="M84 18 h-8 a8 8 0 0 0 8 12 M116 18 h8 a8 8 0 0 1 -8 12" fill="none" stroke="#ffe45c" stroke-width="3"/><rect x="96" y="43" width="8" height="8" fill="#ffe45c"/><rect x="88" y="50" width="24" height="5" rx="1" fill="#ffe45c"/>
+      </svg></div>
+      <div class="body"><h2>Choisir un club de Ligue 1</h2><p>Les dix premiers de la saison 2025-26, avec leurs joueurs et les notes d'EA Sports FC 27.</p>
+        <div class="chips"><span>Paris SG</span><span>Lens</span><span>Lille</span><span>Lyon</span><span>Marseille</span><span>Rennes</span><span>Monaco</span><span>…</span></div>
+        <span class="go">Voir les clubs →</span></div>
+    </a>
+    <a class="choice quick" href="match.html" id="goQuick">
+      <div class="art"><svg viewBox="0 0 200 130" aria-hidden="true">
+        <circle cx="78" cy="68" r="42" fill="#fff"/>
+        <g fill="#1b1f24"><path d="M78 50 l15 11 -6 18 h-18 l-6 -18 z"/><path d="M40 60 l10 -4 7 13 -6 12 -9 -1 a42 42 0 0 1 -2 -20 z"/><path d="M116 60 l-10 -4 -7 13 6 12 9 -1 a42 42 0 0 0 2 -20 z"/><path d="M60 102 l6 -11 h24 l6 11 a42 42 0 0 1 -36 0 z"/><path d="M66 30 l12 7 12 -7 a42 42 0 0 0 -24 0 z"/></g>
+        <rect x="118" y="24" width="68" height="30" rx="6" fill="#0e1216" stroke="#ffe45c" stroke-width="2"/><text x="152" y="45" font-family="system-ui" font-size="17" font-weight="800" text-anchor="middle" fill="#ffe45c">90:00</text>
+        <path d="M128 88 h40 a12 12 0 0 1 0 24 h-30 a10 10 0 0 1 -10 -10 z" fill="#c9d3de"/><circle cx="168" cy="100" r="5" fill="#0e1216"/><path d="M126 92 l-12 -8" stroke="#c9d3de" stroke-width="4" stroke-linecap="round"/>
+      </svg></div>
+      <div class="body"><h2>Match rapide</h2><p>Deux équipes égales, tous les joueurs à 14 sur 20 : seules vos consignes font la différence.</p><span class="go">Jouer →</span></div>
+    </a>
+  </nav>
+
+  <h3 class="title">Mon équipe</h3>
+  <section id="mine" class="mine" hidden></section>
+  <div id="none" class="empty">Aucune équipe enregistrée pour l'instant. Créez votre équipe ou prenez un club : elle apparaîtra ici, prête à jouer.</div>
+
+  <h3 class="title">Comment ça marche</h3>
+  <div class="steps">
+    <div class="step"><span class="n">1</span><div><b>L'équipe</b><span>Construite avec un budget, ou un club de Ligue 1.</span></div></div>
+    <div class="step"><span class="n">2</span><div><b>La tactique</b><span>Formation, placement des joueurs, six consignes.</span></div></div>
+    <div class="step"><span class="n">3</span><div><b>Le match</b><span>Vous suivez le match et changez la tactique ou les joueurs au prochain arrêt de jeu.</span></div></div>
   </div>
-
-  <main>
-    <div class="tabs">
-      <span class="group" title="Mode God : on règle les deux équipes, on voit les intentions et toute la suite du match. Mode Coach It : on dirige les Bleus seulement, comme un vrai entraîneur, sans voir la suite."><button data-mode="god" class="on">Mode God</button><button data-mode="coach">Mode Coach It</button></span>
-      <span class="group"><button id="tabMatch" class="on">Match</button><button id="tabStats">Statistiques</button></span>
-      <span id="statsCtl" hidden>
-        <span class="group"><button data-st-map="num" class="on">Chiffres</button><button data-st-map="heat">Carte de chaleur</button><button data-st-map="net">Réseau de passes</button></span>
-        <span class="group" id="stSrc" hidden><button data-st-src="match" class="on">Ce match</button><button data-st-src="series" id="stSrcSeries">Série</button></span>
-        <span class="group" id="stTeams"><button data-st-team="0" class="on">Bleus</button><button data-st-team="1">Rouges</button></span>
-        <select id="stPlayer" aria-label="Joueur de la carte de chaleur"></select>
-        <span class="heatkey" id="heatKey">peu <i></i> beaucoup de temps</span>
-      </span>
-    </div>
-    <div class="stage">
-      <canvas id="pitch"></canvas>
-      <div class="end" id="end" hidden><div id="endText"></div><div class="row"><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
-      <div class="pre" id="pre" hidden><div>Réglez vos consignes, puis donnez le coup d'envoi.</div><button id="kick" class="main">Lancer le match</button></div>
-      <div class="busy" id="busy" hidden>Calcul du match…</div>
-      <div class="tip" id="tip" hidden></div>
-      <div class="numbers" id="numbers" hidden><div class="sides" id="numSides"></div><table id="stats"></table><table id="statsSeries" hidden></table></div>
-    </div>
-
-    <div class="statsnote" id="statsNote" hidden></div>
-    <div class="timeline">
-      <div class="marks" id="marks"></div>
-      <div class="future coachonly" id="future"><span>direct</span></div>
-      <input type="range" id="time" min="0" max="600" step="0.05" value="0" aria-label="Position dans le match">
-      <div class="legend">
-        <span><i class="mark goal" style="position: static; transform: none; background: var(--blue)"></i>but</span>
-        <span><i class="mark shot" style="position: static; transform: none; background: var(--blue)"></i>tir</span>
-        <span><i class="mark tactic" style="position: static; transform: rotate(45deg); background: var(--blue)"></i>changement de consigne</span>
-        <span>Faites glisser la barre, ou flèches ← → pour reculer et avancer de 5 secondes.</span>
-        <span class="coachonly">Mode Coach It : on peut revoir le passé, jamais la suite du match.</span>
-      </div>
-    </div>
-
-    <div class="bar">
-      <button id="play">Pause</button>
-      <span class="group"><button id="back" title="Reculer de 10 secondes">−10 s</button><button id="fwd" title="Avancer de 10 secondes">+10 s</button></span>
-      <span class="group">Vitesse
-        <button data-speed="1" class="on">×1</button><button data-speed="2">×2</button><button data-speed="4">×4</button><button data-speed="8">×8</button><button data-speed="16">×16</button>
-      </span>
-      <label class="godonly"><input type="checkbox" id="intents"> Montrer où chaque joueur veut aller</label>
-      <label class="godonly"><input type="checkbox" id="labels"> Montrer l'intention de chaque joueur</label>
-      <label title="Pendant un arrêt de jeu (touche, coup franc, sortie de but…), la lecture va six fois plus vite"><input type="checkbox" id="skip" checked> Passer vite les arrêts de jeu</label>
-      <span class="group" style="margin-left: auto">Durée
-        <select id="duration"><option value="5400" selected>90 min</option><option value="2700">45 min</option><option value="1200">20 min</option><option value="600">10 min (essais)</option></select>
-      </span>
-      <span class="group">Match n°<input type="number" id="seed" min="1" step="1"><button id="load">Rejouer ce match</button><button id="new">Nouveau match</button></span>
-    </div>
-
-    <div class="card series godonly">
-      <h2>Série de matchs</h2>
-      <div class="bar">
-        <label>Nombre de matchs <input type="number" id="nSeries" min="1" max="5000" step="1" value="20"></label>
-        <button id="runSeries" class="main">Simuler la série</button>
-        <span class="muted" id="seriesHint">Avec les équipes et les consignes affichées à droite, et la durée choisie. Sert à voir ce qu'un réglage change en moyenne.</span>
-      </div>
-      <div class="progress" id="prog" hidden><div id="progFill"></div></div>
-      <div id="seriesOut"></div>
-    </div>
-  </main>
-
-  <aside>
-    <div class="card" id="squadCard">
-      <h2>Équipes</h2>
-      <div id="squads"></div>
-      <div class="muted small" style="margin-top: 8px">Les équipes se choisissent dans la page équipe (equipe.html), pas ici. Standard : tous les joueurs à 14.</div>
-      <div style="margin-top: 8px"><a id="teamLink" class="small" href="equipe.html">← Choisir les équipes</a></div>
-    </div>
-    <div class="card">
-      <h2>Consignes</h2>
-      <table class="tac" id="tactics"></table>
-      <div class="muted small" id="tacHint" style="margin-top: 8px"></div>
-      <div style="margin-top: 8px"><button id="neutral" class="small">Tout remettre au neutre</button></div>
-    </div>
-    <div class="card">
-      <h2>Joueur</h2>
-      <div id="player" class="muted">Cliquez sur un joueur pour voir ce qu'il est en train de faire.</div>
-    </div>
-    <div class="card">
-      <h2>Fil du match</h2>
-      <div id="log"></div>
-    </div>
-  </aside>
 </div>
 
-<script src="engine.js"></script>
-<script src="render.js"></script>
-<script src="stats.js"></script>
-<script>window.MatchTeams = /*EQUIPES*/null;</script>
 <script>
+'use strict';
 (function () {
-  'use strict';
-  const E = MatchEngine, R = MatchRender, St = MatchStats, $ = id => document.getElementById(id);
-  const DT = E.DT, NP = 22, F = 8, TAC = E.TACTICS;
-  const cv = $('pitch'), ctx = cv.getContext('2d');
-  const CHASE = { chase: 1, receive: 1, claim: 1, press: 1 };
-
-  // Le match est calculé en entier d'un coup, puis lu comme une vidéo : on peut aller à n'importe quel instant.
-  // tac0 : consignes au coup d'envoi ; changes : changements faits en cours de match ({ tick, team, key, v }).
-  // pending : avant le coup d'envoi. Le terrain est en place, on règle les consignes, rien n'est encore calculé.
-  let seed = 1, duration = 5400, tac0 = [blank(), blank()], changes = [], pending = true;
-  let rec = null, view = null, cur = 0, end = 5400, playing = false, scrub = false, speed = 1, last = 0;
-  let selected = -1, shown = 0, W = 0, H = 0, nextHud = 0, series = null;
-  // page Statistiques : onglet, équipe, carte (chaleur ou réseau de passes), joueur de la carte de chaleur (-1 : toute l'équipe)
-  // mode God : tout voir, régler les deux équipes ; mode Coach It : les Bleus seulement, sans voir la suite (live : jusqu'où le match a été joué)
-  let mode = 'god', live = 0, marked = -1;
-  const coach = () => mode === 'coach';
-  let lastSeries = null, stSrc = 'match';
-  let tab = 'match', stTeam = 0, stMap = 'num', stPlayer = -1, stData = null, stKey = '', stAt = 0, hoverNode = -1;
-  // équipes du fichier equipes.json (mises dans la page par build.js) ; squad : l'équipe de chaque camp (au format de equipes.json), null = équipe standard (tous à 14).
-  // Les équipes ne se choisissent pas ici : la page équipe (equipe.html) les envoie dans l'adresse de la page, voir « équipes venues de la page équipe » plus bas.
-  const TEAMS = (window.MatchTeams && window.MatchTeams.equipes) || [];
-  let squad = [null, null];
-  const teamsOf = sq => sq.slice();
-  const clubOf = T => T ? T.nom || T.id || '' : '';
-  const buffers = {};
-
-  function blank() { const t = {}; for (const c of TAC) t[c.key] = 0; return t; }
-  const mmss = t => String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(Math.floor(t % 60)).padStart(2, '0');
-  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const tickOf = t => Math.round(t / DT);
-  // consignes en vigueur à un instant donné
-  function tacAt(tick) { const t = [Object.assign({}, tac0[0]), Object.assign({}, tac0[1])]; for (const c of changes) if (c.tick <= tick) t[c.team][c.key] = c.v; return t; }
-  function describe(t) { const fo = (E.FORMATIONS.find(f => f.id === (t.formation || '442')) || {}).name, on = TAC.filter(c => t[c.key]).map(c => c.label + ' : ' + c.options[t[c.key] + 1].toLowerCase()); return fo + ' · ' + (on.length ? on.join(' · ') : 'consignes neutres'); }
-
-  // ---------- calcul et enregistrement du match ----------
-  // full = false : seulement l'image du coup d'envoi (avant-match)
-  function simulate(full) {
-    const m = E.createMatch({ seed, duration, tactics: tac0, teams: teamsOf(squad), formations: tac0.map(t => t.formation || '442') }), key = seed + '|' + squad.map(clubOf).join('|');
-    const cap = full ? Math.round(duration / DT) + 4 : 1;
-    const buf = buffers[cap] || (buffers[cap] = { P: new Float32Array(cap * NP * F), B: new Float32Array(cap * 4), L: new Uint16Array(cap * NP), N: new Uint16Array(cap * NP), K: new Uint8Array(cap * NP), D: new Uint8Array(cap) });
-    const r = Object.assign({ n: 0, texts: [''], kinds: [], stats: [], events: m.events, passes: [] }, buf);
-    // passes jouées (pour le réseau de passes) : on note chaque passe au départ, et on la range quand on connaît son issue
-    const open = []; let lastQ = null;
-    const trackPasses = () => {
-      const q = m.pass;
-      if (q && q !== lastQ && q.kind === 'pass' && q.type !== 'tete' && q.from) open.push({ q, t: m.t, team: q.from.team, from: q.from.id, to: q.to ? q.to.id : -1 });
-      lastQ = q;
-      for (let j = open.length - 1; j >= 0; j--) if (open[j].q.ended) { const o = open.splice(j, 1)[0]; r.passes.push({ t: o.t, team: o.team, from: o.from, to: o.to, ok: o.q.how === 'ok' }); }
-    };
-    const textId = new Map([['', 0]]), kindId = new Map();
-    const id = (map, list, s) => { let i = map.get(s); if (i === undefined) { i = list.length; list.push(s); map.set(s, i); } return i; };
-    const capture = f => {
-      const b = m.ball, live = !b.owner && m.mode === 'play';
-      for (const p of m.players) {
-        const k = (f * NP + p.id) * F, it = p.intent; let tx = it.tx, ty = it.ty;
-        if (CHASE[it.type]) { const ic = live && m.icpt[p.id]; tx = ic ? ic.x : b.x; ty = ic ? ic.y : b.y; }
-        r.P[k] = p.x; r.P[k + 1] = p.y; r.P[k + 2] = p.face; r.P[k + 3] = tx; r.P[k + 4] = ty; r.P[k + 5] = Math.hypot(p.vx, p.vy); r.P[k + 6] = p.stam; r.P[k + 7] = p.dist;
-        r.K[f * NP + p.id] = id(kindId, r.kinds, it.type); r.L[f * NP + p.id] = id(textId, r.texts, it.label); r.N[f * NP + p.id] = id(textId, r.texts, it.note || '');
-      }
-      r.B[f * 4] = b.x; r.B[f * 4 + 1] = b.y; r.B[f * 4 + 2] = b.z; r.B[f * 4 + 3] = b.owner ? b.owner.id : -1;
-      r.D[f] = m.mode === 'dead' ? 1 : 0;                      // arrêt de jeu : la lecture pourra l'accélérer
-      if (f % 10 === 0) r.stats.push(m.teams.map(T => { const s = Object.assign({ dist: 0, fresh: 0 }, T.stats); for (const p of T.players) { s.dist += p.dist; if (p.role !== 'GK') s.fresh += p.stam; } return s; }));
-    };
-    let f = 0, ci = 0;
-    capture(0);
-    while (full && m.mode !== 'over' && f < cap - 1) {
-      for (; ci < changes.length && changes[ci].tick <= m.tick; ci++) {
-        const c = changes[ci];
-        if (c.key === 'formation') { E.setFormation(m, c.team, c.v); continue; }
-        if (c.preset) { const grp = {}; let cj = ci; for (; cj < changes.length && changes[cj].tick === c.tick && changes[cj].team === c.team && changes[cj].preset === c.preset; cj++) grp[changes[cj].key] = changes[cj].v; E.setTactics(m, c.team, grp, c.preset); ci = cj - 1; }
-        else E.setTactics(m, c.team, { [c.key]: c.v });
-      }
-      E.step(m); capture(++f); trackPasses();
-    }
-    r.n = f + 1;
-    rec = r; end = full ? f * DT : duration;
-    if (!view || view.key !== key) {
-      view = { seed, key, icpt: null, teams: m.teams.map(T => ({ name: T.name, club: T.club, color: T.color, dir: T.dir })), ball: { x: 0, y: 0, z: 0, px: 0, py: 0, pz: 0, owner: null },
-        players: m.players.map(p => ({ id: p.id, idx: p.idx, team: p.team, num: p.num, name: p.name, role: p.role, poste: p.poste, a: p.a, x: 0, y: 0, px: 0, py: 0, face: 0, v: 0, stam: 1, dist: 0, intent: { type: 'position', label: '', note: null, tx: 0, ty: 0 } })) };
-    }
-    $('time').max = end; $('time').disabled = !full; $('pre').hidden = full; $('name0').textContent = view.teams[0].name + (view.teams[0].club ? ' · ' + view.teams[0].club : ''); $('name1').textContent = (view.teams[1].club ? view.teams[1].club + ' · ' : '') + view.teams[1].name;
-    drawMarks(); shown = -1; nextHud = 0;
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const fmt = x => String(x).replace('.', ',');
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem('construction-equipe') || 'null'); } catch (e) { s = null; }      // enregistrée par equipe.html
+  if (!s) return;
+  $('none').hidden = true; $('mine').hidden = false;
+  const A = s.apercu;
+  if (!A) {      // équipe enregistrée par une ancienne version de la page : pas d'aperçu
+    $('mine').style.display = 'block';
+    $('mine').innerHTML = '<div class="who">' + esc(s.nom || 'Mon équipe') + '</div><p class="sub">Ouvrez-la puis enregistrez-la à nouveau pour voir ici ses joueurs.</p><div class="btns"><a class="btn main" href="equipe.html#reprendre">Ouvrir mon équipe</a></div>';
+    return;
   }
-
-  // place l'image du match à l'instant t dans « view » ; renvoie la part d'interpolation entre deux pas
-  function show(t) {
-    const fp = Math.min(Math.max(t, 0) / DT, rec.n - 1), f0 = Math.floor(fp), f1 = Math.min(f0 + 1, rec.n - 1), P = rec.P, B = rec.B;
-    for (let i = 0; i < NP; i++) {
-      const p = view.players[i], a = (f0 * NP + i) * F, b = (f1 * NP + i) * F, it = p.intent;
-      p.px = P[a]; p.py = P[a + 1]; p.x = P[b]; p.y = P[b + 1]; p.face = P[b + 2]; it.tx = P[b + 3]; it.ty = P[b + 4]; p.v = P[b + 5]; p.stam = P[b + 6]; p.dist = P[b + 7];
-      it.type = rec.kinds[rec.K[f1 * NP + i]]; it.label = rec.texts[rec.L[f1 * NP + i]]; it.note = rec.texts[rec.N[f1 * NP + i]] || null;
-    }
-    const q = view.ball, o = B[f1 * 4 + 3];
-    q.px = B[f0 * 4]; q.py = B[f0 * 4 + 1]; q.pz = B[f0 * 4 + 2]; q.x = B[f1 * 4]; q.y = B[f1 * 4 + 1]; q.z = B[f1 * 4 + 2]; q.owner = o >= 0 ? view.players[o] : null;
-    return f1 === f0 ? 1 : fp - f0;
+  // petit terrain : son camp, but en bas (mêmes repères que la page équipe : x largeur, d profondeur)
+  const L0 = 72, X = t => 37 + t.x, Y = t => L0 - (t.d === -15 ? 7 : 20 + 1.3 * t.d);
+  let g = '<svg viewBox="0 0 74 74" role="img" aria-label="Les onze titulaires"><rect width="74" height="74" fill="#2c6b36"/>';
+  for (let i = 0; i < 7; i++) g += '<rect x="3" y="' + (L0 - 10.5 * (i + 1)) + '" width="68" height="10.5" fill="' + (i % 2 ? '#3c8c47' : '#42954d') + '"/>';
+  const st = 'fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="0.3"';
+  g += '<path d="M3 0 V' + L0 + ' H71 V0" ' + st + '/><line x1="3" x2="71" y1="' + (L0 - 52.5) + '" y2="' + (L0 - 52.5) + '" ' + st + '/><circle cx="37" cy="' + (L0 - 52.5) + '" r="9.15" ' + st + '/>';
+  g += '<rect x="16.84" y="' + (L0 - 16.5) + '" width="40.32" height="16.5" ' + st + '/>';
+  for (const t of A.titulaires) {
+    g += '<circle cx="' + X(t) + '" cy="' + Y(t) + '" r="2.4" fill="#2f6fdf" stroke="' + (t.hors ? '#ff9a3c' : '#fff') + '" stroke-width="0.5"/>';
+    g += '<text x="' + X(t) + '" y="' + (Y(t) + 0.8) + '" font-size="2" font-weight="700" fill="#fff" text-anchor="middle" font-family="system-ui">' + esc(t.poste) + '</text>';
+    g += '<text x="' + X(t) + '" y="' + (Y(t) + 4.9) + '" font-size="1.9" font-weight="600" fill="#fff" text-anchor="middle" font-family="system-ui" paint-order="stroke" stroke="rgba(0,0,0,.6)" stroke-width="0.5">' + esc(t.nom) + '</text>';
   }
-
-  // repères sur la barre de temps : buts, tirs, changements de consigne
-  function drawMarks() {
-    const box = $('marks'); box.innerHTML = '';
-    for (const e of rec.events) {
-      if (coach() && e.t > live + 1e-6) break;                       // Coach It : pas de repères dans le futur
-      let cls = null, team = e.team;
-      if (e.kind === 'goal') cls = 'goal'; else if (e.kind === 'tactic') cls = 'tactic';
-      else if (e.kind === 'shot') cls = 'shot'; else if (e.kind === 'save' || e.kind === 'block') { cls = 'shot'; team = 1 - e.team; }      // l'événement est noté côté défenseur
-      if (!cls) continue;
-      const b = document.createElement('button');
-      b.className = 'mark ' + cls; b.title = mmss(e.t) + ' ' + e.text; b.style.left = (100 * e.t / end) + '%'; b.style.background = view.teams[team].color;
-      b.onclick = () => seek(e.t - (cls === 'tactic' ? 0 : 5));
-      box.appendChild(b);
-    }
-  }
-
-  // ---------- affichage ----------
-  function resize() {
-    const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
-    W = r.width; H = r.height; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-
-  const ATTRS = [['pace', 'Vitesse'], ['passing', 'Passe'], ['firstTouch', 'Prise de balle'], ['vision', 'Vision du jeu'], ['dribbling', 'Dribble'], ['finishing', 'Finition'], ['tackling', 'Tacle'], ['positioning', 'Placement'], ['decisions', 'Lucidité'], ['workRate', 'Volume de course'], ['heading', 'Jeu de tête'], ['flair', 'Goût du risque']];
-  const attrsOf = p => p.role !== 'GK' ? ATTRS : ATTRS.map(k => k[0] === 'dribbling' ? ['reflexes', 'Réflexes'] : k[0] === 'finishing' ? ['handling', 'Jeu de mains'] : k);      // gardien : ses deux qualités propres
-  const statRows = rows => { let g = ''; return rows.map(r => (r.group !== g ? '<tr class="g"><td colspan="3">' + esc(g = r.group) + '</td></tr>' : '') + '<tr><td>' + r.a + '</td><td class="k">' + esc(r.label) + '</td><td>' + r.b + '</td></tr>').join(''); };
-
-  function hud() {
-    const tick = Math.min(tickOf(cur), rec.n - 1), ev = rec.events;
-    if (coach()) {
-      let k = 0; while (k < ev.length && ev[k].t <= live + 1e-6) k++; if (k !== marked) { marked = k; drawMarks(); }
-      const fu = $('future'), w = $('marks').getBoundingClientRect().width;      // la suite du match, hors d'atteinte
-      fu.hidden = pending; fu.style.width = Math.max(0, w * (1 - live / end)) + 'px';
-    }
-    let n = 0, s0 = 0, s1 = 0;
-    for (; n < ev.length && ev[n].t <= cur + 1e-6; n++) if (ev[n].kind === 'goal') { if (ev[n].team === 0) s0++; else s1++; }
-    $('goals').textContent = s0 + ' – ' + s1;
-    $('clock').textContent = mmss(cur) + ' / ' + mmss(end);
-    if (!scrub) $('time').value = cur;
-    if (n !== shown) {                                       // le fil du match suit la barre de temps, y compris en arrière
-      const box = $('log');
-      if (shown < 0 || n < shown) { box.innerHTML = ''; shown = 0; }
-      for (; shown < n; shown++) {
-        const e = ev[shown], d = document.createElement('div');
-        if (e.kind === 'goal' || e.kind === 'tactic') d.className = e.kind;
-        d.innerHTML = '<time>' + mmss(e.t) + '</time><span>' + esc(e.text) + '</span>';
-        box.prepend(d);
-      }
-    }
-    const st = rec.stats[Math.min(Math.floor(tick / 10), rec.stats.length - 1)];
-    $('stats').innerHTML = statRows(St.rowsOf(st[0], st[1]));
-    // consignes en vigueur à cet instant
-    const t = tacAt(coach() ? Math.min(tickOf(live), rec.n - 1) : tick);      // Coach It : les consignes en vigueur au moment du direct
-    document.querySelectorAll('#tactics select[data-formation]').forEach(sel => { const v = t[+sel.dataset.formation].formation || '442'; if (sel.value !== v && document.activeElement !== sel) sel.value = v; sel.classList.toggle('set', v !== '442'); });
-    document.querySelectorAll('#tactics select[data-preset]').forEach(sel => { const id = presetOf(t[+sel.dataset.preset]); if (sel.value !== id && document.activeElement !== sel) sel.value = id; const P = PRE.find(P => P.id === id); sel.title = P ? P.help : 'Consignes réglées à la main'; });
-    document.querySelectorAll('#tactics select[data-key]').forEach(sel => { const v = String(t[+sel.dataset.team][sel.dataset.key]); if (sel.value !== v && document.activeElement !== sel) sel.value = v; sel.classList.toggle('set', v !== '0'); });
-    if (coach()) $('tacHint').textContent = pending ? 'Choisissez les consignes de votre équipe (les Bleus). L\'adversaire joue avec des consignes neutres.' : 'Un changement s\'applique au moment du direct (' + mmss(live) + '), même si vous revoyez une action plus ancienne.';
-    else $('tacHint').textContent = pending ? 'Choisissez les consignes des deux équipes pour le coup d\'envoi. Vous pourrez les changer en cours de match.' : tick <= 0 ? 'Au coup d\'envoi : un changement vaut pour tout le match.' : 'Un changement s\'applique à partir de ' + mmss(cur) + ' et réécrit la suite du match.';
-    if (selected >= 0) {
-      const p = view.players[selected], T = view.teams[p.team];
-      $('player').className = '';
-      $('player').innerHTML = '<div class="who"><span class="dot" style="background:' + T.color + '"></span> n°' + p.num + ' ' + esc(p.name) + '</div>'
-        + '<div class="muted">' + p.poste + ' · ' + T.name + (T.club ? ' (' + esc(T.club) + ')' : '') + '</div>'
-        + (coach() ? '' : '<div class="doing">' + esc(p.intent.label) + (p.intent.note ? '<span class="note">' + esc(p.intent.note) + '</span>' : '') + '</div>')
-        + '<div class="muted" style="margin-bottom:8px">' + (p.v * 3.6).toFixed(0) + ' km/h · fraîcheur ' + Math.round(100 * p.stam) + ' % · ' + (p.dist / 1000).toFixed(2) + ' km parcourus</div>'
-        + '<div class="attrs">' + attrsOf(p).map(k => '<div class="attr"><span>' + k[1] + '</span><b>' + Math.round(p.a[k[0]] * 20) + '</b></div>').join('') + '</div>';
-    }
-    const over = !pending && cur >= end - 1e-6 && !scrub;
-    if (over) $('endText').textContent = view.teams[0].name + ' ' + s0 + ' – ' + s1 + ' ' + view.teams[1].name;
-    $('end').hidden = !over || tab === 'stats';
-    $('play').textContent = pending ? 'Lancer le match' : playing ? 'Pause' : 'Lecture';
-  }
-
-  // ---------- page Statistiques : carte de chaleur et réseau de passes, jusqu'à l'instant affiché ----------
-  const teamName = t => view.teams[t].name + (view.teams[t].club ? ' (' + view.teams[t].club + ')' : '');
-  const way = t => view.teams[t].dir > 0 ? 'attaquent vers la droite →' : '← attaquent vers la gauche';
-  function heatGrid(f1) {
-    const g = new Float32Array(R.HEAT.cols * R.HEAT.rows);
-    for (let f = 0; f <= f1; f += 4) {
-      if (rec.D[f]) continue;                                        // ballon en jeu seulement
-      for (const p of view.players) {
-        if (stPlayer >= 0 ? p.id !== stPlayer : (p.team !== stTeam || p.role === 'GK')) continue;
-        const k = (f * NP + p.id) * F, c = R.heatCell(rec.P[k], rec.P[k + 1]); if (c >= 0) g[c]++;
-      }
-    }
-    return g;
-  }
-  function passNetwork(f1) {
-    const tEnd = f1 * DT, ps = view.players.filter(p => p.team === stTeam), idx = new Map(ps.map((p, i) => [p.id, i]));
-    const sx = ps.map(() => 0), sy = ps.map(() => 0); let n = 0;
-    for (let f = 0; f <= f1; f += 5) {                               // position moyenne quand son équipe a le ballon
-      const o = rec.B[f * 4 + 3]; if (o < 0 || view.players[o].team !== stTeam) continue;
-      ps.forEach((p, i) => { const k = (f * NP + p.id) * F; sx[i] += rec.P[k]; sy[i] += rec.P[k + 1]; }); n++;
-    }
-    const made = ps.map(() => 0), ok = ps.map(() => 0), got = ps.map(() => 0), pair = new Map();
-    for (const q of rec.passes) {
-      if (q.t > tEnd || q.team !== stTeam) continue;
-      const a = idx.get(q.from); made[a]++;
-      if (q.ok && q.to >= 0 && idx.has(q.to)) { const b = idx.get(q.to); ok[a]++; got[b]++; const k = Math.min(a, b) + '-' + Math.max(a, b); pair.set(k, (pair.get(k) || 0) + 1); }
-    }
-    let maxInv = 1; ps.forEach((p, i) => { maxInv = Math.max(maxInv, made[i] + got[i]); });
-    const nodes = ps.map((p, i) => ({ x: n ? sx[i] / n : view.players[p.id].x, y: n ? sy[i] / n : view.players[p.id].y, num: p.num, name: p.name, size: (made[i] + got[i]) / maxInv, made: made[i], ok: ok[i], got: got[i] }));
-    let maxPair = 0; for (const v of pair.values()) maxPair = Math.max(maxPair, v);
-    const cut = Math.max(1, Math.round(0.15 * maxPair)), edges = [];
-    for (const [k, v] of pair) if (v >= cut) { const [a, b] = k.split('-').map(Number); edges.push({ a, b, n: v }); }
-    edges.sort((x, y) => y.n - x.n);
-    return { nodes, edges, cut };
-  }
-  // cartes de la série : même dessin, données cumulées sur tous les matchs de la série
-  function seriesData() {
-    const S = lastSeries, M = S.maps, n = S.done, team = view.players.filter(p => p.team === stTeam).sort((a, b) => a.idx - b.idx);
-    if (stMap === 'heat') {
-      const g = new Float32Array(R.HEAT.cols * R.HEAT.rows), one = stPlayer >= 0 ? view.players[stPlayer].idx : -1;
-      M.heat[stTeam].forEach((h, i) => { if (one >= 0 ? i === one : i !== 0) for (let c = 0; c < g.length; c++) g[c] += h[c]; });
-      return { grid: g, n };
-    }
-    const inv = M.made[stTeam].map((x, i) => x + M.got[stTeam][i]), maxInv = Math.max(1, ...inv);
-    const nodes = team.map(p => { const P = M.pos[stTeam][p.idx]; return { x: P[2] ? P[0] / P[2] : 0, y: P[2] ? P[1] / P[2] : 0, num: p.num, name: p.poste || p.name, size: inv[p.idx] / maxInv, made: Math.round(M.made[stTeam][p.idx] / n), ok: Math.round(M.ok[stTeam][p.idx] / n), got: Math.round(M.got[stTeam][p.idx] / n) }; });
-    const at = new Map(team.map((p, k) => [p.idx, k]));
-    let maxPair = 0; for (const v of M.pair[stTeam].values()) maxPair = Math.max(maxPair, v);
-    const cut = Math.max(1, Math.round(0.15 * maxPair)), edges = [];
-    for (const [k, v] of M.pair[stTeam]) if (v >= cut) { const [a, b] = k.split('-').map(Number); edges.push({ a: at.get(a), b: at.get(b), n: v }); }
-    edges.sort((x, y) => y.n - x.n);
-    return { nodes, edges, cut: Math.round(cut / n * 10) / 10, n, perMatch: true };
-  }
-  function drawStats(ts) {
-    const ser = stSrc === 'series' && lastSeries;
-    $('stats').hidden = !!ser; $('statsSeries').hidden = !ser;
-    if (ser) {
-      const S = lastSeries, desc = t => (clubOf(S.squad[t]) ? clubOf(S.squad[t]) + ' · ' : '') + describe(S.tac[t]);
-      if (stMap === 'num') {
-        R.drawPitch(ctx, W, H);
-        const sides = '<span><span class="dot" style="background: var(--blue)"></span> Bleus</span><span>Rouges <span class="dot" style="background: var(--red)"></span></span>';
-        if ($('numSides').innerHTML !== sides) $('numSides').innerHTML = sides;
-        if ($('statsSeries').dataset.n !== String(S.done)) { $('statsSeries').innerHTML = statRows(St.rows(S.acc)); $('statsSeries').dataset.n = S.done; }
-        $('statsNote').textContent = 'Moyennes par match sur la série de ' + S.done + ' matchs. Bleus : ' + desc(0) + '. Rouges : ' + desc(1) + '.';
-        return;
-      }
-      const key = ['série', S.done, stTeam, stMap, stPlayer].join('|');
-      if (key !== stKey) {
-        stKey = key; stData = seriesData();
-        const who = stPlayer >= 0 ? 'n°' + view.players[stPlayer].num + ' (' + (view.players[stPlayer].poste || '') + ')' : 'toute l\'équipe (sans le gardien)';
-        if (stMap === 'heat') $('statsNote').innerHTML = '<b>Carte de chaleur</b> — série de ' + S.done + ' matchs, ' + (stTeam ? 'Rouges' : 'Bleus') + ' (' + esc(desc(stTeam)) + '), ' + esc(who) + ', ballon en jeu. Les ' + (stTeam ? 'Rouges' : 'Bleus') + ' ' + way(stTeam) + '.';
-        else {
-          const N = stData.nodes, top = stData.edges.slice(0, 5).map(e => 'n°' + N[e.a].num + ' ↔ n°' + N[e.b].num + ' : ' + Math.round(e.n / S.done)).join(' · ');
-          const tot = N.reduce((a, q) => a + q.made, 0), okT = N.reduce((a, q) => a + q.ok, 0);
-          $('statsNote').innerHTML = '<b>Réseau de passes</b> — série de ' + S.done + ' matchs, ' + (stTeam ? 'Rouges' : 'Bleus') + ' (' + esc(desc(stTeam)) + ') : ' + tot + ' passes par match, ' + (tot ? Math.round(100 * okT / tot) : 0) + ' % réussies. Positions moyennes quand l\'équipe a le ballon. Les ' + (stTeam ? 'Rouges' : 'Bleus') + ' ' + way(stTeam) + '.' + (top ? '<br>Associations les plus fréquentes (passes réussies par match) : ' + esc(top) + '.' : '');
-        }
-      }
-      if (stMap === 'heat') R.drawHeat(ctx, W, H, stData.grid);
-      else R.drawNetwork(ctx, W, H, stData.nodes, stData.edges, view.teams[stTeam].color, hoverNode);
-      return;
-    }
-    if (stMap === 'num') {                                           // les chiffres : le tableau remplace le terrain
-      R.drawPitch(ctx, W, H);
-      const sides = '<span><span class="dot" style="background: var(--blue)"></span> ' + esc(teamName(0)) + '</span><span>' + esc(teamName(1)) + ' <span class="dot" style="background: var(--red)"></span></span>';
-      if ($('numSides').innerHTML !== sides) $('numSides').innerHTML = sides;
-      $('statsNote').textContent = rec.n <= 1 ? 'Lancez le match pour voir les statistiques.' : 'Statistiques du match de 00:00 à ' + mmss(Math.min(tickOf(cur), rec.n - 1) * DT) + '.';
-      return;
-    }
-    const f1 = Math.min(tickOf(cur), rec.n - 1), key = [stTeam, stMap, stPlayer, rec.n, view.key].join('|');
-    if (key !== stKey || (f1 !== stData.f1 && ts - stAt > 250)) {
-      stKey = key; stAt = ts;
-      stData = stMap === 'heat' ? { f1, grid: heatGrid(f1) } : Object.assign({ f1 }, passNetwork(f1));
-      const span = 'de 00:00 à ' + mmss(f1 * DT);
-      if (rec.n <= 1) $('statsNote').textContent = 'Lancez le match pour voir les statistiques.';
-      else if (stMap === 'heat') {
-        const who = stPlayer >= 0 ? 'n°' + view.players[stPlayer].num + ' ' + view.players[stPlayer].name : 'toute l\'équipe (sans le gardien)';
-        $('statsNote').innerHTML = '<b>Carte de chaleur</b> — ' + esc(teamName(stTeam)) + ', ' + esc(who) + ', ' + span + ', ballon en jeu. Les ' + esc(view.teams[stTeam].name) + ' ' + way(stTeam) + '.';
-      } else {
-        const N = stData.nodes, top = stData.edges.slice(0, 5).map(e => 'n°' + N[e.a].num + ' ↔ n°' + N[e.b].num + ' : ' + e.n).join(' · ');
-        const tot = N.reduce((a, q) => a + q.made, 0), okT = N.reduce((a, q) => a + q.ok, 0);
-        $('statsNote').innerHTML = '<b>Réseau de passes</b> — ' + esc(teamName(stTeam)) + ', ' + span + ' : ' + tot + ' passes, ' + (tot ? Math.round(100 * okT / tot) : 0) + ' % réussies. Chaque joueur est à sa position moyenne quand son équipe a le ballon ; plus le rond est gros, plus il touche le ballon ; plus le trait est épais, plus les deux joueurs se passent le ballon (traits à partir de ' + stData.cut + ' passes réussies). Les ' + esc(view.teams[stTeam].name) + ' ' + way(stTeam) + '.'
-          + (top ? '<br>Associations les plus fréquentes : ' + esc(top) + '.' : '');
-      }
-    }
-    if (stMap === 'heat') R.drawHeat(ctx, W, H, stData.grid);
-    else R.drawNetwork(ctx, W, H, stData.nodes, stData.edges, view.teams[stTeam].color, hoverNode);
-  }
-  function fillPlayers() {
-    const sel = $('stPlayer'); sel.innerHTML = '<option value="-1">Toute l\'équipe</option>' + view.players.filter(p => p.team === stTeam).map(p => '<option value="' + p.id + '">n°' + p.num + (stSrc === 'series' && lastSeries ? '' : ' ' + esc(p.name)) + (p.poste ? ' (' + esc(p.poste) + ')' : '') + '</option>').join('');
-    sel.value = String(stPlayer);
-  }
-  function setTab(t) {
-    tab = t; $('tabMatch').classList.toggle('on', t === 'match'); $('tabStats').classList.toggle('on', t === 'stats');
-    $('statsCtl').hidden = t !== 'stats'; $('statsNote').hidden = t !== 'stats'; document.querySelector('.stage').classList.toggle('stats', t === 'stats');
-    $('tip').hidden = true; hoverNode = -1; stKey = ''; nextHud = 0;
-    if (t === 'stats') fillPlayers();
-    setStats({});
-  }
-  function setStats(o) {
-    if (o.src) { stSrc = o.src; stKey = ''; fillPlayers(); }
-    document.querySelectorAll('[data-st-src]').forEach(b => b.classList.toggle('on', b.dataset.stSrc === stSrc));
-    if (o.team !== undefined && o.team !== stTeam) { stTeam = o.team; stPlayer = -1; fillPlayers(); }
-    if (o.map) stMap = o.map;
-    if (o.player !== undefined) { stPlayer = o.player; $('stPlayer').value = String(stPlayer); }
-    document.querySelectorAll('[data-st-team]').forEach(b => b.classList.toggle('on', +b.dataset.stTeam === stTeam));
-    document.querySelectorAll('[data-st-map]').forEach(b => b.classList.toggle('on', b.dataset.stMap === stMap));
-    $('stPlayer').hidden = stMap !== 'heat'; $('heatKey').hidden = stMap !== 'heat'; $('stTeams').hidden = stMap === 'num';
-    $('numbers').hidden = !(tab === 'stats' && stMap === 'num');
-    $('tip').hidden = true; hoverNode = -1; stKey = '';
-  }
-
-  function frame(ts) {
-    const dt = Math.min(0.1, (ts - last) / 1000 || 0); last = ts;
-    if (rec) {
-      if (playing && !pending && !scrub && !series && $('busy').hidden) {
-        const dead = $('skip').checked && rec.D[Math.min(Math.floor(cur / DT), rec.n - 1)];
-        cur = Math.min(end, cur + dt * speed * (dead ? 6 : 1)); if (cur >= end) { playing = false; nextHud = 0; } }
-      if (!pending && cur > live) live = cur;                        // le direct avance avec la lecture
-      if (tab === 'stats') drawStats(ts);
-      else {
-      const stopped = !!rec.D[Math.min(Math.floor(cur / DT), rec.n - 1)];
-      R.drawMatch(ctx, W, H, view, show(cur), { intents: !coach() && $('intents').checked, labels: !coach() && $('labels').checked, hideMind: coach(), selected, clock: { time: mmss(cur), score: $('goals').textContent, dead: stopped && cur > 0 && cur < end } });
-      }
-      if (ts >= nextHud) { hud(); nextHud = ts + 150; }
-    }
-    requestAnimationFrame(frame);
-  }
-
-  // ---------- commandes ----------
-  function seek(t) { if (pending) return; cur = Math.min(coach() ? live : end, Math.max(0, t)); nextHud = 0; }      // Coach It : pas au-delà du direct
-  // calcule le match en entier (coup d'envoi, ou suite réécrite après un changement de consigne)
-  function rebuild(then) {
-    const go = () => { simulate(true); $('busy').hidden = true; if (cur > end) cur = end; if (then) then(); };
-    if (duration > 1200) { $('busy').hidden = false; $('pre').hidden = true; setTimeout(go, 30); } else go();
-  }
-  // nouveau match : on revient à l'avant-match, terrain en place et match à l'arrêt
-  function newMatch(s) {
-    tac0 = rec ? tacAt(tickOf(cur)) : tac0; changes = [];           // les consignes affichées deviennent celles du coup d'envoi
-    seed = s; cur = 0; live = 0; marked = -1; selected = -1; playing = false; pending = true;
-    $('seed').value = seed;
-    $('player').className = 'muted'; $('player').textContent = 'Cliquez sur un joueur pour voir ce qu\'il est en train de faire.';
-    simulate(false);
-  }
-  function launch() { if (!pending) return; pending = false; cur = 0; live = 0; marked = -1; playing = true; rebuild(); }
-  function setTactic(team, key, v) { setTactics(team, { [key]: v }); }
-  // plusieurs consignes d'un coup (tactique prédéfinie) : un seul recalcul
-  function setTactics(team, obj, preset) {
-    if (!rec) return;
-    if (coach() && team !== 0) return;
-    if (pending) { Object.assign(tac0[team], obj); simulate(false); nextHud = 0; return; }
-    const tick = Math.min(tickOf(coach() ? live : cur), rec.n - 1), now = tacAt(tick), keys = Object.keys(obj).filter(k => now[team][k] !== obj[k]);
-    if (!keys.length) return;
-    if (tick <= 0) { for (const k of keys) tac0[team][k] = obj[k]; changes = []; }
-    else for (const k of keys) { changes = changes.filter(c => c.tick < tick || (c.tick === tick && !(c.team === team && c.key === k))); changes.push({ tick, team, key: k, v: obj[k], preset }); }
-    rebuild();
-  }
-
-  // équipes venues de la page équipe : « match.html#partie=… » contient votre équipe (au format de equipes.json, avec sa formation et ses consignes)
-  // et l'identifiant de l'adversaire dans equipes.json ('' = standard). Sans rien dans l'adresse (« Match rapide ») : standard contre standard.
-  let start = null, startErr = '';
-  try {
-    const h = /[#&]partie=([^&]*)/.exec(location.hash);
-    if (h) {
-      const P = JSON.parse(decodeURIComponent(h[1]));
-      E.readTeam(P.equipe);                                    // équipe mal formée : message clair dans le cadre Équipes
-      start = { team: P.equipe, opp: TEAMS.find(T => T.id === P.adversaire) || null, formation: E.FORMATIONS.some(f => f.id === P.equipe.formation) ? P.equipe.formation : '442', tac: P.equipe.consignes || {} };
-    }
-  } catch (e) { startErr = e.message; }
-  if (start) {
-    squad = [start.team, start.opp];
-    const t = blank(); for (const c of TAC) if ([-1, 0, 1].includes(start.tac[c.key])) t[c.key] = start.tac[c.key];
-    t.formation = start.formation; tac0 = [t, blank()];
-    $('teamLink').href = 'equipe.html#reprendre'; $('teamLink').textContent = '← Retour à la page équipe';
-  }
-  // cadre Équipes : seulement les noms, on ne change pas d'équipe ici
-  function showSquads() {
-    const line = (k, T) => '<div class="teamrow"><span class="dot" style="background: var(--' + (k ? 'red' : 'blue') + ')"></span> <span class="muted">' + (coach() ? (k ? 'Adversaire' : 'Votre équipe') : (k ? 'Rouges' : 'Bleus')) + '</span> <b>' + esc(T ? T.nom || T.id : 'Standard') + '</b></div>';
-    $('squads').innerHTML = line(0, squad[0]) + line(1, squad[1]) + (startErr ? '<div class="small" style="color: var(--red); margin-top: 6px">Équipe reçue illisible : ' + esc(startErr) + '. Match entre équipes standard.</div>' : '');
-  }
-  showSquads();
-
-  // tableau des consignes
-  const PRE = E.PRESETS || [];
-  const presetOf = t => { const P = PRE.find(P => TAC.every(c => (P.t[c.key] || 0) === t[c.key])); return P ? P.id : ''; };
-  const formSel = team => '<select class="preset" data-formation="' + team + '" aria-label="Formation des ' + (team ? 'Rouges' : 'Bleus') + '">' + E.FORMATIONS.map(f => '<option value="' + f.id + '">' + f.name + '</option>').join('') + '</select>';
-  const preSel = team => '<select class="preset" data-preset="' + team + '" aria-label="Tactique des ' + (team ? 'Rouges' : 'Bleus') + '"><option value="">Personnalisée</option>' + PRE.map(P => '<option value="' + P.id + '" title="' + esc(P.help) + '">' + esc(P.name) + '</option>').join('') + '</select>';
-  $('tactics').innerHTML = '<tr><th><span class="dot" style="background: var(--blue)"></span> Bleus</th><th></th><th>Rouges <span class="dot" style="background: var(--red)"></span></th></tr>'
-    + '<tr class="presets"><td>' + formSel(0) + '</td><td class="k" title="La formation place les onze joueurs. Les joueurs gardent leur rang dans l\'effectif : en 4-3-3, les milieux de côté deviennent ailiers.">Formation</td><td>' + formSel(1) + '</td></tr>'
-    + '<tr class="presets"><td>' + preSel(0) + '</td><td class="k" title="Une tactique règle les six consignes d\'un coup. Vous pouvez ensuite changer une consigne : la tactique devient « Personnalisée ».">Tactique</td><td>' + preSel(1) + '</td></tr>'
-    + TAC.map(c => { const sel = team => '<select data-team="' + team + '" data-key="' + c.key + '" aria-label="' + esc(c.label) + ' des ' + (team ? 'Rouges' : 'Bleus') + '">' + c.options.map((o, i) => '<option value="' + (i - 1) + '"' + (i === 1 ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';
-      return '<tr><td>' + sel(0) + '</td><td class="k" title="' + esc(c.help) + '">' + esc(c.label) + '</td><td>' + sel(1) + '</td></tr>'; }).join('');
-  document.querySelectorAll('#tactics select[data-key]').forEach(sel => sel.onchange = () => { setTactic(+sel.dataset.team, sel.dataset.key, +sel.value); sel.blur(); });
-  document.querySelectorAll('#tactics select[data-formation]').forEach(sel => sel.onchange = () => { setTactics(+sel.dataset.formation, { formation: sel.value }); sel.blur(); nextHud = 0; });
-  document.querySelectorAll('#tactics select[data-preset]').forEach(sel => sel.onchange = () => { const P = PRE.find(P => P.id === sel.value); if (P) setTactics(+sel.dataset.preset, P.t, P.name); sel.blur(); nextHud = 0; });
-  $('neutral').onclick = () => {
-    if (!rec) return;
-    if (pending) { tac0 = [blank(), blank()]; simulate(false); return; }
-    const tick = Math.min(tickOf(coach() ? live : cur), rec.n - 1), t = tacAt(tick);
-    if (!TAC.some(c => t[0][c.key] || t[1][c.key]) && !changes.some(c => c.tick >= tick)) return;      // tout est déjà neutre à partir d'ici
-    if (tick <= 0) { tac0 = [blank(), blank()]; changes = []; }
-    else {
-      changes = changes.filter(c => c.tick < tick);
-      const before = tacAt(tick);
-      for (let team = 0; team < 2; team++) for (const c of TAC) if (before[team][c.key] !== 0) changes.push({ tick, team, key: c.key, v: 0 });
-    }
-    rebuild();
-  };
-
-  $('play').onclick = () => { if (pending) return launch(); if (cur >= end - 1e-6) cur = 0; playing = !playing; nextHud = 0; };
-  $('kick').onclick = launch;
-  $('back').onclick = () => seek(cur - 10);
-  $('fwd').onclick = () => seek(cur + 10);
-  $('rewatch').onclick = () => { cur = 0; playing = true; nextHud = 0; };
-  const fresh = () => { rec = null; };                         // oublie le match en cours sans toucher aux consignes choisies
-  document.querySelectorAll('[data-speed]').forEach(b => b.onclick = () => { speed = +b.dataset.speed; document.querySelectorAll('[data-speed]').forEach(x => x.classList.toggle('on', x === b)); });
-  const randomSeed = () => 1 + Math.floor(Math.random() * 99999);
-  $('new').onclick = $('again').onclick = () => newMatch(randomSeed());
-  $('load').onclick = () => newMatch(Math.max(1, Math.floor(+$('seed').value) || 1));
-  $('duration').onchange = () => { duration = +$('duration').value; newMatch(seed); };
-  const time = $('time');
-  time.addEventListener('pointerdown', () => { scrub = true; });
-  time.addEventListener('input', () => { cur = +time.value; if (coach() && cur > live) { cur = live; time.value = cur; } nextHud = 0; });
-  const release = () => { if (scrub) { scrub = false; nextHud = 0; } };
-  time.addEventListener('change', release); window.addEventListener('pointerup', release);
-  function setMode(md) {
-    if (md === mode) return;
-    mode = md; document.body.classList.toggle('coach', coach());
-    document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
-    document.querySelectorAll('#tactics select[data-team="1"], #tactics select[data-preset="1"], #tactics select[data-formation="1"]').forEach(sel => { sel.disabled = coach(); sel.title = coach() ? 'Mode Coach It : l\'adversaire joue avec des consignes neutres' : ''; });
-    showSquads();
-    const heads = document.querySelectorAll('#tactics th');
-    heads.forEach(th => { const t = th.textContent.trim(); if (/Bleus|Votre équipe/.test(t)) th.lastChild.textContent = coach() ? ' Votre équipe' : ' Bleus'; if (/Rouges|Adversaire/.test(t)) th.firstChild.textContent = coach() ? 'Adversaire ' : 'Rouges '; });
-    if (coach()) { tac0 = [rec ? tacAt(tickOf(cur))[0] : tac0[0], blank()]; changes = []; }
-    newMatch(seed);
-    if (coach()) tac0[1] = blank();
-    simulate(false); nextHud = 0;
-  }
-  document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
-  $('tabMatch').onclick = () => setTab('match');
-  $('tabStats').onclick = () => setTab('stats');
-  document.querySelectorAll('[data-st-team]').forEach(b => b.onclick = () => setStats({ team: +b.dataset.stTeam }));
-  document.querySelectorAll('[data-st-map]').forEach(b => b.onclick = () => setStats({ map: b.dataset.stMap }));
-  document.querySelectorAll('[data-st-src]').forEach(b => b.onclick = () => setStats({ src: b.dataset.stSrc }));
-  $('stPlayer').onchange = () => setStats({ player: +$('stPlayer').value });
-  // réseau de passes : survol d'un joueur = sa bulle ; clic = sa carte de chaleur
-  cv.addEventListener('mousemove', ev => {
-    if (tab !== 'stats' || stMap !== 'net' || !stData || !stData.nodes) return;
-    const r = cv.getBoundingClientRect(), px = ev.clientX - r.left, py = ev.clientY - r.top, i = R.nodeAt(W, H, stData.nodes, px, py), tip = $('tip');
-    hoverNode = i;
-    if (i < 0) { tip.hidden = true; return; }
-    const q = stData.nodes[i];
-    const pm = stData.perMatch ? ' par match' : '';
-    tip.innerHTML = '<b>n°' + q.num + ' ' + esc(q.name) + '</b><br>' + q.made + ' passes données' + pm + ', ' + (q.made ? Math.round(100 * q.ok / q.made) : 0) + ' % réussies<br>' + q.got + ' passes reçues' + pm + '<br><span class="muted">Clic : sa carte de chaleur</span>';
-    tip.hidden = false; tip.style.left = Math.min(px + 14, r.width - tip.offsetWidth - 4) + 'px'; tip.style.top = Math.max(4, py - tip.offsetHeight - 10) + 'px';
-  });
-  cv.addEventListener('mouseleave', () => { hoverNode = -1; $('tip').hidden = true; });
-  cv.onclick = ev => {
-    const r = cv.getBoundingClientRect(), w = R.toWorld(W, H, ev.clientX - r.left, ev.clientY - r.top);
-    if (tab === 'stats') {
-      if (stMap === 'net' && hoverNode >= 0) { const q = stData.nodes[hoverNode], p = view.players.find(x => x.team === stTeam && x.num === q.num); setStats({ map: 'heat', player: p.id }); }
-      return;
-    }
-    let best = -1, bd = 3;
-    for (const p of view.players) { const d = Math.hypot(p.x - w.x, p.y - w.y); if (d < bd) { bd = d; best = p.id; } }
-    selected = best === selected ? -1 : best; nextHud = 0;
-    if (selected < 0) { $('player').className = 'muted'; $('player').textContent = 'Cliquez sur un joueur pour voir ce qu\'il est en train de faire.'; }
-  };
-  document.addEventListener('keydown', ev => {
-    const tag = ev.target.tagName, field = (tag === 'INPUT' && ev.target !== time && ev.target.type !== 'checkbox') || tag === 'SELECT';
-    if (field) return;
-    if (ev.code === 'Space' && tag !== 'BUTTON') { ev.preventDefault(); $('play').click(); }
-    else if (ev.code === 'ArrowLeft') { ev.preventDefault(); seek(cur - 5); }
-    else if (ev.code === 'ArrowRight') { ev.preventDefault(); seek(cur + 5); }
-  });
-  window.addEventListener('resize', resize);
-
-  // ---------- série de matchs : mêmes consignes, beaucoup de matchs, on regarde les moyennes ----------
-  function runSeries() {
-    if (series) { series.stop = true; return; }
-    const n = Math.min(5000, Math.max(1, Math.floor(+$('nSeries').value) || 1));
-    const grid = () => new Float32Array(R.HEAT.cols * R.HEAT.rows), eleven = f => Array.from({ length: 11 }, f);
-    series = { n, done: 0, acc: St.create(), m: null, list: [], base: randomSeed(),
-      maps: { heat: [eleven(grid), eleven(grid)], pos: [eleven(() => [0, 0, 0]), eleven(() => [0, 0, 0])], made: [eleven(() => 0), eleven(() => 0)], ok: [eleven(() => 0), eleven(() => 0)], got: [eleven(() => 0), eleven(() => 0)], pair: [new Map(), new Map()] }, tac: tacAt(pending ? 0 : tickOf(cur)), squad: squad.slice(), duration, stop: false, t0: performance.now() };
-    $('runSeries').textContent = 'Arrêter'; $('prog').hidden = false; $('progFill').style.width = '0';
-    $('seriesOut').innerHTML = '';
-    setTimeout(seriesStep, 0);
-  }
-  function seriesStep() {
-    const S = series, t0 = performance.now();
-    while (!S.stop && S.done < S.n && performance.now() - t0 < 30) {
-      if (!S.m) S.m = E.createMatch({ seed: S.base + S.done, duration: S.duration, tactics: S.tac, teams: teamsOf(S.squad), formations: S.tac.map(t => t.formation || '442') });
-      for (let k = 0; k < 300 && S.m.mode !== 'over'; k++) { E.step(S.m); mapStep(S); }
-      if (S.m.mode === 'over') { S.open = []; St.add(S.acc, S.m); S.list.push({ seed: S.m.seed, a: S.m.teams[0].score, b: S.m.teams[1].score }); S.m = null; S.done++; }
-    }
-    $('progFill').style.width = (100 * S.done / S.n) + '%';
-    const left = S.done ? (performance.now() - S.t0) / S.done * (S.n - S.done) / 1000 : 0;
-    $('seriesHint').textContent = S.done + ' / ' + S.n + ' matchs simulés…' + (left > 3 ? ' encore ' + Math.round(left) + ' secondes environ' : '');
-    if (!S.stop && S.done < S.n) return setTimeout(seriesStep, 0);
-    series = null;
-    $('runSeries').textContent = 'Simuler la série'; $('prog').hidden = true;
-    $('seriesHint').textContent = 'Avec les équipes et les consignes affichées à droite, et la durée choisie. Sert à voir ce qu\'un réglage change en moyenne.';
-    if (S.done) showSeries(S);
-  }
-  // cartes de la série : on cumule les positions (carte de chaleur) et les passes (réseau), poste par poste
-  function mapStep(S) {
-    const m = S.m, M = S.maps;
-    if (m.mode === 'play' && m.tick % 4 === 0) {
-      for (const p of m.players) { const c = R.heatCell(p.x, p.y); if (c >= 0) M.heat[p.team][p.idx][c]++; }
-      const o = m.ball.owner;
-      if (o && m.tick % 8 === 0) for (const p of m.teams[o.team].players) { const P = M.pos[o.team][p.idx]; P[0] += p.x; P[1] += p.y; P[2]++; }
-    }
-    const q = m.pass, open = S.open || (S.open = []);
-    if (q && q !== S.lastQ && q.kind === 'pass' && q.type !== 'tete' && q.from) open.push(q);
-    S.lastQ = q;
-    for (let j = open.length - 1; j >= 0; j--) if (open[j].ended) {
-      const x = open.splice(j, 1)[0], t = x.from.team, a = x.from.idx; M.made[t][a]++;
-      if (x.how === 'ok' && x.to && x.to.team === t) { const b = x.to.idx; M.ok[t][a]++; M.got[t][b]++; const k = Math.min(a, b) + '-' + Math.max(a, b); M.pair[t].set(k, (M.pair[t].get(k) || 0) + 1); }
-    }
-  }
-  function showSeries(S) {
-    lastSeries = S; $('stSrc').hidden = false; $('stSrcSeries').textContent = 'Série (' + S.done + ' matchs)';
-    const A = S.acc, w0 = A.teams[0].wins, w1 = A.teams[1].wins, n = A.n, part = (v, cls, col) => v ? '<div class="' + cls + '" style="flex:' + v + (col ? ';background:' + col : '') + '" title="' + v + ' sur ' + n + '">' + v + '</div>' : '';
-    const best = S.list.filter(x => x.a + x.b > 0).sort((x, y) => (y.a + y.b) - (x.a + x.b) || Math.abs(y.a - y.b) - Math.abs(x.a - x.b)).slice(0, 10);
-    $('seriesOut').innerHTML = '<div class="sides"><div><span class="dot" style="background: var(--blue)"></span> <b>Bleus</b> — ' + esc((clubOf(S.squad[0]) ? clubOf(S.squad[0]) + ' · ' : '') + describe(S.tac[0])) + '</div><div><b>Rouges</b> <span class="dot" style="background: var(--red)"></span> — ' + esc((clubOf(S.squad[1]) ? clubOf(S.squad[1]) + ' · ' : '') + describe(S.tac[1])) + '</div></div>'
-      + '<div class="wdl">' + part(w0, 'w', 'var(--blue)') + part(A.draws, 'd') + part(w1, 'w', 'var(--red)') + '</div>'
-      + '<div class="muted small" style="margin-top: 4px">' + n + ' matchs de ' + (S.duration / 60) + ' min : ' + w0 + ' victoire' + (w0 > 1 ? 's' : '') + ' des Bleus, ' + A.draws + ' nul' + (A.draws > 1 ? 's' : '') + ', ' + w1 + ' victoire' + (w1 > 1 ? 's' : '') + ' des Rouges. Moyennes par match :</div>'
-      + '<table>' + statRows(St.rows(A)) + '</table>'
-      + '<div style="margin-top: 8px"><button id="seriesMaps">Voir les cartes de la série</button></div>'
-      + (best.length ? '<div class="chips"><span class="muted">Revoir un match de la série :</span>' + best.map(x => '<button data-seed="' + x.seed + '">n°' + x.seed + ' · ' + x.a + '–' + x.b + '</button>').join('') + '</div>' : '')
-      + '<div class="muted small" style="margin-top: 10px">À lire avec prudence : il y a peu de buts par match, donc le nombre de victoires change beaucoup d\'une série à l\'autre. Les lignes « avec le ballon », « sans le ballon » et « effort » sont fiables dès 30 à 50 matchs.</div>';
-    $('seriesMaps').onclick = () => { setTab('stats'); setStats({ src: 'series', map: 'heat' }); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-    $('seriesOut').querySelectorAll('[data-seed]').forEach(b => b.onclick = () => {
-      tac0 = [Object.assign({}, S.tac[0]), Object.assign({}, S.tac[1])]; squad = S.squad.slice(); showSquads(); fresh();
-      if (duration !== S.duration) { duration = S.duration; $('duration').value = duration; }
-      newMatch(+b.dataset.seed); launch(); window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-  }
-  $('runSeries').onclick = runSeries;
-
-  newMatch(randomSeed());
-  resize();
-  requestAnimationFrame(frame);
+  g += '</svg>';
+  $('mine').innerHTML = '<div>' + g + '</div><div>'
+    + '<div class="who">' + esc(A.nom) + '</div><div class="sub">' + (A.club ? 'Effectif de ' + esc(A.club) : 'Équipe construite avec le budget') + '</div>'
+    + '<div class="facts"><div class="fact"><small>Formation</small><b>' + esc(A.formation) + '</b></div><div class="fact"><small>Note moyenne</small><b>' + fmt(A.moyenne) + '</b></div><div class="fact"><small>Remplaçants</small><b>' + A.remplacants + '</b></div><div class="fact"><small>Adversaire</small><b>' + esc(A.adversaire) + '</b></div></div>'
+    + '<ul class="xi">' + A.titulaires.map(t => '<li><span>' + esc(t.place) + '</span><b>' + esc(t.nom) + '</b>' + (t.hors ? '<span class="off">hors poste</span>' : '<span>' + fmt(t.note) + '</span>') + '</li>').join('') + '</ul>'
+    + '<div class="btns"><a class="btn main" id="playMine" href="' + esc(A.lien) + '">Jouer le match →</a><a class="btn" id="editMine" href="equipe.html#reprendre">Modifier l\'équipe</a></div></div>';
 })();
 </script>
 </body>

@@ -1,9 +1,9 @@
-// Assemble index.html, engine.js, render.js, stats.js et les équipes de equipes.json en un seul fichier autonome : match.html.
+// Assemble page-match.html, engine.js, render.js, stats.js et les équipes de equipes.json en un seul fichier autonome : match.html.
 // Fait aussi la page de construction d'équipe : construction.html, joueurs.json et les clubs de equipes.json → equipe.html (voir en bas).
 // Usage : node build.js
 const fs = require('fs'), path = require('path');
 const read = f => fs.readFileSync(path.join(__dirname, f), 'utf8');
-let html = read('index.html');
+let html = read('page-match.html');
 for (const f of ['engine.js', 'render.js', 'stats.js']) {
   const tag = '<script src="' + f + '"></script>';
   if (!html.includes(tag)) throw new Error('balise introuvable : ' + tag);
@@ -12,7 +12,7 @@ for (const f of ['engine.js', 'render.js', 'stats.js']) {
 // les équipes du fichier equipes.json sont recopiées dans la page (un fichier ouvert par double-clic ne peut pas lire un autre fichier)
 const teams = JSON.parse(read('equipes.json')), E = require('./engine.js');
 for (const T of teams.equipes) E.readTeam(T);                // fichier mal rempli : on s'arrête avec un message clair
-if (!html.includes('/*EQUIPES*/null')) throw new Error('emplacement des équipes introuvable dans index.html');
+if (!html.includes('/*EQUIPES*/null')) throw new Error('emplacement des équipes introuvable dans page-match.html');
 html = html.replace('/*EQUIPES*/null', () => JSON.stringify({ equipes: teams.equipes }).replace(/<\/script/g, '<\\/script'));
 fs.writeFileSync(path.join(__dirname, 'match.html'), html);
 console.log('match.html écrit (' + Math.round(html.length / 1024) + ' ko, ' + teams.equipes.length + ' équipes : ' + teams.equipes.map(T => T.nom).join(', ') + ')');
@@ -21,17 +21,8 @@ console.log('match.html écrit (' + Math.round(html.length / 1024) + ' ko, ' + t
 // Elle n'embarque pas le moteur : seulement les données dont elle a besoin, lues ici dans engine.js (formations, tactiques prédéfinies,
 // consignes, noms des notes) et dans joueurs.json (note globale et prix calculés par les formules de tools/joueurs.js).
 {
-  const src = read('engine.js');
-  // SLOTS (places du 4-4-2) et POSTE (noms des places) ne sont pas exportés par le moteur : on les relit dans son texte
-  const grab = name => { const r = src.match(new RegExp('\\nconst ' + name + ' = ([\\[{][\\s\\S]*?[\\]}]);\\n')); if (!r) throw new Error(name + ' introuvable dans engine.js'); return new Function('return ' + r[1])(); };
-  const SLOTS = grab('SLOTS'), POSTE = grab('POSTE');
-  const codeOf = i => Object.keys(E.PLACES).find(k => E.PLACES[k] === SLOTS[i].slot);
-  // place n° i de chaque formation (rang i de l'effectif du 4-4-2, code de poste dans equipes.json) ; pour le dessin :
-  // x = largeur (−34 à 34, gauche négative), d = profondeur depuis la ligne défensive (moyenne défense / attaque ; gardien −15)
-  const formations = E.FORMATIONS.map(f => ({ id: f.id, name: f.name, places: SLOTS.map((s0, i) => {
-    const s = Object.assign({}, s0, f.slots && f.slots[i] || {});
-    return { code: codeOf(i), num: s0.num, label: s.poste || POSTE[s0.slot], role: s.role, side: s.side, x: (s.yD + s.yA) / 2, d: s.role === 'GK' ? -15 : (s.dD + s.dA) / 2 };
-  }) }));
+  // places de chaque formation (rang i de l'effectif du 4-4-2, code de poste dans equipes.json, dessin) : données par le moteur
+  const formations = E.FORMATIONS.map(f => ({ id: f.id, name: f.name, places: E.formationPlaces(f.id) }));
   const base = JSON.parse(read('joueurs.json')), J = require('./tools/joueurs.js'), noms = E.QUALITIES.map(q => q[1]), vus = new Set();
   for (const j of base.joueurs) {      // fichier mal rempli : on s'arrête avec un message clair
     const who = 'joueurs.json, ' + (j.nom || j.id || '?');

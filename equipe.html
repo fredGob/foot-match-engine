@@ -27,6 +27,8 @@
   header .steps span { padding: 2px 10px; border-radius: 12px; border: 1px solid var(--line); font-size: 13px; }
   header .steps span.on { color: var(--text); border-color: var(--accent); }
   header .right { margin-left: auto; }
+  .homebtn { display: inline-block; padding: 6px 12px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); color: var(--text); text-decoration: none; }
+  .homebtn:hover { border-color: #4a5868; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
   .card h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 
@@ -156,19 +158,9 @@
 <div class="wrap">
   <header>
     <h1 id="title">Moteur de match</h1>
-    <div class="steps" id="steps" hidden><span id="st1">1. Acheter les joueurs</span><span id="st2">2. Placer l'équipe</span></div>
-    <div class="right"><button id="home" hidden>Accueil</button></div>
+    <div class="steps" id="steps"><span id="st1">1. Acheter les joueurs</span><span id="st2">2. Placer l'équipe</span></div>
+    <div class="right"><a class="homebtn" id="home" href="index.html">Accueil</a></div>
   </header>
-
-  <!-- écran d'accueil -->
-  <section id="vHome">
-    <div class="home">
-      <button class="big" id="goBuild"><b>Construire mon équipe</b><span>Un budget, une base de 120 joueurs : achetez seize joueurs, puis choisissez la formation et placez-les.</span></button>
-      <button class="big" id="goClubs"><b>Prendre une équipe de Ligue 1</b><span>Les dix premiers du championnat 2025-26, avec leurs joueurs (notes du jeu EA Sports FC 27) : choisissez un club, puis la formation et le placement.</span></button>
-      <a class="big" href="match.html" id="goQuick"><b>Match rapide</b><span>Ouvre le match (match.html) entre deux équipes standard, tous les joueurs à 14 : seules les consignes font la différence.</span></a>
-      <div class="saved muted" id="savedLine" hidden></div>
-    </div>
-  </section>
 
   <!-- choix d'un club de Ligue 1 (clubs de equipes.json) -->
   <section id="vClubs" hidden>
@@ -300,12 +292,11 @@ const tag = p => '<span class="tag ' + LIGNE[p] + '">' + p + '</span>';
 
 // ---------- écrans ----------
 function show(v) {
-  for (const k of ['vHome', 'vClubs', 'vBuy', 'vTac']) $(k).hidden = k !== v;
+  for (const k of ['vClubs', 'vBuy', 'vTac']) $(k).hidden = k !== v;
   const club = v === 'vClubs' || (v === 'vTac' && S.club);
-  $('steps').hidden = v === 'vHome'; $('home').hidden = v === 'vHome';
   $('st1').textContent = club ? '1. Choisir le club' : '1. Acheter les joueurs';
   $('st1').classList.toggle('on', v === 'vBuy' || v === 'vClubs'); $('st2').classList.toggle('on', v === 'vTac');
-  $('title').textContent = v === 'vHome' ? 'Moteur de match' : club ? 'Équipe de Ligue 1' : 'Construire mon équipe';
+  $('title').textContent = club ? 'Équipe de Ligue 1' : 'Construire mon équipe';
   $('back').textContent = S.club ? 'Changer de club' : 'Retour aux achats';
   if (v === 'vClubs') drawClubs();
   if (v === 'vBuy') drawBuy();
@@ -385,9 +376,6 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 $('sort').onchange = () => { UI.sort = $('sort').value; drawBuy(); };
 $('afford').onchange = () => { UI.afford = $('afford').checked; drawBuy(); };
-$('goBuild').onclick = () => { if (S.club) Object.assign(S, { squad: [], lineup: null, bench: [], nom: '', club: null }); show('vBuy'); };
-$('goClubs').onclick = () => show('vClubs');
-$('home').onclick = () => { drawSaved(); show('vHome'); };
 $('validate').onclick = () => { if (manque().length) return; ranger(); show('vTac'); };
 $('back').onclick = () => show(S.club ? 'vClubs' : 'vBuy');
 
@@ -555,17 +543,21 @@ let sayT = 0;
 function say(t, warn) { $('msg').textContent = t; $('msg').style.color = warn ? 'var(--warn)' : ''; clearTimeout(sayT); sayT = setTimeout(() => { $('msg').textContent = ''; }, 6000); }
 const CLE = 'construction-equipe';
 function load() { try { const s = JSON.parse(localStorage.getItem(CLE) || 'null'); return s && Array.isArray(s.squad) && s.squad.every(id => byId[id]) ? s : null; } catch (e) { return null; } }
+// L'équipe enregistrée garde aussi un aperçu pour l'accueil (index.html) : nom, formation, titulaires à leur place, adversaire,
+// et l'adresse du match (bouton « Jouer » de l'accueil).
+function apercu() {
+  const pls = forme().places, adv = D.adversaires.find(a => a.id === S.adv) || D.adversaires[0];
+  return { nom: (S.nom || '').trim() || 'Mon équipe', club: S.club ? CLUBS.find(C => C.id === S.club).nom : '', formation: forme().name, adversaire: adv.nom,
+    moyenne: Math.round(10 * S.lineup.reduce((t, id) => t + byId[id].note, 0) / 11) / 10, remplacants: S.bench.length,
+    titulaires: pls.map((pl, i) => { const j = byId[S.lineup[i]]; return { nom: nomCourt(j), note: Math.round(10 * j.note) / 10, poste: j.poste, place: pl.label, x: Math.round(pl.x * 10) / 10, d: pl.role === 'GK' ? -15 : Math.round(pl.d * 10) / 10, hors: !accepte(pl).includes(j.poste) }; }),
+    lien: lienMatch() };
+}
+function lienMatch() { const T = exportTeam(); delete T.description; return 'match.html#partie=' + encodeURIComponent(JSON.stringify({ equipe: T, adversaire: S.adv })); }
 function save() {
-  const s = { squad: S.squad, lineup: S.lineup, bench: S.bench, formation: S.formation, tac: S.tac, nom: S.nom, club: S.club, adv: S.adv, quand: new Date().toISOString() };
+  const s = { squad: S.squad, lineup: S.lineup, bench: S.bench, formation: S.formation, tac: S.tac, nom: S.nom, club: S.club, adv: S.adv, quand: new Date().toISOString(), apercu: apercu() };
   try { localStorage.setItem(CLE, JSON.stringify(s)); return true; } catch (e) { return false; }
 }
 $('save').onclick = () => { if (save()) say('Équipe enregistrée dans ce navigateur.'); else say('Impossible d\'enregistrer dans ce navigateur. Utilisez « Exporter ».', true); };
-function drawSaved() {
-  const s = load();
-  $('savedLine').hidden = !s;
-  if (s) $('savedLine').innerHTML = 'Équipe enregistrée : « ' + esc(s.nom || 'Mon équipe') + ' » (' + (D.formations.find(f => f.id === s.formation) || {}).name + ', ' + s.squad.length + ' joueurs). <a href="#" id="resume">Reprendre cette équipe</a>';
-}
-document.addEventListener('click', e => { if (e.target.id === 'resume') { e.preventDefault(); resume(); } });
 function resume() {
   const s = load(); if (!s) return false;
   Object.assign(S, { squad: s.squad.slice(), lineup: s.lineup ? s.lineup.slice() : null, formation: s.formation || '442', tac: Object.assign({}, S.tac, s.tac), nom: s.nom || '', club: s.club || null, adv: D.adversaires.some(a => a.id === s.adv) ? s.adv : '' });
@@ -602,17 +594,19 @@ $('export').onclick = () => {
   say('Fichier « equipe-' + T.id + '.json » téléchargé.');
 };
 
-// « Passer au match » : l'équipe (au format de equipes.json, sans les remplaçants que le moteur ignore), sa formation, ses consignes
+// « Passer au match » : l'équipe (au format de equipes.json, avec ses remplaçants), sa formation, ses consignes
 // et l'adversaire partent dans l'adresse de match.html (un fichier ouvert par double-clic ne peut pas lire les données d'un autre).
 // L'équipe est aussi enregistrée : le lien « Retour à la page équipe » de match.html (equipe.html#reprendre) la remet en place.
-$('play').onclick = () => {
-  const T = exportTeam(); delete T.remplacants; delete T.description;
-  save();
-  location.href = 'match.html#partie=' + encodeURIComponent(JSON.stringify({ equipe: T, adversaire: S.adv }));
-};
+$('play').onclick = () => { save(); location.href = lienMatch(); };
 
-drawSaved();
-if (/reprendre/.test(location.hash) && resume()) history.replaceState(null, '', location.pathname); else show('vHome');
+// on arrive de l'accueil (index.html) : equipe.html#construire, #clubs ou #reprendre ; sans rien, retour à l'accueil
+{
+  const h = location.hash;
+  if (/reprendre/.test(h) && resume()) {}
+  else if (/clubs/.test(h)) show('vClubs');
+  else if (/construire/.test(h)) show('vBuy');
+  else location.replace('index.html');
+}
 </script>
 </body>
 </html>

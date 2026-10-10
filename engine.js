@@ -206,17 +206,28 @@ function readTeam(def) {
     const i = SLOTS.findIndex(s => s.slot === PLACES[j.poste]);
     if (i < 0) throw new Error(who + ', ' + (j.nom || '?') + ' : poste inconnu « ' + j.poste + ' » (postes : ' + Object.keys(PLACES).join(', ') + ')');
     if (squad[i]) throw new Error(who + ' : deux joueurs au poste ' + j.poste);
-    const a = {}, notes = j.notes || {};
-    for (const q of QUALITIES) {
-      const v = notes[q[1]];
-      if (typeof v !== 'number' || !(v >= 1 && v <= 20)) throw new Error(who + ', ' + (j.nom || j.poste) + ' : la note « ' + q[1] + ' » doit être un nombre de 1 à 20');
-      a[q[0]] = v / 20;
-    }
-    for (const k in notes) if (!QUALITIES.some(q => q[1] === k)) throw new Error(who + ', ' + (j.nom || j.poste) + ' : note inconnue « ' + k + ' »');
-    squad[i] = { name: String(j.nom || POSTE[SLOTS[i].slot]), num: j.numero || SLOTS[i].num, a };
+    squad[i] = { name: String(j.nom || POSTE[SLOTS[i].slot]), num: j.numero || SLOTS[i].num, a: readNotes(who + ', ' + (j.nom || j.poste), j.notes), nat: NATS.includes(j.poste_naturel) ? j.poste_naturel : NAT_OF[SLOTS[i].slot] };
   }
   return squad;
 }
+function readNotes(who, notes) {
+  const a = {}; notes = notes || {};
+  for (const q of QUALITIES) {
+    const v = notes[q[1]];
+    if (typeof v !== 'number' || !(v >= 1 && v <= 20)) throw new Error(who + ' : la note « ' + q[1] + ' » doit être un nombre de 1 à 20');
+    a[q[0]] = v / 20;
+  }
+  for (const k in notes) if (!QUALITIES.some(q => q[1] === k)) throw new Error(who + ' : note inconnue « ' + k + ' »');
+  return a;
+}
+// Les remplaçants d'une équipe du fichier (« remplacants » : nom, numéro, poste naturel, notes), au plus sept.
+function readBench(def) {
+  const who = 'équipe « ' + (def.nom || def.id || '?') + ' », remplaçant';
+  return (def.remplacants || []).slice(0, 7).map((j, k) => ({ name: String(j.nom || 'Remplaçant ' + (k + 1)), num: j.numero || 12 + k, a: readNotes(who + ' ' + (j.nom || k + 1), j.notes), nat: NATS.includes(j.poste_naturel) ? j.poste_naturel : 'MC' }));
+}
+// poste naturel (G, AG, DC, AD, MG, MC, MD, AT) : celui du fichier, sinon celui de sa place du 4-4-2
+const NATS = ['G', 'AG', 'DC', 'AD', 'MG', 'MC', 'MD', 'AT'];
+const NAT_OF = { GK: 'G', LB: 'AG', LCB: 'DC', RCB: 'DC', RB: 'AD', LM: 'MG', LCM: 'MC', RCM: 'MC', RM: 'MD', LF: 'AT', RF: 'AT' };
 function makePlayer(m, T, i, name, own) {
   const s = SLOTS[i], g = m.gauss;
   if (own) { const p = newPlayer(m, T, i, own.name, own.a); p.num = own.num; return p; }      // joueur venu du fichier des équipes
@@ -237,14 +248,73 @@ function makePlayer(m, T, i, name, own) {
 function newPlayer(m, T, i, name, a) {
   const s = SLOTS[i];
   return {
-    id: T.id * 11 + i, team: T.id, idx: i, num: s.num, name, slot: s.slot, role: s.role, side: s.side, poste: POSTE[s.slot], a,
-    top: 7.1 + 1.7 * a.pace, acc: 3.3 + 2.2 * a.accel,
+    id: T.id * 11 + i, rid: i, team: T.id, idx: i, num: s.num, name, slot: s.slot, role: s.role, side: s.side, poste: POSTE[s.slot], a,
+    top: topOf(a), acc: accOf(a),
     x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, face: T.dir > 0 ? 0 : Math.PI, stam: 1, dist: 0,
     ax: 0, ay: 0, driftX: 0, driftY: 0,
     nextThink: m.rng() * 0.3, intent: { type: 'position', label: 'Se replace', note: null, tx: 0, ty: 0, urg: 0.3, since: 0 },
     plan: null, onRun: false, turned: false, shieldUntil: 0, stunUntil: 0, noControlUntil: 0, tackleReadyAt: 0, controlReadyAt: 0, gotBallAt: -9, protectedUntil: 0, holdUntil: 0,
     setPiece: null, hands: false, firstTime: false, nextRunAt: 0, saveAt: 0,
   };
+}
+
+const topOf = a => 7.1 + 1.7 * a.pace, accOf = a => 3.3 + 2.2 * a.accel;
+
+// ---------- remplacements et changements de place ----------
+// Un « joueur » du moteur est une place de l'équipe (p.idx, son rôle, ses repères) ; la personne qui l'occupe (nom, numéro, notes,
+// fraîcheur, distance parcourue) vient de l'effectif T.roster : onze titulaires (rid 0 à 10), puis les remplaçants (rid 11 et plus).
+const MAX_SUBS = 5;
+// Met les personnes rids[i] aux onze places. Celui qui entre prend la place de celui qui sort ; deux titulaires qui échangent leurs
+// places gardent leur position sur le terrain et vont chacun vers leur nouvelle place. Au plus MAX_SUBS remplacements ; un joueur sorti
+// ne revient pas. pre : avant le coup d'envoi (choix des titulaires, ce n'est pas un remplacement).
+// Renvoie false si le changement est impossible maintenant (le tireur de l'arrêt de jeu en cours est concerné : on attend le suivant).
+function setLineup(m, team, rids, pre) {
+  const T = m.teams[team], R = T.roster;
+  if (!Array.isArray(rids) || rids.length !== 11 || new Set(rids).size !== 11 || rids.some(r => !R[r] || R[r].out)) return false;
+  const cur = T.players.map(p => p.rid), ins = rids.filter(r => !cur.includes(r));
+  if (rids.every((r, i) => r === cur[i])) return true;
+  if (!pre && T.subs + ins.length > MAX_SUBS) return false;
+  const k = m.restart && m.restart.taker;
+  if (!pre && k && k.team === team && rids[k.idx] !== cur[k.idx]) return false;
+  const kin = {};
+  for (const p of T.players) { const e = R[p.rid]; e.stam = p.stam; e.dist = p.dist; kin[p.rid] = { x: p.x, y: p.y, px: p.px, py: p.py, vx: p.vx, vy: p.vy, face: p.face }; }
+  T.players.forEach((p, i) => {
+    const e = R[rids[i]];
+    if (e.rid === cur[i]) return;
+    if (!pre) {
+      if (ins.includes(e.rid)) log(m, 'sub', team, 'Remplacement des ' + T.name + ' : ' + e.name + ' remplace ' + R[cur[i]].name + ' (' + p.poste + ')');
+      else log(m, 'sub', team, 'Changement de place des ' + T.name + ' : ' + e.name + ' → ' + p.poste);
+      Object.assign(p, kin[e.rid] || kin[cur[i]]);
+      p.plan = null; p.nextThink = Math.min(p.nextThink, m.t + 0.2);
+    }
+    p.rid = e.rid; p.name = e.name; p.num = e.num; p.a = e.a; p.top = topOf(e.a); p.acc = accOf(e.a); p.stam = e.stam; p.dist = e.dist;
+  });
+  if (!pre) { for (const r of cur) if (!rids.includes(r)) R[r].out = true; T.subs += ins.length; }
+  m.lineupAt = m.tick;
+  return true;
+}
+// Remplacements automatiques (l'équipe que personne ne dirige) : à partir de 60 % du match, à un arrêt de jeu, le joueur de champ
+// le plus fatigué (sous 80 % de fraîcheur) laisse sa place au meilleur remplaçant de son poste. Deux changements jusqu'à 72 % du match,
+// quatre jusqu'à 84 %, puis cinq. Pas de hasard : le même match reste le même.
+function autoSub(m, T) {
+  const u = m.t / m.duration, cap = u < 0.6 ? 0 : u < 0.72 ? 2 : u < 0.84 ? 4 : MAX_SUBS;
+  if (T.subs >= cap) return;
+  const tired = T.players.filter(p => p.role !== 'GK' && p.stam < 0.8).sort((a, b) => a.stam - b.stam)[0];
+  if (!tired) return;
+  const fits = { DEF: ['DC', 'AG', 'AD'], MID: ['MC', 'MG', 'MD'], FWD: ['AT', 'MG', 'MD'] }[tired.role] || [];
+  const sum = e => Object.values(e.a).reduce((s, v) => s + v, 0);
+  const bench = T.roster.filter(e => !e.out && e.nat !== 'G' && !T.players.some(p => p.rid === e.rid)).sort((a, b) => (fits.includes(b.nat) - fits.includes(a.nat)) || sum(b) - sum(a));
+  if (!bench.length) return;
+  setLineup(m, T.id, T.players.map(p => p === tired ? bench[0].rid : p.rid));
+}
+// Les onze places d'une formation, pour les dessins (page de match, construction d'équipe) : code du 4-4-2 dans equipes.json, numéro,
+// nom de la place, rôle, côté ; x = largeur (−34 à 34, gauche négative), d = profondeur depuis la ligne défensive (gardien −15).
+function formationPlaces(id) {
+  const f = FORMATIONS.find(x => x.id === id) || FORMATIONS[0];
+  return SLOTS.map((s0, i) => {
+    const s = Object.assign({}, s0, f.slots && f.slots[i] || {});
+    return { code: Object.keys(PLACES).find(k => PLACES[k] === s0.slot), num: s0.num, label: s.poste || POSTE[s0.slot], role: s.role, side: s.side, x: (s.yD + s.yA) / 2, d: s.role === 'GK' ? -15 : (s.dD + s.dA) / 2 };
+  });
 }
 
 function createMatch(opts) {
@@ -263,6 +333,11 @@ function createMatch(opts) {
         // mesures du style de jeu : elles servent à voir l'effet des consignes
         miscontrols: 0, passLen: 0, passLenN: 0, longBalls: 0, through: 0, crosses: 0, ballT: 0, touches: 0, widthSum: 0, widthN: 0, lineSum: 0, lineN: 0, recov: 0, recovHigh: 0, passFollow: 0, passDefy: 0 } };
     for (let i = 0; i < 11; i++) { const p = makePlayer(m, T, i, names[t * 11 + i], squads[t] && squads[t][i]); T.players.push(p); m.players.push(p); }
+    // effectif : les onze titulaires, puis les remplaçants (équipe standard : cinq remplaçants à 14)
+    const bench = squads[t] ? readBench(opts.teams[t]) : ['G', 'DC', 'MC', 'MD', 'AT'].map((nat, k) => { const a = {}; for (const q of QUALITIES) a[q[0]] = LEVEL; return { name: names[22 + t * 5 + k], num: 12 + k, a, nat }; });
+    T.roster = T.players.map(p => ({ rid: p.idx, name: p.name, num: p.num, a: p.a, nat: squads[t] ? squads[t][p.idx].nat : NAT_OF[p.slot], stam: 1, dist: 0, out: false }))
+      .concat(bench.map((b, k) => Object.assign({ rid: 11 + k, stam: 1, dist: 0, out: false }, b)));
+    T.subs = 0; T.auto = !!(opts.autoSubs && opts.autoSubs[t]);
     m.teams.push(T);
   }
   for (let t = 0; t < 2; t++) setFormation(m, t, (opts.formations && opts.formations[t]) || '442');
@@ -1459,7 +1534,7 @@ function step(m) {
   if (b.owner) b.dip = 0;
   if (!b.owner && m.mode === 'play') predict(m);
   updateContext(m);
-  if (m.mode === 'dead') runRestart(m);
+  if (m.mode === 'dead') { const R = m.restart; if (R && !R.autoDone) { R.autoDone = true; for (const T of m.teams) if (T.auto) autoSub(m, T); } runRestart(m); }
   if (b.owner && b.owner.plan && m.t >= b.owner.plan.at) executePlan(m, b.owner);
   for (const p of m.players) if (m.t >= p.nextThink) think(m, p);
   for (const p of m.players) act(m, p);
@@ -1475,5 +1550,5 @@ function step(m) {
 }
 
 // restart : met en scène un arrêt de jeu (penalty, coup franc, corner…), pour les outils de mesure
-return { createMatch, step, setTactics, setFormation, FORMATIONS, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt };
+return { createMatch, step, setTactics, setFormation, setLineup, formationPlaces, MAX_SUBS, FORMATIONS, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt };
 });

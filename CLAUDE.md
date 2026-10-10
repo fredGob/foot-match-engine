@@ -32,7 +32,11 @@ Ce qu'il a dit et qu'il faut garder en tête :
 
 ## Regarder un match
 
-Le fichier à ouvrir est `match.html` : il contient tout et s'ouvre dans n'importe quel navigateur (double-clic, ou `xdg-open match.html`). Après une modification du moteur ou de la page, le refaire avec `node build.js`.
+**Trois pages, à garder dans le même dossier** (sur le site de Frédéric, `index.html` est la racine) :
+
+- `index.html` : **l'accueil** (n° 98). Trois grandes cartes illustrées : « Créer mon équipe » (→ `equipe.html#construire`), « Choisir un club de Ligue 1 » (→ `equipe.html#clubs`), « Match rapide » (→ `match.html`, deux équipes standard). Dessous, la carte **« Mon équipe »** si une équipe a été enregistrée dans `equipe.html` : nom, formation, note moyenne, adversaire, les onze titulaires sur un petit terrain, boutons « Jouer le match » et « Modifier l'équipe » (→ `equipe.html#reprendre`). Page écrite à la main, sans `node build.js` ; l'aperçu de l'équipe est enregistré dans le navigateur par `equipe.html` (sur un site, toutes les pages partagent cet enregistrement ; en fichiers ouverts par double-clic, Chrome le partage aussi). Captures `docs/accueil.png`, `docs/accueil-telephone.png`.
+- `equipe.html` : la construction d'équipe (voir « Construction d'équipe »). Sans rien après `#`, elle renvoie à l'accueil.
+- `match.html` : le match. Il contient tout et s'ouvre dans n'importe quel navigateur (double-clic, ou `xdg-open match.html`). Après une modification du moteur ou de la page (`page-match.html`), le refaire avec `node build.js`. Lien « Accueil » en haut à droite des onglets.
 
 **Deux modes**, en haut à gauche (changer de mode ramène au coup d'envoi) :
 
@@ -44,9 +48,13 @@ Comment la page fonctionne (mode God) :
 1. **Avant-match.** Le terrain est en place, le match est à l'arrêt. On règle les consignes des deux camps (cadre « Consignes »). Rien n'est calculé. **Les équipes ne se choisissent pas ici** (choix de Frédéric, n° 97) : elles viennent de la page équipe (`equipe.html`, bouton « Passer au match »), qui envoie votre équipe (les Bleus, avec sa formation, son placement et ses consignes) et l'adversaire dans l'adresse de la page (`match.html#partie=…`). Le cadre « Équipes » montre seulement leurs noms et un lien « Retour à la page équipe ». Ouvert seul (« Match rapide »), `match.html` met deux équipes standard (tous les joueurs à 14).
 2. **« Lancer le match ».** La page calcule alors le match entier (environ 1,5 seconde pour 90 minutes), puis le lit comme une vidéo.
 3. **Barre de temps.** On la fait glisser pour aller à n'importe quel instant, en avant comme en arrière. Flèches ← → : 5 secondes. Boutons −10 s et +10 s. Les repères sur la barre sont les buts (ronds), les tirs (petits traits) et les changements de consigne (losanges) ; un clic dessus y amène.
-4. **Changer une consigne en cours de match.** Le changement s'applique à partir de l'instant affiché : le passé ne bouge pas, toute la suite est recalculée. Il est noté dans le fil du match.
+4. **Changer une consigne en cours de match.** Le changement s'applique **au prochain arrêt de jeu** après l'instant affiché (choix de Frédéric, n° 98 ; avant : tout de suite) : le passé ne bouge pas, toute la suite est recalculée. Il est noté dans le fil du match, au moment où il est fait.
 5. **Numéro de match.** Il fixe le hasard (et les noms des joueurs de l'équipe standard). Même numéro, mêmes équipes et mêmes consignes aux mêmes instants : exactement le même match. « Rejouer ce match » repart du coup d'envoi avec les consignes affichées.
 6. **Série de matchs** (sous le terrain). Simule beaucoup de matchs avec les équipes et les consignes affichées et donne les moyennes des deux équipes côte à côte. C'est le seul moyen honnête de juger une consigne : un match isolé ne prouve rien, car après un changement toute la suite part ailleurs.
+
+**Onglet « Tactique »** (n° 98, à côté de « Match » et « Statistiques » ; il met la lecture en pause) : comme le placement de la construction d'équipe. Formation (boutons), onze joueurs sur un dessin de son camp (numéro, nom, barre de fraîcheur, rond orange « ! » hors poste, contour vert pour celui qui entre), banc des remplaçants (« sortira » pour celui qu'on fait sortir, grisé « sorti » pour celui qui est déjà sorti : il ne revient pas). Clic sur un joueur : sa fiche (vingt notes, fraîcheur). On glisse un remplaçant sur un joueur pour le faire entrer, ou deux joueurs pour les échanger de place (au doigt : « Échanger ce joueur » dans la fiche, puis toucher l'autre). Cadre « Changements » : ce qui est en préparation, « Valider (prochain arrêt de jeu) », « Annuler », et les demandes en attente. **Cinq remplacements** par match ; avant le coup d'envoi, on choisit librement ses titulaires (ce ne sont pas des remplacements). En mode God, boutons Bleus / Rouges ; en Coach It, seulement votre équipe, et la demande part du direct. Repères carrés « remplacement » sur la barre de temps. Captures `docs/tactique.png`, `docs/tactique-telephone.png`.
+
+**L'adversaire (les Rouges) fait ses remplacements tout seul** : à partir de 60 % du match, à un arrêt de jeu, son joueur de champ le plus fatigué (sous 80 % de fraîcheur) laisse la place au meilleur remplaçant de son poste ; deux changements jusqu'à 72 % du match, quatre jusqu'à 84 %, puis cinq. Les Bleus ne changent que si on le demande.
 
 Aussi dans la page : chrono façon télé dans le coin du terrain (temps, score, « Arrêt de jeu »), vitesse ×1 à ×16, clic sur un joueur pour lire ce qu'il fait (s'il suit ou non une consigne, sa fraîcheur, ses notes), case pour voir où chaque joueur veut aller, case pour écrire sous chaque joueur son intention (« Presse le n°7 », « Se démarque »… ; capture `docs/intentions.png`), choix de la durée (90, 45, 20 ou 10 minutes). Les statistiques ont une ligne « Fraîcheur des joueurs » : c'est là qu'on voit ce que coûte un pressing.
 
@@ -67,12 +75,13 @@ Les arrêts de jeu ont une durée réaliste (une touche 17 secondes, une sortie 
 | `engine.js` | Le moteur : joueurs, ballon, règles, décisions, consignes. Aucun affichage. |
 | `render.js` | Le dessin du terrain vu de dessus, et des cartes de la page Statistiques (chaleur, réseau de passes). |
 | `stats.js` | Les statistiques affichées (un match ou une série), partagées par la page et les outils. |
-| `index.html` | La page : avant-match, lecture, barre de temps, consignes, série de matchs. |
+| `index.html` | **L'accueil** (racine du site) : trois choix et « Mon équipe ». Écrit à la main, autonome. |
+| `page-match.html` | La page de match (source, appelée `index.html` avant le n° 98) : avant-match, lecture, barre de temps, consignes, onglets Statistiques et Tactique, série de matchs. `node build.js` en fait `match.html`. |
 | `equipes.json` | **Le fichier des équipes** : quatre équipes de niveau et dix clubs de Ligue 1, onze joueurs chacune (et des remplaçants pour les clubs), vingt notes par joueur. Se modifie à la main. |
 | `tools/ligue1.js` | Fabrique les dix clubs de Ligue 1 de `equipes.json` : notes FC 27 trouvées, joueurs supposés, formule de conversion sur 20. Le relancer efface les retouches à la main sur ces dix clubs. |
 | `equipes.js` | Donne les équipes du fichier aux outils en ligne de commande (`equipe=elite`, `equipe=psg`…). |
 | `build.js` | Assemble le tout (page, moteur, dessin, statistiques, équipes) en un seul fichier `match.html`, et fait aussi `equipe.html`. |
-| `construction.html` | La page de construction d'équipe (source) : accueil, achat des joueurs, placement sur le terrain. `node build.js` en fait `equipe.html`, le fichier à ouvrir. |
+| `construction.html` | La page de construction d'équipe (source) : achat des joueurs ou choix d'un club, placement sur le terrain, adversaire, « Passer au match ». `node build.js` en fait `equipe.html`, le fichier à ouvrir. |
 | `joueurs.json` | **La base de joueurs à acheter** : 120 joueurs inventés, vingt notes chacun, et le budget. Se modifie à la main. |
 | `tools/joueurs.js` | Fabrique `joueurs.json` (graine fixe : toujours les mêmes joueurs) et calcule le budget. Contient la formule de la note globale et du prix. |
 | `sim.js` | Simule beaucoup de matchs sans affichage et donne les moyennes. |
@@ -117,6 +126,8 @@ Ajouts de la cinquième séance :
 - **Attendre.** Les attaquants ne courent plus après le ballon : ils gardent leur place et ne sortent que si le porteur passe à moins de 4 m d'eux. Et tant que le ballon est loin (à plus de 40 m du but) et encore devant lui, un joueur rentre dans son bloc en courant, sans sprinter. Sur sa fiche : « Rentre dans le bloc », avec la note « Consigne : attendre l'adversaire ».
 - **Équipes venues d'un fichier.** `createMatch({ teams: [équipe des Bleus, équipe des Rouges] })` prend deux équipes de `equipes.json` (ou rien pour l'équipe standard).
 
+Ajout de la septième séance (n° 98) : **remplacements et changements de place.** Un « joueur » du moteur est une place de l'équipe (rôle, repères) ; la personne qui l'occupe vient de l'effectif `T.roster` (onze titulaires puis les remplaçants de `equipes.json` ; équipe standard : cinq remplaçants à 14). `setLineup(m, équipe, personnes)` met chaque personne à une place : celui qui entre prend la position de celui qui sort, avec 100 % de fraîcheur ; deux titulaires qui échangent leurs places gardent leur fraîcheur et vont chacun vers leur nouvelle place. Au plus cinq remplacements, un joueur sorti ne revient pas ; si le tireur de l'arrêt de jeu en cours est concerné, on attend l'arrêt suivant. `createMatch({ autoSubs: [false, true] })` : remplacements automatiques (voir « Regarder un match »). Sans `autoSubs` et sans `setLineup`, les matchs sont exactement ceux d'avant (vérifié sur 18 matchs, au chiffre près) : les outils de mesure ne changent pas.
+
 ## Les équipes
 
 Le fichier `equipes.json` contient quatre équipes de onze joueurs. Il se modifie à la main, dans un éditeur de texte : une ligne par joueur.
@@ -137,13 +148,15 @@ Comment les quatre équipes ont été construites. **Choix de Frédéric (10 oct
 
 (Moyennes sur les vingt notes, réflexes et mains compris ; le budget de la construction d'équipe, recalculé, reste à 29 M€.)
 
+Depuis le n° 98, chacune a cinq remplaçants (gardien, défenseur central, milieu axial, milieu droit, attaquant) : les notes du titulaire du même poste moins un point.
+
 Chaque poste a ses points forts (par exemple tacle, placement, anticipation et jeu de tête pour un défenseur central ; finition, appels et sang-froid pour un avant-centre) et ses points faibles, de 1 à 9 points plus bas (la finition d'un défenseur, le tacle d'un attaquant). Le milieu axial gauche récupère, le droit organise ; l'attaquant gauche est mobile, le droit est un avant-centre. Chaque note varie ensuite d'un point en plus ou en moins d'un joueur à l'autre. Un joueur de champ a 5 en réflexes et en jeu de mains.
 
 ### Les clubs de Ligue 1 (n° 96, 10 octobre 2026)
 
 Demande de Frédéric : dix équipes tirées des vrais clubs, les dix premiers de la dernière saison terminée de Ligue 1 (2025-26, finie le 17 mai 2026). Classement final : 1. Paris SG (76 points), 2. Lens (70), 3. Lille (61), 4. Lyon (60), 5. Marseille (59), 6. Rennes (59), 7. Monaco (54), 8. Strasbourg (53), 9. Toulouse (45), 10. Lorient (45). Les sources ne sont pas d'accord sur l'ordre de Marseille et Rennes (59 points chacun), ni sur celui de Toulouse et Lorient (45).
 
-Dans `equipes.json`, chaque club a un identifiant (`psg`, `lens`, `lille`, `lyon`, `marseille`, `rennes`, `monaco`, `strasbourg`, `toulouse`, `lorient`), deux lignes en plus, `championnat` (« Ligue 1 2025-26 ») et `classement`, onze titulaires et trois à cinq `remplacants`. Chaque joueur a aussi `poste_naturel`, `fc` (sa note générale dans le jeu) et `source`. Le moteur ignore ces lignes et les remplaçants (il n'a pas de remplacements). Les titulaires sont rangés comme les autres équipes : `MCG` récupérateur, `MCD` organisateur, `ATG` attaquant mobile, `ATD` avant-centre.
+Dans `equipes.json`, chaque club a un identifiant (`psg`, `lens`, `lille`, `lyon`, `marseille`, `rennes`, `monaco`, `strasbourg`, `toulouse`, `lorient`), deux lignes en plus, `championnat` (« Ligue 1 2025-26 ») et `classement`, onze titulaires et trois à cinq `remplacants`. Chaque joueur a aussi `poste_naturel`, `fc` (sa note générale dans le jeu) et `source`. Le moteur ignore ces lignes ; les remplaçants servent aux remplacements (n° 98). Les titulaires sont rangés comme les autres équipes : `MCG` récupérateur, `MCD` organisateur, `ATG` attaquant mobile, `ATD` avant-centre.
 
 **D'où viennent les notes.** Le jeu EA Sports FC 27 est sorti fin septembre 2026 : ses notes existent. Mais je n'ai pu lire que des extraits des sites (pages officielles d'EA, futbin, fut.gg, fcratings, sportsdunia, wefut), par un moteur de recherche : impossible d'ouvrir les pages elles-mêmes. J'ai donc au mieux, pour chaque joueur, sa note générale et les six valeurs de sa carte (vitesse, tir, passe, dribble, défense, physique ; pour un gardien : plongeon, mains, jeu au pied, réflexes, vitesse, placement), jamais le détail des trente-cinq qualités du jeu. Chaque joueur porte sa `source` :
 
@@ -254,12 +267,11 @@ Une **deuxième page**, séparée du match : `equipe.html` (double-clic pour l'o
 
 Ce qui n'est pas fait :
 
-- **Les remplaçants** ne servent à rien dans le match (pas de remplacements dans le moteur).
 - L'adversaire choisi joue toujours en 4-4-2, consignes neutres (on peut les changer dans le match en mode God).
 - La note globale et le prix sont une première formule, réglée à l'œil : une vedette à 8 M€ vaut-elle vraiment cinq joueurs moyens ? À juger en jouant.
 - Être hors poste ne change rien dans le moteur : le joueur joue avec ses notes, à la place qu'on lui donne.
 
-Tester la page : `node build.js && node tools/equipe.js` (Chromium sans fenêtre, par Playwright : achats, validation, formation, glisser à la souris, fiche du joueur au clic, consignes, enregistrement, export lu par le moteur, reprise, « Passer au match » jusqu'à `match.html` et retour, téléphone ; captures dans `docs/`).
+Tester l'onglet Tactique : `node build.js && node tools/tactique.js`. Tester la page équipe et l'accueil : `node build.js && node tools/equipe.js` (Chromium sans fenêtre, par Playwright : achats, validation, formation, glisser à la souris, fiche du joueur au clic, consignes, enregistrement, export lu par le moteur, reprise, « Passer au match » jusqu'à `match.html` et retour, téléphone ; captures dans `docs/`).
 
 ## Les consignes
 
@@ -665,6 +677,7 @@ Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la pos
 | 95 | Demande de Frédéric : les équipes faibles doivent jouer long. Mesuré : dans son camp, ni Faible ni l'Élite ne choisissent jamais le long ballon (0 %) ; libre, avancer avec le ballon vaut toujours mieux, et sous pression le long ballon devient trop imprécis. Les seconds ballons, eux, sont bien disputés (Faible en récupère près de la moitié). Essais sans effet : perte d'un long ballon comptée moins cher ; perte en jouant court comptée plus cher pour un joueur peu technique | **Jouer simple** : dans son camp, un joueur dont la passe et la prise de balle sont sous 14 penche de lui-même vers le long ballon vers l'avant, comme une part de la consigne « jeu long » (fiche « Joue simple : allonge vers … », `SIMPLE_LONG` = 1,5 ; rien à 14) | Faible contre Élite : 1,3 → 42 longs ballons par match, possession de l'Élite 55 → 60 %, mais Faible encaisse plus (5,4 → 6,8 buts) sans tirer plus : ses longs ballons arrivent sur des attaquants qui ne sont pas lancés. Tournoi (40 matchs par affiche) : un cran 65 à 90 % de victoires ; possession de l'équipe forte 54 à 60 % contre deux crans et plus ; équipes standard inchangées |
 | 96 | Demande de Frédéric : dix équipes tirées des dix premiers de Ligue 1 2025-26, proposées partout | Notes EA Sports FC 27 (extraits des sites : note générale et six valeurs de carte, quand on les trouve ; 56 joueurs supposés), converties par une seule formule (`tools/ligue1.js`). Dans `equipes.json` (avec remplaçants), dans `match.html` (liste en deux groupes) et dans `equipe.html` (« Prendre une équipe de Ligue 1 » → placement direct). `tools/levels.js` : par défaut les quatre niveaux, ou une liste. Moteur inchangé | PSG 13,0 de moyenne (Élite 12,6), Lorient 11,0 (Moyen 10,8). Tournoi (`node tools/levels.js 20 ligue1`) : PSG 1er (2,68 points par match, juste devant l'Élite), Lorient dernier (au niveau de Moyen), Toulouse 10e ; au milieu, ordre différent du vrai (Lens 8e), les sept clubs ayant presque les mêmes notes ; possession toujours vers 50 %. Vérifié : `tools/equipe.js` (choix du PSG, glisser, formation, export lu par le moteur, reprise, téléphone), `tools/page.js`, Chromium (PSG contre Marseille, mode Coach It), `check.js 20` |
 | 97 | Demandes de Frédéric (10 octobre 2026) : on ne choisit plus l'équipe dans la page de match, seulement dans la page équipe, avec un bouton « Passer au match » ; et voir les notes d'un joueur quand on clique dessus au placement. Ses choix : adversaire choisi dans la page équipe ; « Match rapide » = standard contre standard ; clubs et équipe construite peuvent passer au match ; fiche dans un cadre à côté du terrain | `match.html` : plus de liste d'équipes, l'équipe arrive par l'adresse (`#partie=`, équipe au format de `equipes.json`, formation, consignes, adversaire). `equipe.html` : cadre « Match » (adversaire, « Passer au match → »), cadre « Joueur » (vingt notes au clic) ; un clic n'échange plus deux joueurs (bouton « Échanger ce joueur »). Moteur inchangé | Vérifié dans Chromium (`tools/equipe.js` : Lens en 3-5-2 « Contre-attaque » contre Marseille, chacun à sa place, retour à la page équipe, téléphone) et `tools/page.js` (équipe reçue, mode Coach It, équipe mal formée). `tools/browser.js` adapté mais pas relancé (Brave absent ici) |
+| 98 | Demandes de Frédéric : un accueil propre et visuel, `index.html` racine de son site ; un écran Tactique en match pour changer la formation et les joueurs, avec des remplacements ; tout changement au prochain arrêt de jeu | Moteur : effectif et banc, `setLineup`, cinq remplacements, remplacements automatiques (`autoSubs`), `formationPlaces`. `equipes.json` : remplaçants pour les quatre équipes de niveau. `index.html` → `page-match.html` (source du match) ; nouvel `index.html` (accueil) ; `equipe.html` sans accueil propre, enregistre un aperçu pour l'accueil, envoie les remplaçants au match. Page de match : onglet Tactique, changements au prochain arrêt de jeu | Sans remplacement, matchs identiques au chiffre près. `check.js` (avec remplacements à la main et automatiques) sans anomalie. Nouvel outil `tools/tactique.js` (Chromium : titulaires avant le match, remplacement et changement de place glissés à la souris, faits ensemble au premier arrêt de jeu après la demande, cinq au plus, joueur sorti grisé, 4 remplacements automatiques des Rouges sur 90 minutes, Coach It, téléphone). `tools/equipe.js` et `tools/page.js` adaptés |
 | 58 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 %. Entre niveaux voisins : toujours 48 à 52 %. Élite contre Faible : 10,2 à 0,05. Passes réussies : l'équipe forte n'en réussit toujours pas plus que l'autre contre le même adversaire |
 
 | 59 | Demande de Frédéric : l'équipe forte doit garder le ballon. Découverte : le « goût du risque » de Faible (7,8) la rendait plus prudente que l'Élite (13,9) | Prudence et patience dépendent aussi de la lucidité : un joueur lucide sait ce que coûte une passe forcée et attend avant de forcer (rien à 14) | Seul : +1 à 3 points de possession |
@@ -751,7 +764,7 @@ Frédéric juge le moteur « plutôt bon maintenant » : on le retouchera plus t
 2. **Après le choix ou la construction de l'équipe, on bascule sur la page de match.** Fait en partie (n° 97, bouton « Passer au match »). À revoir avec le nouvel accueil.
 3. **Un écran « Tactique » pendant le match.** Aujourd'hui, si on passe de 4-4-2 à 4-3-3 en cours de match, on ne peut pas changer les joueurs de place. Il faut, en match, un onglet qui permette de changer la formation et/ou les joueurs (glisser les joueurs sur les places, comme dans la construction d'équipe), et les consignes. La page de match est jugée « plutôt bien faite » par ailleurs.
 
-Questions à poser à Frédéric avant de commencer : les remplacements (entrée d'un joueur du banc) font-ils partie de l'écran Tactique, sachant que le moteur ne les gère pas encore ? Un changement de place s'applique-t-il au direct comme une consigne ? L'accueil doit-il rester dans `equipe.html` ou devenir une page à part ?
+Réponses de Frédéric : oui, les remplacements font partie de l'écran Tactique (il faut les mettre dans le moteur) ; tout changement (consignes comprises) s'applique au prochain arrêt de jeu ; l'accueil devient une page à part, `index.html`, racine de son site, qui montre l'équipe et mène au choix d'équipe. Ses choix ensuite : accueil avec « Mon équipe », cinq remplacements, l'adversaire remplace tout seul. **Les trois points sont faits (n° 98).**
 
 ## Pour la prochaine séance sur le moteur (réponses de Frédéric, 9 octobre 2026)
 
@@ -765,8 +778,8 @@ Questions à poser à Frédéric avant de commencer : les remplacements (entrée
 
 ## Ce qui n'existe pas encore
 
-- Pas de 4-5-1 ni de 3-4-3 (cités par Frédéric). Onze joueurs par équipe, pas de remplaçants.
+- Pas de 4-5-1 ni de 3-4-3 (cités par Frédéric). Pas de remplacement en mode « série de matchs » pour les Bleus (seuls les Rouges changent, automatiquement).
 - Pas de consigne par joueur ou par ligne, pas de consigne de prise de risque (« mentalité »).
-- Pas de cartons, de remplacements, de blessures, de mi-temps (les équipes ne changent pas de côté), de règle de l'avantage.
+- Pas de cartons, de blessures, de mi-temps (les équipes ne changent pas de côté), de règle de l'avantage.
 - Touches jouées comme des passes courtes, pas de pied fort.
 - Vue de dessus en 2D seulement.

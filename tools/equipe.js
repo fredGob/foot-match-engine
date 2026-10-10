@@ -27,18 +27,19 @@ function choisir(D) {
   const page = await ctx.newPage();
   page.on('pageerror', e => errors.push(String(e)));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-  const url = 'file://' + path.join(ROOT, 'equipe.html');
-  await page.goto(url);
+  const url = 'file://' + path.join(ROOT, 'equipe.html'), home = 'file://' + path.join(ROOT, 'index.html');
+  await page.goto(url + '#construire');
   const D = await page.evaluate('D');
+  await page.goto(home);
   const shot = async name => { await page.screenshot({ path: path.join(DOCS, name) }); console.log('        capture : docs/' + name); };
 
   console.log('Accueil');
-  check(await page.isVisible('#goBuild') && await page.isVisible('#goClubs') && await page.isVisible('#goQuick'), 'trois grands choix : « Construire mon équipe », « Prendre une équipe de Ligue 1 » et « Match rapide »');
+  check(await page.isVisible('#goBuild') && await page.isVisible('#goClubs') && await page.isVisible('#goQuick') && await page.isVisible('#none'), 'accueil (index.html) : trois grands choix « Créer mon équipe », « Choisir un club de Ligue 1 », « Match rapide » ; pas encore d\'équipe enregistrée');
   check((await page.getAttribute('#goQuick', 'href')) === 'match.html', '« Match rapide » mène à match.html');
   await shot('equipe-accueil.png');
 
   console.log('Achats');
-  await page.click('#goBuild');
+  await page.click('#goBuild'); await page.waitForURL(/equipe\.html#construire/);
   check(await page.isDisabled('#validate'), 'au départ, « Valider mon équipe » est bloqué', await page.textContent('#why'));
   const liste = choisir(D), cout = liste.reduce((s, j) => s + j.prix, 0);
   console.log('        effectif choisi : ' + liste.length + ' joueurs, ' + cout.toFixed(1) + ' M€ (budget ' + D.budget + ' M€), note moyenne ' + (liste.reduce((s, j) => s + j.note, 0) / 16).toFixed(1));
@@ -138,13 +139,14 @@ function choisir(D) {
   check(okEngine, 'le moteur lit l\'équipe exportée, chacun à sa place', detail);
 
   console.log('Reprise après rechargement');
-  await page.reload();
-  check(await page.isVisible('#savedLine') && /Les Essais/.test(await page.textContent('#savedLine')), 'l\'accueil propose de reprendre l\'équipe enregistrée');
-  await page.click('#resume');
+  await page.goto(home);
+  check(await page.isVisible('#mine') && /Les Essais/.test(await page.textContent('#mine')) && (await page.$$('#mine svg circle[fill="#2f6fdf"]')).length === 11 && /4-3-3/.test(await page.textContent('#mine')), 'l\'accueil montre « Mon équipe » : nom, formation, onze titulaires sur le terrain', (await page.textContent('#mine .facts')).replace(/\s+/g, ' '));
+  await page.screenshot({ path: path.join(DOCS, 'accueil.png'), fullPage: true }); console.log('        capture : docs/accueil.png');
+  await page.click('#editMine'); await page.waitForURL(/equipe\.html#reprendre/);
   check(await page.isVisible('#pitch') && JSON.stringify(await page.evaluate('S.lineup')) === JSON.stringify(saved.lineup) && await page.evaluate('S.formation') === '433', 'équipe reprise : même formation, mêmes places');
 
   console.log('Prendre une équipe de Ligue 1');
-  await page.click('#home'); await page.click('#goClubs');
+  await page.click('#home'); await page.click('#goClubs'); await page.waitForURL(/#clubs/);
   const clubs = EQ.equipes.filter(T => T.championnat);
   check(await page.isVisible('#clubs') && (await page.$$('#clubs .club')).length === clubs.length && clubs.length === 10, 'liste des dix clubs', (await page.$$eval('#clubs .club b', b => b.map(x => x.textContent))).join(', '));
   await shot('equipe-ligue1.png');
@@ -182,16 +184,15 @@ function choisir(D) {
     det2 = det2 || 'match de 2 minutes joué contre le PSG de equipes.json, ' + m.teams[0].score + '-' + m.teams[1].score + ' ; ' + m.teams[0].players.slice(5, 11).map(p => p.name + ' : ' + p.poste).join(', ');
   } catch (e) { ok2 = false; det2 = e.message; }
   check(ok2, 'le moteur lit l\'équipe exportée, chacun à sa place', det2);
-  await page.reload();
-  await page.click('#resume');
+  await page.goto(home); await page.click('#editMine'); await page.waitForURL(/#reprendre/);
   check(await page.isVisible('#pitch') && await page.evaluate('S.club') === 'psg' && JSON.stringify(await page.evaluate('S.lineup')) === JSON.stringify(saved2.lineup), 'club repris après rechargement : même formation, mêmes places');
   await page.click('#back');
   check(await page.isVisible('#clubs'), '« Changer de club » ramène à la liste des clubs');
-  await page.click('#home'); await page.click('#goBuild');
+  await page.click('#home'); await page.click('#goBuild'); await page.waitForURL(/#construire/);
   check(await page.evaluate('S.squad.length') === 0 && await page.evaluate('S.club') === null, '« Construire mon équipe » après un club : effectif vide, budget entier');
 
   console.log('Passer au match');
-  await page.click('#home'); await page.click('#goClubs'); await page.click('#clubs .club[data-club="lens"]');
+  await page.click('#home'); await page.click('#goClubs'); await page.waitForURL(/#clubs/); await page.click('#clubs .club[data-club="lens"]');
   await page.click('#forms button[data-form="352"]'); await page.selectOption('#preset', 'contre');
   const advs = await page.$$eval('#adv optgroup', g => g.map(x => x.label + ' : ' + x.children.length));
   check(advs.length === 2 && advs[0] === 'Niveaux : 5' && advs[1] === 'Ligue 1 2025-26 : 10', 'choix de l\'adversaire : Standard, quatre niveaux, dix clubs', advs.join(' | '));
@@ -217,17 +218,19 @@ function choisir(D) {
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const pp = await phone.newPage();
   pp.on('pageerror', e => errors.push(String(e)));
-  await pp.goto(url);
+  await pp.goto(home);
   await pp.evaluate(s => localStorage.setItem('construction-equipe', JSON.stringify(s)), saved);
   await pp.reload();
   const noScroll = async () => pp.evaluate('document.documentElement.scrollWidth <= window.innerWidth');
   check(await noScroll(), 'accueil : pas de défilement de côté');
-  await pp.click('#goBuild');
+  await pp.click('#goBuild'); await pp.waitForURL(/#construire/);
   check(await noScroll(), 'achats : pas de défilement de côté');
   await pp.screenshot({ path: path.join(DOCS, 'equipe-telephone-achat.png') }); console.log('        capture : docs/equipe-telephone-achat.png');
-  await pp.click('#home'); await pp.click('#goClubs');
+  await pp.click('#home'); await pp.click('#goClubs'); await pp.waitForURL(/#clubs/);
   check(await noScroll(), 'liste des clubs : pas de défilement de côté');
-  await pp.click('#home'); await pp.click('#resume');
+  await pp.click('#home'); await pp.screenshot({ path: path.join(DOCS, 'accueil-telephone.png'), fullPage: true }); console.log('        capture : docs/accueil-telephone.png');
+  check(await noScroll(), 'accueil avec « Mon équipe » : pas de défilement de côté');
+  await pp.click('#editMine'); await pp.waitForURL(/#reprendre/);
   check(await noScroll(), 'tactique : pas de défilement de côté');
   await pp.screenshot({ path: path.join(DOCS, 'equipe-telephone.png') }); console.log('        capture : docs/equipe-telephone.png');
   const q1 = await pp.evaluate('S.lineup[2]'), q2 = await pp.evaluate('S.lineup[3]');

@@ -8,12 +8,12 @@ Le but : un jeu d'entraîneur où l'on gagne par ses choix tactiques. Pas de sim
 
 ## Regarder un match
 
-Ouvrez `equipe.html` dans un navigateur (un double-clic suffit). Il n'y a rien à installer : le fichier contient tout.
+Ouvrez `index.html`, l'accueil, dans un navigateur (un double-clic suffit). Il n'y a rien à installer. Gardez `index.html`, `equipe.html` et `match.html` dans le même dossier.
 
 1. **Choisissez votre équipe** (un club de Ligue 1 ou une équipe achetée avec un budget), sa formation, son placement et ses consignes, puis l'adversaire, et cliquez sur « Passer au match ». (« Match rapide », ou `match.html` ouvert seul : deux équipes standard.) Dans la page de match, on règle les consignes des deux camps, à droite ; on ne change pas d'équipe.
 2. **Cliquez sur « Lancer le match ».** Le match entier est calculé en une seconde ou deux, puis il se lit comme une vidéo.
 3. **Naviguez dans le match** avec la barre de temps, en avant comme en arrière. Les repères sur la barre sont les buts, les tirs et les changements de consigne.
-4. **Changez une consigne en cours de match** : le passé ne bouge pas, toute la suite est recalculée.
+4. **Changez une consigne, la formation ou les joueurs en cours de match** (onglet « Tactique », cinq remplacements) : le changement se fait au prochain arrêt de jeu ; le passé ne bouge pas, toute la suite est recalculée.
 
 Aussi dans la page :
 
@@ -73,7 +73,8 @@ Les tests de la page demandent une installation, une seule fois : `cd tools && n
 | `engine.js` | Le moteur : joueurs, ballon, règles, décisions, consignes. Aucun affichage. |
 | `render.js` | Le dessin du terrain. |
 | `stats.js` | Les statistiques d'un match ou d'une série. |
-| `index.html` | La page, avant assemblage. |
+| `index.html` | L'accueil (racine du site). |
+| `page-match.html` | La page de match, avant assemblage. |
 | `equipes.json` | Les quatre équipes de niveaux différents et les dix clubs de Ligue 1. |
 | `sim.js`, `check.js`, `tools/` | Simulations, vérifications et outils de mesure. |
 | `CLAUDE.md` | Le carnet du projet : fonctionnement du moteur, mesures, journal des essais, défauts connus. |
