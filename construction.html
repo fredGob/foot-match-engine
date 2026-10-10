@@ -123,6 +123,15 @@
   .side input[type=text] { width: 100%; }
   .msg { min-height: 1.4em; font-size: 13px; color: var(--ok); }
   .compo td { padding: 3px 6px; font-size: 13px; }
+  .compo tr { cursor: pointer; }
+  .compo tr:hover td { background: #1f2731; }
+  .tok.look .nm { outline: 1px solid var(--accent); }
+  .look .who { font-size: 16px; font-weight: 650; }
+  .look .attrs { margin: 8px 0 4px; }
+  .go { display: flex; flex-direction: column; gap: 8px; }
+  .go label { justify-content: space-between; }
+  .go select { flex: 1; max-width: 230px; }
+  button.go-btn { padding: 10px 14px; font-size: 16px; }
   .compo .offp { color: var(--warn); font-weight: 600; white-space: nowrap; }
 
   @media (max-width: 900px) {
@@ -156,7 +165,7 @@
     <div class="home">
       <button class="big" id="goBuild"><b>Construire mon équipe</b><span>Un budget, une base de 120 joueurs : achetez seize joueurs, puis choisissez la formation et placez-les.</span></button>
       <button class="big" id="goClubs"><b>Prendre une équipe de Ligue 1</b><span>Les dix premiers du championnat 2025-26, avec leurs joueurs (notes du jeu EA Sports FC 27) : choisissez un club, puis la formation et le placement.</span></button>
-      <a class="big" href="match.html" id="goQuick"><b>Match rapide</b><span>Ouvre le match (match.html) avec les équipes déjà prêtes : standard, élite, élevé, moyen, faible et les dix clubs de Ligue 1.</span></a>
+      <a class="big" href="match.html" id="goQuick"><b>Match rapide</b><span>Ouvre le match (match.html) entre deux équipes standard, tous les joueurs à 14 : seules les consignes font la différence.</span></a>
       <div class="saved muted" id="savedLine" hidden></div>
     </div>
   </section>
@@ -205,13 +214,17 @@
         <div class="pitch" id="pitch"></div>
         <div class="benchtitle">Remplaçants</div>
         <div class="bench" id="bench"></div>
-        <p class="hint">Faites glisser un joueur sur une place ou sur un autre joueur pour les échanger. Sur téléphone, on peut aussi toucher un joueur puis l'autre. Un rond orange « ! » : le joueur est hors de son poste naturel.</p>
+        <p class="hint">Cliquez sur un joueur pour voir ses notes (cadre « Joueur »). Faites glisser un joueur sur une place ou sur un autre joueur pour les échanger. Sur téléphone, on peut aussi utiliser « Échanger ce joueur » dans sa fiche, puis toucher l'autre joueur. Un rond orange « ! » : le joueur est hors de son poste naturel.</p>
       </div>
       <div class="side">
         <div class="card">
           <h2>Équipe</h2>
           <input type="text" id="nom" maxlength="40" placeholder="Nom de l'équipe">
           <div class="small muted" id="teamInfo" style="margin-top:6px"></div>
+        </div>
+        <div class="card look" id="lookCard">
+          <h2>Joueur</h2>
+          <div id="look" class="muted small">Cliquez sur un joueur (sur le terrain, sur le banc ou dans la composition) pour voir ses vingt notes.</div>
         </div>
         <div class="card">
           <h2>Formation</h2>
@@ -222,6 +235,12 @@
           <h2>Consignes</h2>
           <div class="cons" id="cons"></div>
         </div>
+        <div class="card go">
+          <h2>Match</h2>
+          <label>Adversaire <select id="adv"></select></label>
+          <button class="main go-btn" id="play">Passer au match →</button>
+          <div class="small muted">Ouvre la page de match avec votre équipe (les Bleus), sa formation, son placement et ses consignes. L'équipe est aussi enregistrée dans ce navigateur.</div>
+        </div>
         <div class="card">
           <h2>Composition</h2>
           <table class="compo" id="compo"></table>
@@ -229,7 +248,7 @@
         <div class="card">
           <div class="row"><button class="main" id="save">Enregistrer l'équipe</button><button id="export">Exporter</button><button id="back">Retour aux achats</button></div>
           <div class="msg" id="msg"></div>
-          <div class="small muted">Lancer un match avec cette équipe viendra plus tard. « Exporter » donne un fichier au format de equipes.json, à recopier dans ce fichier.</div>
+          <div class="small muted">« Exporter » donne un fichier au format de equipes.json, à recopier dans ce fichier.</div>
         </div>
       </div>
     </div>
@@ -265,8 +284,10 @@ const byId = {}; for (const j of D.joueurs) byId[j.id] = j;
 const CLUBS = D.clubs || [];
 for (const C of CLUBS) for (const j of C.titulaires.concat(C.remplacants)) byId[j.id] = j;
 // S.club : identifiant du club choisi (« Prendre une équipe de Ligue 1 »), ou null pour une équipe construite avec le budget
-const S = { squad: [], lineup: null, bench: [], formation: '442', tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0 }, nom: '', club: null };
-const UI = { poste: 'tous', sort: 'note', afford: false, sel: null };
+// S.adv : l'adversaire choisi pour « Passer au match » (identifiant dans equipes.json, '' = équipe standard)
+const S = { squad: [], lineup: null, bench: [], formation: '442', tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0 }, nom: '', club: null, adv: '' };
+// UI.look : le joueur dont la fiche est affichée dans le cadre « Joueur » de l'écran de placement
+const UI = { poste: 'tous', sort: 'note', afford: false, sel: null, look: null };
 const $ = id => document.getElementById(id);
 const fmt = (x, d) => x.toFixed(d == null ? 1 : d).replace('.', ',');
 const euros = x => fmt(x) + ' M€';
@@ -337,10 +358,10 @@ function sell(id) { S.squad = S.squad.filter(x => x !== id); refresh(); }
 function refresh() { drawBuy(); if (!$('sheet').hidden && UI.sheet) openSheet(UI.sheet); }
 
 // fiche d'un joueur : ses vingt notes, celles qui comptent pour son poste en jaune
+const attrsOf = j => { const cles = D.cles[j.poste]; return D.qualities.map(([k, t]) => '<div class="attr' + (cles.includes(k) ? ' key' : '') + '"><span>' + t + '</span><b>' + j.notes[k] + '</b></div>').join(''); };
 function openSheet(id) {
   const j = byId[id]; UI.sheet = id;
-  const cles = D.cles[j.poste], mine = S.squad.includes(id);
-  const attrs = D.qualities.map(([k, t]) => '<div class="attr' + (cles.includes(k) ? ' key' : '') + '"><span>' + t + '</span><b>' + j.notes[k] + '</b></div>').join('');
+  const mine = S.squad.includes(id), attrs = attrsOf(j);
   const canBuy = !mine && S.squad.length < TAILLE && j.prix <= reste() + 1e-9;
   $('sheetCard').innerHTML = '<div class="row" style="justify-content:space-between"><div class="who">' + esc(j.nom) + '</div><button id="closeSheet" title="Fermer">✕</button></div>' +
     '<div class="muted">' + POSTES[j.poste] + (j.age ? ' · ' + j.age + ' ans' : '') + '</div>' +
@@ -431,7 +452,7 @@ const placeXY = pl => ({ left: (37 + pl.x) / 74 * 100, top: (L0 - (pl.role === '
 function token(id, pl) {
   const j = byId[id], off = pl && !accepte(pl).includes(j.poste);
   const sub = pl ? (off ? 'hors poste' : fmt(j.note)) : fmt(j.note);
-  return '<div class="tok' + (off ? ' off' : '') + (UI.sel === id ? ' sel' : '') + '" data-tok="' + id + '" title="' + esc(j.nom) + ' — ' + POSTES[j.poste] + ', note ' + fmt(j.note) + (pl ? ' — place : ' + esc(pl.label) + (off ? ' (hors poste)' : '') : '') + '">' +
+  return '<div class="tok' + (off ? ' off' : '') + (UI.sel === id ? ' sel' : '') + (UI.look === id ? ' look' : '') + '" data-tok="' + id + '" title="' + esc(j.nom) + ' — ' + POSTES[j.poste] + ', note ' + fmt(j.note) + (pl ? ' — place : ' + esc(pl.label) + (off ? ' (hors poste)' : '') : '') + '">' +
     '<div class="ball">' + j.poste + (off ? '<i>!</i>' : '') + '</div><div class="nm">' + esc(nomCourt(j)) + '</div><div class="sub">' + sub + '</div></div>';
 }
 function drawTac() {
@@ -443,7 +464,7 @@ function drawTac() {
   $('bench').innerHTML = S.bench.map((id, k) => '<div class="drop" data-drop="b' + k + '">' + token(id, null) + '</div>').join('');
   // composition, place par place
   const offs = [];
-  $('compo').innerHTML = pls.map((pl, i) => { const j = byId[S.lineup[i]], off = !accepte(pl).includes(j.poste); if (off) offs.push(j); return '<tr><td>' + esc(pl.label) + '</td><td>' + esc(j.nom) + '</td><td>' + tag(j.poste) + '</td><td class="' + (off ? 'offp' : 'muted') + '">' + (off ? 'hors poste' : fmt(j.note)) + '</td></tr>'; }).join('');
+  $('compo').innerHTML = pls.map((pl, i) => { const j = byId[S.lineup[i]], off = !accepte(pl).includes(j.poste); if (off) offs.push(j); return '<tr data-look="' + j.id + '"><td>' + esc(pl.label) + '</td><td>' + esc(j.nom) + '</td><td>' + tag(j.poste) + '</td><td class="' + (off ? 'offp' : 'muted') + '">' + (off ? 'hors poste' : fmt(j.note)) + '</td></tr>'; }).join('');
   const moy = S.lineup.reduce((s, id) => s + byId[id].note, 0) / 11;
   $('teamInfo').textContent = 'Titulaires : note globale moyenne ' + fmt(moy) + ' · ' + (offs.length ? offs.length + ' joueur' + (offs.length > 1 ? 's' : '') + ' hors poste' : 'tout le monde à son poste') + ' · ' +
     (S.club ? 'effectif du club : ' + S.squad.length + ' joueurs (pas de budget)' : 'effectif ' + euros(depense()) + ' sur ' + D.budget + ' M€');
@@ -452,7 +473,25 @@ function drawTac() {
   $('cons').innerHTML = '<span class="k" title="Un jeu des six consignes prêt à l\'emploi">Tactique</span><select class="preset" id="preset">' + D.presets.map(p => '<option value="' + p.id + '"' + (preset === p ? ' selected' : '') + ' title="' + esc(p.help) + '">' + esc(p.name) + '</option>').join('') + (preset ? '' : '<option selected value="">Personnalisée</option>') + '</select>' +
     D.tactics.map(c => '<span class="k" title="' + esc(c.help) + '">' + c.label + '</span><select data-tac="' + c.key + '" class="' + (S.tac[c.key] ? 'set' : '') + '">' + c.options.map((o, k) => '<option value="' + (k - 1) + '"' + (S.tac[c.key] === k - 1 ? ' selected' : '') + '>' + o + '</option>').join('') + '</select>').join('');
   $('nom').value = S.nom;
+  drawLook();
+  $('adv').innerHTML = [...new Set(D.adversaires.map(a => a.groupe))].map(g => '<optgroup label="' + esc(g) + '">' + D.adversaires.filter(a => a.groupe === g).map(a => '<option value="' + esc(a.id) + '"' + (a.id === S.adv ? ' selected' : '') + '>' + esc(a.nom) + '</option>').join('') + '</optgroup>').join('');
 }
+// cadre « Joueur » : les vingt notes du joueur cliqué, sa place et s'il y est hors poste
+function drawLook() {
+  const id = UI.look && S.squad.includes(UI.look) ? UI.look : null;
+  if (!id) { $('look').className = 'muted small'; $('look').textContent = 'Cliquez sur un joueur (sur le terrain, sur le banc ou dans la composition) pour voir ses vingt notes.'; return; }
+  const j = byId[id], i = S.lineup.indexOf(id), pl = i >= 0 ? forme().places[i] : null, off = pl && !accepte(pl).includes(j.poste);
+  $('look').className = '';
+  $('look').innerHTML = '<div class="who">' + esc(j.nom) + '</div>' +
+    '<div class="small muted">' + POSTES[j.poste] + (j.age ? ' · ' + j.age + ' ans' : '') + ' · ' + (pl ? 'place : ' + esc(pl.label) + (off ? ' <b style="color:var(--warn)">(hors poste)</b>' : '') : 'remplaçant') + '</div>' +
+    '<div class="row small" style="margin-top:4px"><span>Note globale <b class="note">' + fmt(j.note) + '</b></span>' + (j.fc ? '<span>FC 27 <b>' + j.fc + '</b></span>' : '') + (S.club ? '' : '<span>Prix <b>' + euros(j.prix) + '</b></span>') + '</div>' +
+    '<div class="attrs">' + attrsOf(j) + '</div>' +
+    '<div class="row" style="margin:2px 0 8px">' + (UI.sel === id ? '<span class="small" style="color:var(--accent)">Touchez le joueur à échanger avec lui.</span> <button id="swapCancel">Annuler</button>' : '<button id="swapBtn">Échanger ce joueur</button>') + '</div>' +
+    '<div class="small muted">En jaune : les notes importantes pour son poste naturel.' + (j.source && j.source !== 'carte' ? ' Notes ' + (j.source === 'supposé' ? 'supposées (joueur non trouvé dans FC 27).' : 'reconstruites à partir de sa seule note générale.') : '') + '</div>';
+}
+$('look').addEventListener('click', e => { if (e.target.id === 'swapBtn') { UI.sel = UI.look; drawTac(); } else if (e.target.id === 'swapCancel') { UI.sel = null; drawTac(); } });
+$('compo').addEventListener('click', e => { const r = e.target.closest('[data-look]'); if (r) { UI.look = r.dataset.look; drawTac(); } });
+$('adv').onchange = () => { S.adv = $('adv').value; };
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.id === 'preset' && t.value) { const p = D.presets.find(x => x.id === t.value); Object.assign(S.tac, p.t); drawTac(); }
@@ -473,7 +512,8 @@ function swap(a, b) {
   for (const k of [a, b]) if (k[0] === 'p') { const j = who(k), pl = pls[+k.slice(1)]; if (j) say(j.nom + ' → ' + pl.label + (accepte(pl).includes(j.poste) ? '' : ' (hors poste)')); }
   if (a[0] === 'b' && b[0] === 'b') say('Ordre du banc changé.');
 }
-// glisser-déposer à la souris ou au doigt (événements « pointer ») ; un simple clic sélectionne, un second clic échange
+// glisser-déposer à la souris ou au doigt (événements « pointer ») ; un simple clic montre la fiche du joueur ;
+// après le bouton « Échanger ce joueur » de la fiche, le clic suivant sur un autre joueur fait l'échange
 const DRAG = { id: null, from: null, x0: 0, y0: 0, on: false, ghost: null, over: null };
 document.addEventListener('pointerdown', e => {
   const t = e.target.closest('.tok'); if (!t || !t.closest('#vTac')) return;
@@ -499,9 +539,9 @@ function endDrag(e, cancel) {
     DRAG.ghost.remove(); if (DRAG.over) DRAG.over.classList.remove('over');
     if (d) swap(DRAG.from, d.dataset.drop);
     UI.sel = null; drawTac();
-  } else if (!cancel) {      // clic : sélection, puis échange au second clic
-    if (UI.sel && UI.sel !== DRAG.id) { const a = where(UI.sel); UI.sel = null; swap(a, DRAG.from); }
-    else UI.sel = UI.sel === DRAG.id ? null : DRAG.id;
+  } else if (!cancel) {      // clic : fiche du joueur, sélection, puis échange au second clic
+    if (UI.sel && UI.sel !== DRAG.id) { const a = where(UI.sel); UI.sel = null; swap(a, DRAG.from); }      // après « Échanger ce joueur »
+    else { UI.sel = null; UI.look = DRAG.id; }
     drawTac();
   }
   DRAG.id = null; DRAG.on = false; DRAG.over = null;
@@ -515,23 +555,24 @@ let sayT = 0;
 function say(t, warn) { $('msg').textContent = t; $('msg').style.color = warn ? 'var(--warn)' : ''; clearTimeout(sayT); sayT = setTimeout(() => { $('msg').textContent = ''; }, 6000); }
 const CLE = 'construction-equipe';
 function load() { try { const s = JSON.parse(localStorage.getItem(CLE) || 'null'); return s && Array.isArray(s.squad) && s.squad.every(id => byId[id]) ? s : null; } catch (e) { return null; } }
-$('save').onclick = () => {
-  const s = { squad: S.squad, lineup: S.lineup, bench: S.bench, formation: S.formation, tac: S.tac, nom: S.nom, club: S.club, quand: new Date().toISOString() };
-  try { localStorage.setItem(CLE, JSON.stringify(s)); say('Équipe enregistrée dans ce navigateur.'); }
-  catch (e) { say('Impossible d\'enregistrer dans ce navigateur. Utilisez « Exporter ».', true); }
-};
+function save() {
+  const s = { squad: S.squad, lineup: S.lineup, bench: S.bench, formation: S.formation, tac: S.tac, nom: S.nom, club: S.club, adv: S.adv, quand: new Date().toISOString() };
+  try { localStorage.setItem(CLE, JSON.stringify(s)); return true; } catch (e) { return false; }
+}
+$('save').onclick = () => { if (save()) say('Équipe enregistrée dans ce navigateur.'); else say('Impossible d\'enregistrer dans ce navigateur. Utilisez « Exporter ».', true); };
 function drawSaved() {
   const s = load();
   $('savedLine').hidden = !s;
   if (s) $('savedLine').innerHTML = 'Équipe enregistrée : « ' + esc(s.nom || 'Mon équipe') + ' » (' + (D.formations.find(f => f.id === s.formation) || {}).name + ', ' + s.squad.length + ' joueurs). <a href="#" id="resume">Reprendre cette équipe</a>';
 }
-document.addEventListener('click', e => {
-  if (e.target.id !== 'resume') return;
-  e.preventDefault(); const s = load(); if (!s) return;
-  Object.assign(S, { squad: s.squad.slice(), lineup: s.lineup ? s.lineup.slice() : null, formation: s.formation || '442', tac: Object.assign({}, S.tac, s.tac), nom: s.nom || '', club: s.club || null });
+document.addEventListener('click', e => { if (e.target.id === 'resume') { e.preventDefault(); resume(); } });
+function resume() {
+  const s = load(); if (!s) return false;
+  Object.assign(S, { squad: s.squad.slice(), lineup: s.lineup ? s.lineup.slice() : null, formation: s.formation || '442', tac: Object.assign({}, S.tac, s.tac), nom: s.nom || '', club: s.club || null, adv: D.adversaires.some(a => a.id === s.adv) ? s.adv : '' });
   if (S.club) { ranger(); if (s.bench) S.bench = s.bench.filter(id => S.bench.includes(id)).concat(S.bench.filter(id => !s.bench.includes(id))); show('vTac'); }      // club : pas d'achats, on garde aussi l'ordre du banc
   else if (manque().length) show('vBuy'); else { ranger(); show('vTac'); }
-});
+  return true;
+}
 // Fichier exporté : une équipe au format de equipes.json, prête à y être recopiée.
 // Le moteur range les joueurs par leur code de poste du 4-4-2 (G, AG, DCG… ATD) puis place le joueur de rang i à la place n° i de la formation
 // (voir « Les formations » dans CLAUDE.md : en 4-3-3, le joueur noté ATG joue milieu intérieur gauche). Donc chaque titulaire reçoit ici
@@ -561,8 +602,17 @@ $('export').onclick = () => {
   say('Fichier « equipe-' + T.id + '.json » téléchargé.');
 };
 
+// « Passer au match » : l'équipe (au format de equipes.json, sans les remplaçants que le moteur ignore), sa formation, ses consignes
+// et l'adversaire partent dans l'adresse de match.html (un fichier ouvert par double-clic ne peut pas lire les données d'un autre).
+// L'équipe est aussi enregistrée : le lien « Retour à la page équipe » de match.html (equipe.html#reprendre) la remet en place.
+$('play').onclick = () => {
+  const T = exportTeam(); delete T.remplacants; delete T.description;
+  save();
+  location.href = 'match.html#partie=' + encodeURIComponent(JSON.stringify({ equipe: T, adversaire: S.adv }));
+};
+
 drawSaved();
-show('vHome');
+if (/reprendre/.test(location.hash) && resume()) history.replaceState(null, '', location.pathname); else show('vHome');
 </script>
 </body>
 </html>

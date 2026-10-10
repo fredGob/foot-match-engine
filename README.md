@@ -8,9 +8,9 @@ Le but : un jeu d'entraîneur où l'on gagne par ses choix tactiques. Pas de sim
 
 ## Regarder un match
 
-Ouvrez `match.html` dans un navigateur (un double-clic suffit). Il n'y a rien à installer : le fichier contient tout.
+Ouvrez `equipe.html` dans un navigateur (un double-clic suffit). Il n'y a rien à installer : le fichier contient tout.
 
-1. **Choisissez les équipes et les consignes** des deux camps, à droite.
+1. **Choisissez votre équipe** (un club de Ligue 1 ou une équipe achetée avec un budget), sa formation, son placement et ses consignes, puis l'adversaire, et cliquez sur « Passer au match ». (« Match rapide », ou `match.html` ouvert seul : deux équipes standard.) Dans la page de match, on règle les consignes des deux camps, à droite ; on ne change pas d'équipe.
 2. **Cliquez sur « Lancer le match ».** Le match entier est calculé en une seconde ou deux, puis il se lit comme une vidéo.
 3. **Naviguez dans le match** avec la barre de temps, en avant comme en arrière. Les repères sur la barre sont les buts, les tirs et les changements de consigne.
 4. **Changez une consigne en cours de match** : le passé ne bouge pas, toute la suite est recalculée.
@@ -39,7 +39,7 @@ Chaque équipe a six consignes à trois positions. Une consigne est une **intent
 
 - **Standard** : tous les joueurs ont 14 sur 20 partout. Deux équipes strictement égales, pour que seules les consignes fassent la différence.
 - **Élite, Élevé, Moyen, Faible** : quatre équipes de niveaux différents, avec des notes selon le poste. Elles sont dans `equipes.json`.
-- **Les dix premiers de Ligue 1 2025-26** (Paris SG, Lens, Lille, Lyon, Marseille, Rennes, Monaco, Strasbourg, Toulouse, Lorient) : onze titulaires et des remplaçants par club, avec les notes du jeu EA Sports FC 27 converties sur 20 (`node tools/ligue1.js`). On les trouve dans `match.html` et dans `equipe.html` (« Prendre une équipe de Ligue 1 »).
+- **Les dix premiers de Ligue 1 2025-26** (Paris SG, Lens, Lille, Lyon, Marseille, Rennes, Monaco, Strasbourg, Toulouse, Lorient) : onze titulaires et des remplaçants par club, avec les notes du jeu EA Sports FC 27 converties sur 20 (`node tools/ligue1.js`). On les choisit dans `equipe.html` (« Prendre une équipe de Ligue 1 », ou comme adversaire).
 
 `equipes.json` se modifie à la main : une ligne par joueur, vingt notes de 1 à 20. Après une modification, `node build.js` refait `match.html`.
 

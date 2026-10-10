@@ -89,8 +89,11 @@ const stop = code => { try { browser.kill(); } catch (e) {} setTimeout(() => { f
   await shot('navigateur-3-90min.png');
 
   console.log('Équipes');
-  await ev(`(() => { for (const [team, id] of [[0, 'elite'], [1, 'faible']]) { const s = document.querySelector('#squads select[data-team="' + team + '"]'); s.value = id; s.dispatchEvent(new Event('change')); } })()`); await wait(400);
-  check(/Élite/.test(await txt('name0')) && /Faible/.test(await txt('name1')) && /^00:00/.test(await txt('clock')), 'Élite contre Faible choisis dans la page : retour au coup d\'envoi', (await txt('name0')) + ' / ' + (await txt('name1')));
+  // les équipes ne se choisissent plus dans match.html : la page équipe les envoie dans l'adresse (match.html#partie=…)
+  const elite = require('../equipes.json').equipes.find(T => T.id === 'elite');
+  await send('Page.navigate', { url: 'about:blank' }); await wait(300);
+  await send('Page.navigate', { url: 'file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURIComponent(JSON.stringify({ equipe: elite, adversaire: 'faible' })) }); await wait(1500);
+  check(/Élite/.test(await txt('name0')) && /Faible/.test(await txt('name1')) && /^00:00/.test(await txt('clock')) && !(await ev(`!!document.querySelector('#squads select')`)), 'Élite contre Faible reçus de la page équipe, sans choix d\'équipe dans la page, match à l\'arrêt', (await txt('name0')) + ' / ' + (await txt('name1')));
   await ev(`document.getElementById('kick').click()`);
   for (let i = 0; i < 300 && (await ev(`document.getElementById('time').disabled || !document.getElementById('busy').hidden`)); i++) await wait(50);
   await ev(`(() => { if (document.getElementById('play').textContent === 'Pause') document.getElementById('play').click(); const t = document.getElementById('time'); t.value = t.max; t.dispatchEvent(new Event('input')); t.dispatchEvent(new Event('change')); })()`); await wait(500);

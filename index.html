@@ -118,6 +118,8 @@
   .wdl .d { background: #46505c; }
   .series table { max-width: 620px; margin: 6px auto 0; }
   .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+  .teamrow { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+  .teamrow b { margin-left: auto; }
   .chips button { padding: 3px 9px; font-size: 13px; }
   @media (max-width: 980px) { .app { grid-template-columns: 1fr; } }
 </style>
@@ -196,8 +198,9 @@
   <aside>
     <div class="card" id="squadCard">
       <h2>Équipes</h2>
-      <table class="tac" id="squads"></table>
-      <div class="muted small" style="margin-top: 8px">Standard : tous les joueurs à 14. Les autres équipes viennent du fichier equipes.json : quatre niveaux, puis les dix premiers de Ligue 1 2025-26 (notes du jeu EA Sports FC 27). Changer d'équipe remet le match au coup d'envoi.</div>
+      <div id="squads"></div>
+      <div class="muted small" style="margin-top: 8px">Les équipes se choisissent dans la page équipe (equipe.html), pas ici. Standard : tous les joueurs à 14.</div>
+      <div style="margin-top: 8px"><a id="teamLink" class="small" href="equipe.html">← Choisir les équipes</a></div>
     </div>
     <div class="card">
       <h2>Consignes</h2>
@@ -240,11 +243,12 @@
   const coach = () => mode === 'coach';
   let lastSeries = null, stSrc = 'match';
   let tab = 'match', stTeam = 0, stMap = 'num', stPlayer = -1, stData = null, stKey = '', stAt = 0, hoverNode = -1;
-  // équipes du fichier equipes.json (mises dans la page par build.js) ; squad : l'équipe choisie pour chaque camp, '' = équipe standard (tous à 14)
+  // équipes du fichier equipes.json (mises dans la page par build.js) ; squad : l'équipe de chaque camp (au format de equipes.json), null = équipe standard (tous à 14).
+  // Les équipes ne se choisissent pas ici : la page équipe (equipe.html) les envoie dans l'adresse de la page, voir « équipes venues de la page équipe » plus bas.
   const TEAMS = (window.MatchTeams && window.MatchTeams.equipes) || [];
-  let squad = ['', ''];
-  const teamsOf = sq => sq.map(id => TEAMS.find(T => T.id === id) || null);
-  const clubOf = id => { const T = TEAMS.find(x => x.id === id); return T ? T.nom : ''; };
+  let squad = [null, null];
+  const teamsOf = sq => sq.slice();
+  const clubOf = T => T ? T.nom || T.id || '' : '';
   const buffers = {};
 
   function blank() { const t = {}; for (const c of TAC) t[c.key] = 0; return t; }
@@ -258,7 +262,7 @@
   // ---------- calcul et enregistrement du match ----------
   // full = false : seulement l'image du coup d'envoi (avant-match)
   function simulate(full) {
-    const m = E.createMatch({ seed, duration, tactics: tac0, teams: teamsOf(squad), formations: tac0.map(t => t.formation || '442') }), key = seed + '|' + squad.join('|');
+    const m = E.createMatch({ seed, duration, tactics: tac0, teams: teamsOf(squad), formations: tac0.map(t => t.formation || '442') }), key = seed + '|' + squad.map(clubOf).join('|');
     const cap = full ? Math.round(duration / DT) + 4 : 1;
     const buf = buffers[cap] || (buffers[cap] = { P: new Float32Array(cap * NP * F), B: new Float32Array(cap * 4), L: new Uint16Array(cap * NP), N: new Uint16Array(cap * NP), K: new Uint8Array(cap * NP), D: new Uint8Array(cap) });
     const r = Object.assign({ n: 0, texts: [''], kinds: [], stats: [], events: m.events, passes: [] }, buf);
@@ -567,18 +571,29 @@
     rebuild();
   }
 
-  // choix des équipes : changer d'équipe remet le match au coup d'envoi, avec les consignes affichées
-  if (TEAMS.length) {
-    // deux groupes dans la liste : les équipes de niveau (élite, élevé…), puis les clubs d'un championnat (champ « championnat » dans equipes.json)
-    const opt = T => '<option value="' + esc(T.id) + '" title="' + esc(T.description || '') + '">' + esc(T.nom) + '</option>';
-    const champs = [...new Set(TEAMS.filter(T => T.championnat).map(T => T.championnat))];
-    const opts = champs.length ? '<optgroup label="Niveaux"><option value="">Standard</option>' + TEAMS.filter(T => !T.championnat).map(opt).join('') + '</optgroup>' +
-      champs.map(c => '<optgroup label="' + esc(c) + '">' + TEAMS.filter(T => T.championnat === c).map(opt).join('') + '</optgroup>').join('') : '<option value="">Standard</option>' + TEAMS.map(opt).join('');
-    const sel = team => '<select data-team="' + team + '" aria-label="Équipe des ' + (team ? 'Rouges' : 'Bleus') + '">' + opts + '</select>';
-    $('squads').innerHTML = '<tr><th><span class="dot" style="background: var(--blue)"></span> Bleus</th><th></th><th>Rouges <span class="dot" style="background: var(--red)"></span></th></tr><tr><td>' + sel(0) + '</td><td class="k" style="cursor: default">Équipe</td><td>' + sel(1) + '</td></tr>';
-    document.querySelectorAll('#squads select').forEach(s => s.onchange = () => { squad[+s.dataset.team] = s.value; s.classList.toggle('set', s.value !== ''); s.blur(); if (rec) newMatch(seed); });
-  } else $('squadCard').hidden = true;
-  const showSquads = () => document.querySelectorAll('#squads select').forEach(s => { s.value = squad[+s.dataset.team]; s.classList.toggle('set', s.value !== ''); });
+  // équipes venues de la page équipe : « match.html#partie=… » contient votre équipe (au format de equipes.json, avec sa formation et ses consignes)
+  // et l'identifiant de l'adversaire dans equipes.json ('' = standard). Sans rien dans l'adresse (« Match rapide ») : standard contre standard.
+  let start = null, startErr = '';
+  try {
+    const h = /[#&]partie=([^&]*)/.exec(location.hash);
+    if (h) {
+      const P = JSON.parse(decodeURIComponent(h[1]));
+      E.readTeam(P.equipe);                                    // équipe mal formée : message clair dans le cadre Équipes
+      start = { team: P.equipe, opp: TEAMS.find(T => T.id === P.adversaire) || null, formation: E.FORMATIONS.some(f => f.id === P.equipe.formation) ? P.equipe.formation : '442', tac: P.equipe.consignes || {} };
+    }
+  } catch (e) { startErr = e.message; }
+  if (start) {
+    squad = [start.team, start.opp];
+    const t = blank(); for (const c of TAC) if ([-1, 0, 1].includes(start.tac[c.key])) t[c.key] = start.tac[c.key];
+    t.formation = start.formation; tac0 = [t, blank()];
+    $('teamLink').href = 'equipe.html#reprendre'; $('teamLink').textContent = '← Retour à la page équipe';
+  }
+  // cadre Équipes : seulement les noms, on ne change pas d'équipe ici
+  function showSquads() {
+    const line = (k, T) => '<div class="teamrow"><span class="dot" style="background: var(--' + (k ? 'red' : 'blue') + ')"></span> <span class="muted">' + (coach() ? (k ? 'Adversaire' : 'Votre équipe') : (k ? 'Rouges' : 'Bleus')) + '</span> <b>' + esc(T ? T.nom || T.id : 'Standard') + '</b></div>';
+    $('squads').innerHTML = line(0, squad[0]) + line(1, squad[1]) + (startErr ? '<div class="small" style="color: var(--red); margin-top: 6px">Équipe reçue illisible : ' + esc(startErr) + '. Match entre équipes standard.</div>' : '');
+  }
+  showSquads();
 
   // tableau des consignes
   const PRE = E.PRESETS || [];
@@ -628,7 +643,8 @@
     mode = md; document.body.classList.toggle('coach', coach());
     document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
     document.querySelectorAll('#tactics select[data-team="1"], #tactics select[data-preset="1"], #tactics select[data-formation="1"]').forEach(sel => { sel.disabled = coach(); sel.title = coach() ? 'Mode Coach It : l\'adversaire joue avec des consignes neutres' : ''; });
-    const heads = document.querySelectorAll('#squads th, #tactics th');
+    showSquads();
+    const heads = document.querySelectorAll('#tactics th');
     heads.forEach(th => { const t = th.textContent.trim(); if (/Bleus|Votre équipe/.test(t)) th.lastChild.textContent = coach() ? ' Votre équipe' : ' Bleus'; if (/Rouges|Adversaire/.test(t)) th.firstChild.textContent = coach() ? 'Adversaire ' : 'Rouges '; });
     if (coach()) { tac0 = [rec ? tacAt(tickOf(cur))[0] : tac0[0], blank()]; changes = []; }
     newMatch(seed);

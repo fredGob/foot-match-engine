@@ -30,23 +30,41 @@ const pick = async (team, key, v) => { const s = d.querySelector(`#tactics selec
   check(/^00:00 \/ 10:00/.test($('clock').textContent) && !$('pre').hidden, 'durée de 10 minutes pour les essais, toujours à l\'arrêt', $('clock').textContent);
 
   console.log('Équipes');
-  const squadSel = team => d.querySelector(`#squads select[data-team="${team}"]`);
-  const pickSquad = async (team, id) => { const s = squadSel(team); s.value = id; s.dispatchEvent(new w.Event('change')); await wait(400); };
-  const groups = squadSel(0) ? [...squadSel(0).querySelectorAll('optgroup')].map(g => g.label + ' : ' + [...g.querySelectorAll('option')].map(o => o.textContent).join(', ')) : [];
-  check(squadSel(0) && squadSel(0).options.length === 15 && groups.length === 2 && /^Niveaux : Standard, Élite/.test(groups[0]) && /^Ligue 1 2025-26 : Paris SG/.test(groups[1]), 'on peut choisir l\'équipe standard, l\'une des quatre équipes de niveau ou l\'un des dix clubs de Ligue 1 (deux groupes)', groups.join(' | '));
-  await pickSquad(0, 'psg'); await pickSquad(1, 'lorient');
-  check(/Paris SG/.test($('name0').textContent) && /Lorient/.test($('name1').textContent) && !$('pre').hidden, 'Paris SG contre Lorient : les noms s\'affichent, match à l\'arrêt', $('name0').textContent + ' / ' + $('name1').textContent);
-  await pickSquad(0, 'elite'); await pickSquad(1, 'faible');
-  check(/Élite/.test($('name0').textContent) && /Faible/.test($('name1').textContent) && /^00:00/.test($('clock').textContent) && !$('pre').hidden, 'Élite contre Faible : les noms s\'affichent et le match reste à l\'arrêt', $('name0').textContent + ' / ' + $('name1').textContent);
-  for (let x = 200; x < 1000 && /Cliquez/.test($('player').textContent); x += 40) for (let y = 150; y < 650 && /Cliquez/.test($('player').textContent); y += 40) { $('pitch').onclick({ clientX: x, clientY: y }); await wait(30); }
-  await wait(300);
-  const notes = [...$('player').querySelectorAll('.attr b')].map(x => +x.textContent);
-  check(notes.length === 12 && notes.some(v => v !== 14) && /\((Élite|Faible)\)/.test($('player').textContent), 'la fiche d\'un joueur montre ses notes venues du fichier', $('player').textContent.replace(/\s+/g, ' ').slice(0, 60) + ' … notes ' + notes.join(' '));
-  $('kick').click(); await wait(400); if ($('play').textContent === 'Pause') $('play').click(); await goTo(600);
-  const g = $('goals').textContent.split('–').map(x => +x), shots = stat('Tirs');
-  check(+shots[0] > +shots[1], 'sur ce match, l\'équipe élite tire plus que l\'équipe faible', 'score ' + $('goals').textContent + ', tirs ' + shots.join(' / ') + ', fraîcheur ' + (stat('Fraîcheur des joueurs') || []).join(' / '));
-  await pickSquad(0, ''); await pickSquad(1, '');
-  check(!/Élite/.test($('name0').textContent) && /^00:00/.test($('clock').textContent) && !$('pre').hidden, 'changer d\'équipe remet le match au coup d\'envoi ; retour aux équipes standard');
+  check(!d.querySelector('#squads select') && /Standard[\s\S]*Standard/.test($('squads').textContent) && $('teamLink').getAttribute('href') === 'equipe.html', 'sans équipe reçue (« Match rapide ») : standard contre standard, aucun choix d\'équipe dans la page, lien vers la page équipe', $('squads').textContent.replace(/\s+/g, ' '));
+  // la page équipe envoie votre équipe dans l'adresse : « match.html#partie=… » (équipe au format de equipes.json, formation, consignes, adversaire)
+  {
+    const EQ = require('../equipes.json'), elite = Object.assign({}, EQ.equipes.find(T => T.id === 'elite'), { formation: '433', consignes: { press: 1, line: 1 } });
+    const url = 'file://' + require('path').join(__dirname, '..', 'match.html') + '#partie=' + encodeURIComponent(JSON.stringify({ equipe: elite, adversaire: 'faible' }));
+    const errs2 = [];
+    const dom2 = new JSDOM(html, { url, runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(w) {
+      const real = createCanvas(1140, 750);
+      w.HTMLCanvasElement.prototype.getContext = function () { return real.getContext('2d'); };
+      w.HTMLCanvasElement.prototype.getBoundingClientRect = function () { return { left: 0, top: 0, width: 1140, height: 750 }; };
+      w.scrollTo = () => {}; w.addEventListener('error', e => errs2.push(e.message));
+    } });
+    const w2 = dom2.window, d2 = w2.document, $2 = id => d2.getElementById(id);
+    await wait(400);
+    check(/Élite/.test($2('name0').textContent) && /Faible/.test($2('name1').textContent) && !d2.querySelector('#squads select') && $2('teamLink').getAttribute('href') === 'equipe.html#reprendre', 'équipe reçue de la page équipe : Élite contre Faible, sans choix d\'équipe, lien de retour vers la page équipe', $2('name0').textContent + ' / ' + $2('name1').textContent);
+    const v2 = sel => d2.querySelector(sel).value;
+    check(v2('#tactics select[data-formation="0"]') === '433' && v2('#tactics select[data-team="0"][data-key="press"]') === '1' && v2('#tactics select[data-team="0"][data-key="line"]') === '1' && v2('#tactics select[data-formation="1"]') === '442' && v2('#tactics select[data-team="1"][data-key="press"]') === '0', 'la formation et les consignes choisies dans la page équipe sont en place ; l\'adversaire est au neutre');
+    for (let x = 200; x < 1000 && /Cliquez/.test($2('player').textContent); x += 40) for (let y = 150; y < 650 && /Cliquez/.test($2('player').textContent); y += 40) { $2('pitch').onclick({ clientX: x, clientY: y }); await wait(30); }
+    await wait(300);
+    const notes = [...$2('player').querySelectorAll('.attr b')].map(x => +x.textContent);
+    check(notes.length === 12 && notes.some(v => v !== 14) && /\((Élite|Faible)\)/.test($2('player').textContent), 'la fiche d\'un joueur montre ses notes venues du fichier', $2('player').textContent.replace(/\s+/g, ' ').slice(0, 60) + ' … notes ' + notes.join(' '));
+    $2('duration').value = '600'; $2('duration').dispatchEvent(new w2.Event('change')); await wait(200);
+    $2('kick').click(); await wait(600); if ($2('play').textContent === 'Pause') $2('play').click();
+    $2('time').value = '600'; $2('time').dispatchEvent(new w2.Event('input')); $2('time').dispatchEvent(new w2.Event('change')); await wait(400);
+    const r = [...$2('stats').querySelectorAll('tr')].find(x => x.children[1] && x.children[1].textContent === 'Tirs'), sh = r ? [r.children[0].textContent, r.children[2].textContent] : [0, 0];
+    check(+sh[0] > +sh[1], 'sur ce match, l\'équipe élite tire plus que l\'équipe faible', 'score ' + $2('goals').textContent + ', tirs ' + sh.join(' / '));
+    d2.querySelector('[data-mode="coach"]').click(); await wait(400);
+    check(/Votre équipe[\s\S]*Élite[\s\S]*Adversaire[\s\S]*Faible/.test($2('squads').textContent) && v2('#tactics select[data-formation="0"]') === '433', 'mode Coach It : « Votre équipe » Élite, « Adversaire » Faible, la formation reste', $2('squads').textContent.replace(/\s+/g, ' '));
+    const bad = new JSDOM(html, { url: url.replace(/#.*/, '#partie=' + encodeURIComponent(JSON.stringify({ equipe: { nom: 'Cassée', joueurs: [] } }))), runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(w) {
+      const real = createCanvas(1140, 750); w.HTMLCanvasElement.prototype.getContext = function () { return real.getContext('2d'); }; w.scrollTo = () => {}; } });
+    await wait(300);
+    check(/illisible/.test(bad.window.document.getElementById('squads').textContent) && /Standard/.test(bad.window.document.getElementById('squads').textContent), 'équipe reçue mal formée : message clair, match entre équipes standard', bad.window.document.getElementById('squads').textContent.replace(/\s+/g, ' ').slice(0, 120));
+    check(errs2.length === 0, 'aucune erreur JavaScript avec une équipe reçue', errs2.join(' | '));
+    w2.close(); bad.window.close();
+  }
 
   console.log('Lecture');
   $('kick').click(); await wait(300);

@@ -90,11 +90,20 @@ function choisir(D) {
   await drag('[data-drop="p' + dcPlace + '"]', '[data-drop="p9"]');
   const off = await page.evaluate(`[...document.querySelectorAll('#pitch .tok.off')].map(t => byId[t.dataset.tok].poste + ' en ' + forme().places[+t.closest('[data-drop]').dataset.drop.slice(1)].label)`);
   check(off.some(s => /^DC en Milieu intérieur gauche/.test(s)), 'défenseur central glissé au milieu : marqué « hors poste »', off.join(' ; '));
-  // échange au clic (pour le téléphone) : on touche deux joueurs
+  // clic sur un joueur : ses vingt notes dans le cadre « Joueur » ; cliquer sur deux joueurs de suite ne les échange pas
   const p1 = await page.evaluate('S.lineup[1]'), p4 = await page.evaluate('S.lineup[4]');
-  await page.click('[data-drop="p1"] .tok .ball'); await page.click('[data-drop="p4"] .tok .ball');
-  check(await page.evaluate('S.lineup[1]') === p4 && await page.evaluate('S.lineup[4]') === p1, 'échange au clic : arrière gauche et arrière droit échangés');
-  await page.click('[data-drop="p1"] .tok .ball'); await page.click('[data-drop="p4"] .tok .ball');      // on les remet
+  await page.click('[data-drop="p1"] .tok .ball');
+  const look1 = await page.$$eval('#look .attr', a => a.map(x => x.textContent));
+  check(look1.length === 20 && (await page.textContent('#look')).includes(await page.evaluate('byId[S.lineup[1]].nom')) && /Arrière gauche/.test(await page.textContent('#look')), 'clic sur un joueur : ses vingt notes et sa place dans le cadre « Joueur »', (await page.textContent('#look .who')) + ' · ' + look1.slice(0, 4).join(', ') + '…');
+  await page.click('[data-drop="p4"] .tok .ball');
+  check(await page.evaluate('S.lineup[1]') === p1 && await page.evaluate('S.lineup[4]') === p4 && (await page.textContent('#look .who')) === await page.evaluate('byId[S.lineup[4]].nom'), 'clic sur un second joueur : sa fiche remplace la première, aucun échange');
+  await page.click('#compo tr[data-look="' + p1 + '"]');
+  check((await page.textContent('#look .who')) === await page.evaluate('byId[S.lineup[1]].nom'), 'clic sur une ligne de la composition : la fiche du joueur');
+  await page.click('[data-drop="p1"] .tok .ball'); await page.evaluate('scrollTo(0, 0)'); await shot('equipe-fiche-placement.png');
+  // échange sans glisser (pour le téléphone) : « Échanger ce joueur » dans la fiche, puis toucher l'autre
+  await page.click('[data-drop="p1"] .tok .ball'); await page.click('#swapBtn'); await page.click('[data-drop="p4"] .tok .ball');
+  check(await page.evaluate('S.lineup[1]') === p4 && await page.evaluate('S.lineup[4]') === p1, '« Échanger ce joueur » puis clic sur l\'autre : arrière gauche et arrière droit échangés');
+  await page.click('[data-drop="p1"] .tok .ball'); await page.click('#swapBtn'); await page.click('[data-drop="p4"] .tok .ball');      // on les remet
   // consignes
   await page.selectOption('#preset', 'pressing');
   check(JSON.stringify(await page.evaluate('S.tac')) === JSON.stringify(D.presets.find(p => p.id === 'pressing').t), 'tactique prédéfinie « Pressing haut » : les cinq consignes suivent');
@@ -181,6 +190,29 @@ function choisir(D) {
   await page.click('#home'); await page.click('#goBuild');
   check(await page.evaluate('S.squad.length') === 0 && await page.evaluate('S.club') === null, '« Construire mon équipe » après un club : effectif vide, budget entier');
 
+  console.log('Passer au match');
+  await page.click('#home'); await page.click('#goClubs'); await page.click('#clubs .club[data-club="lens"]');
+  await page.click('#forms button[data-form="352"]'); await page.selectOption('#preset', 'contre');
+  const advs = await page.$$eval('#adv optgroup', g => g.map(x => x.label + ' : ' + x.children.length));
+  check(advs.length === 2 && advs[0] === 'Niveaux : 5' && advs[1] === 'Ligue 1 2025-26 : 10', 'choix de l\'adversaire : Standard, quatre niveaux, dix clubs', advs.join(' | '));
+  await page.selectOption('#adv', 'marseille');
+  const tacLens = await page.evaluate('Object.assign({}, S.tac)'), lineLens = await page.evaluate('S.lineup.map(id => byId[id].nom)');
+  await Promise.all([page.waitForURL(/match\.html#partie=/), page.click('#play')]);
+  await page.waitForTimeout(800);
+  const nm = [await page.textContent('#name0'), await page.textContent('#name1')];
+  check(/Lens/.test(nm[0]) && /Marseille/.test(nm[1]) && (await page.$$('#squads select')).length === 0, '« Passer au match » ouvre match.html : Lens contre Marseille, aucun choix d\'équipe dans la page', nm.join(' / '));
+  const formM = await page.inputValue('#tactics select[data-formation="0"]'), tacM = {};
+  for (const k of Object.keys(tacLens)) tacM[k] = +(await page.inputValue('#tactics select[data-team="0"][data-key="' + k + '"]'));
+  check(formM === '352' && JSON.stringify(tacM) === JSON.stringify(tacLens), 'la formation (3-5-2) et la tactique « Contre-attaque » sont en place dans le match', formM + ' ' + JSON.stringify(tacM));
+  await page.click('#kick'); await page.waitForFunction(() => !document.getElementById('time').disabled && document.getElementById('busy').hidden, null, { timeout: 30000 });
+  const sent = JSON.parse(decodeURIComponent(/#partie=(.*)$/.exec(page.url())[1]));      // ce que la page équipe a envoyé, lu par le moteur
+  const onPitch = E.createMatch({ seed: 1, duration: 60, teams: [sent.equipe, null], formations: [sent.equipe.formation, '442'] }).teams[0].players.map(p => p.name);
+  check(JSON.stringify(onPitch) === JSON.stringify(lineLens), 'chaque joueur joue à la place où on l\'a mis', onPitch.slice(8).join(', '));
+  await page.waitForTimeout(1500); await page.screenshot({ path: path.join(DOCS, 'match-depuis-equipe.png') }); console.log('        capture : docs/match-depuis-equipe.png');
+  await Promise.all([page.waitForURL(/equipe\.html/), page.click('#teamLink')]);
+  await page.waitForTimeout(300);
+  check(await page.isVisible('#pitch') && await page.evaluate('S.club') === 'lens' && await page.evaluate('S.formation') === '352' && await page.inputValue('#adv') === 'marseille', '« Retour à la page équipe » : on retrouve Lens, son placement et l\'adversaire');
+
   console.log('Téléphone (390 × 844)');
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const pp = await phone.newPage();
@@ -199,8 +231,10 @@ function choisir(D) {
   check(await noScroll(), 'tactique : pas de défilement de côté');
   await pp.screenshot({ path: path.join(DOCS, 'equipe-telephone.png') }); console.log('        capture : docs/equipe-telephone.png');
   const q1 = await pp.evaluate('S.lineup[2]'), q2 = await pp.evaluate('S.lineup[3]');
-  await pp.tap('[data-drop="p2"] .tok .ball'); await pp.tap('[data-drop="p3"] .tok .ball');
-  check(await pp.evaluate('S.lineup[2]') === q2 && await pp.evaluate('S.lineup[3]') === q1, 'au doigt : toucher deux joueurs les échange');
+  await pp.tap('[data-drop="p2"] .tok .ball');
+  check((await pp.$$('#look .attr')).length === 20, 'au doigt : toucher un joueur montre ses notes');
+  await pp.tap('#swapBtn'); await pp.tap('[data-drop="p3"] .tok .ball');
+  check(await pp.evaluate('S.lineup[2]') === q2 && await pp.evaluate('S.lineup[3]') === q1, 'au doigt : « Échanger ce joueur » puis toucher l\'autre les échange');
 
   check(errors.length === 0, 'aucune erreur JavaScript', errors.join(' | '));
   await browser.close();
