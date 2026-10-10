@@ -743,6 +743,16 @@ Après le point « l'équipe forte garde le ballon », pause sur le moteur et tr
 2. **Tactiques prédéfinies** (des jeux de consignes prêts à l'emploi). **Fait (n° 65).**
 3. **Une page Statistiques** : les chiffres (comme aujourd'hui), plus une **carte de chaleur** et une **carte des passes** (pass map). Frédéric pense, à raison, qu'elles serviront aussi à corriger le moteur. **Fait (n° 63, 74, 75)** : onglet « Statistiques » avec les chiffres et les cartes, d'un match ou d'une série.
 
+## Prochaine étape : l'interface (demande de Frédéric, 10 octobre 2026)
+
+Frédéric juge le moteur « plutôt bon maintenant » : on le retouchera plus tard. **Priorité à l'interface.** À faire, dans l'ordre :
+
+1. **Un écran d'accueil propre et plus visuel.** Trois choix : « Créer mon équipe », « Choisir un club de Ligue 1 », « Match rapide ». L'accueil actuel de `equipe.html` existe mais « n'est pas très joli ».
+2. **Après le choix ou la construction de l'équipe, on bascule sur la page de match.** Fait en partie (n° 97, bouton « Passer au match »). À revoir avec le nouvel accueil.
+3. **Un écran « Tactique » pendant le match.** Aujourd'hui, si on passe de 4-4-2 à 4-3-3 en cours de match, on ne peut pas changer les joueurs de place. Il faut, en match, un onglet qui permette de changer la formation et/ou les joueurs (glisser les joueurs sur les places, comme dans la construction d'équipe), et les consignes. La page de match est jugée « plutôt bien faite » par ailleurs.
+
+Questions à poser à Frédéric avant de commencer : les remplacements (entrée d'un joueur du banc) font-ils partie de l'écran Tactique, sachant que le moteur ne les gère pas encore ? Un changement de place s'applique-t-il au direct comme une consigne ? L'accueil doit-il rester dans `equipe.html` ou devenir une page à part ?
+
 ## Pour la prochaine séance sur le moteur (réponses de Frédéric, 9 octobre 2026)
 
 1. **Fait (n° 83).** **Conduire le ballon sous pression** (n° 73) : un joueur pressé conduit le ballon seulement s'il est fort en prise de balle (pour le contrôle), en dribble (pour conduire) et physiquement (pour résister à la pression). Sinon, la plupart du temps, il fait une passe en retrait.
