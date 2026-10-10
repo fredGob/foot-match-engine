@@ -97,7 +97,9 @@ const pick = async (team, key, v) => { const s = d.querySelector(`#tactics selec
   console.log('Série de matchs');
   $('nSeries').value = '8'; $('runSeries').click();
   for (let i = 0; i < 200 && !$('seriesOut').children.length; i++) await wait(100);
+  for (let i = 0; i < 400 && !$('seriesOut').querySelector('table'); i++) await wait(100);
   const rows = $('seriesOut').querySelectorAll('table tr').length;
+  if (!$('seriesOut').querySelector('.small')) console.log('    contenu :', $('seriesOut').textContent.slice(0, 300));
   check(rows > 20 && /Rouges/.test($('seriesOut').textContent) && /pressing : harceler/i.test($('seriesOut').textContent), 'la série se termine et affiche le tableau avec les consignes utilisées', rows + ' lignes — ' + $('seriesOut').querySelector('.small').textContent.slice(0, 80));
   const chip = $('seriesOut').querySelector('[data-seed]');
   if (chip) { chip.click(); await wait(600); check($('seed').value === chip.dataset.seed && $('pre').hidden && !/^00:00/.test($('clock').textContent), 'un match de la série peut être revu : il se lance directement', 'n°' + chip.dataset.seed + ', ' + $('clock').textContent); }

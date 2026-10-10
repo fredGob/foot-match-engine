@@ -187,6 +187,7 @@ const PATIENCE = 3;        // lucidité : attente avant de s'impatienter (8 s à
 const CTRL = 0.6;        // poids de la pression sur la prise de balle (9,6 % de contrôles ratés sous pression pour un joueur à 14)
 const MASK = 0.22;      // coup franc par-dessus le mur : retard (s) du gardien, qui voit partir le ballon tard
 const DIP = 0.8;        // coup franc brossé : le ballon plonge comme si la pesanteur était 1,8 fois plus forte
+const SIMPLE_LONG = 1.5;   // jouer simple : à 10 de passe et de prise de balle, dans son camp, le long ballon vers l'avant gagne comme sous la consigne « jeu long » (×1,5)
 const CARRY = 1, CARRY_Q = 0.85;   // conduire sous pression dans son camp (l'effet s'éteint 15 m après la ligne médiane) : rien au-dessus de 17 de moyenne (prise de balle, dribble, physique) ; à 14, la conduite perd 0,43 × l'enjeu sous pression maximale ; à 10, tout l'enjeu
 const SAFE_BACK = 0.3;          // … et la passe courte en retrait gagne 30 % de ce qu'a perdu la conduite
 // Les 20 qualités d'un joueur : nom dans le moteur, nom dans le fichier des équipes (equipes.json), nom affiché.
@@ -940,6 +941,11 @@ function thinkCarrier(m, p) {
     for (const g of groups) for (const o of g) o.u += ref * intentBias(T, p, o, pr, 0);
     if (!sp) for (const o of rest) o.u += ref * intentBias(T, p, o, pr, o.waited || 0);
   }
+  // jouer simple : dans son camp, un joueur peu technique (passe et prise de balle sous 14) penche de lui-même vers le long ballon vers l'avant
+  if (!sp && !hands) {
+    const w = SIMPLE_LONG * clamp((LEVEL - (a.passing + a.firstTouch) / 2) / 0.2, 0, 1) * clamp((5 - p.x * d) / 30, 0, 1);
+    if (w > 0) for (const g of groups) for (const o of g) if (o.lofted) { const b = w * 0.9 * clamp((o.qx - p.x) * d / 25, 0, 1) * clamp(o.pOk / 0.4, 0.2, 1); if (b > 0) { o.u += ref * b; o.simple = b > 0.15; } }
+  }
   for (const g of groups) { let best = g[0]; for (const o of g) if (o.u > best.u) best = o; opts.push(best); }      // une seule passe par partenaire : la meilleure
   for (const o of rest) opts.push(o);
   if (!opts.length) return setIntent(m, p, 'hold', 'Cherche une solution', p.x, p.y, 0.1);
@@ -962,7 +968,7 @@ function thinkCarrier(m, p) {
     return;
   }
   let ang, label;
-  if (pick.kind === 'pass') { ang = Math.atan2(pick.qy - p.y, pick.qx - p.x); label = (pick.lofted ? (isCross(T, p) ? 'Centre vers ' : 'Long ballon vers ') : pick.safe ? 'Pressé, assure en retrait vers ' : pick.feet ? 'Passe à ' : 'Passe en profondeur pour ') + pick.to.name; }
+  if (pick.kind === 'pass') { ang = Math.atan2(pick.qy - p.y, pick.qx - p.x); label = (pick.lofted && !(pick.simple && !isCross(T, p)) ? (isCross(T, p) ? 'Centre vers ' : 'Long ballon vers ') : pick.safe ? 'Pressé, assure en retrait vers ' : pick.simple && pick.lofted ? 'Joue simple : allonge vers ' : pick.feet ? 'Passe à ' : 'Passe en profondeur pour ') + pick.to.name; }
   else if (pick.kind === 'shot') { ang = Math.atan2(-p.y, gx - p.x); label = 'Tire au but'; }
   else { ang = Math.atan2((p.y >= 0 ? 1 : -1) * 0.35 * d, d) + 0.15 * m.gauss(); label = pick.panic ? 'Pressé, se débarrasse du ballon' : 'Dégage'; }
   const turn = Math.abs(angDiff(ang, p.face));
