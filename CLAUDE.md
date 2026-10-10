@@ -124,14 +124,16 @@ Le fichier `equipes.json` contient quatre équipes de onze joueurs. Il se modifi
 - Si le fichier est mal rempli (poste en double, note oubliée ou hors de 1 à 20, nom de note inconnu), le moteur s'arrête avec un message qui dit quelle équipe, quel joueur et quelle note.
 - Après une modification : `node tools/levels.js` pour mesurer, `node build.js` pour que `match.html` prenne les nouvelles notes.
 
-Comment les quatre équipes ont été construites (première version, à ajuster) :
+Comment les quatre équipes ont été construites. **Choix de Frédéric (10 octobre 2026) : les quatre équipes sont dans un même championnat, et un cran d'écart doit donner environ 70 % de victoires.** Elles ont donc été resserrées (n° 92) : chaque équipe a été rapprochée de la moyenne générale de moitié, chaque note décalée du même nombre de points, si bien que le profil des postes ne change pas.
 
-| Équipe | Points forts de chaque poste | Moyenne de toutes les notes |
-|---|---|---|
-| Élite | autour de 17 | 14,9 |
-| Élevé | autour de 15 | 12,8 |
-| Moyen | autour de 13 | 10,9 |
-| Faible | autour de 11 | 8,8 |
+| Équipe | Points forts de chaque poste | Moyenne des notes, avant | Moyenne, après |
+|---|---|---|---|
+| Élite | autour de 15,5 | 14,0 | 12,6 |
+| Élevé | autour de 14,5 | 12,1 | 11,6 |
+| Moyen | autour de 13,5 | 10,3 | 10,8 |
+| Faible | autour de 12,5 | 8,5 | 9,8 |
+
+(Moyennes sur les vingt notes, réflexes et mains compris ; le budget de la construction d'équipe, recalculé, reste à 29 M€.)
 
 Chaque poste a ses points forts (par exemple tacle, placement, anticipation et jeu de tête pour un défenseur central ; finition, appels et sang-froid pour un avant-centre) et ses points faibles, de 1 à 9 points plus bas (la finition d'un défenseur, le tacle d'un attaquant). Le milieu axial gauche récupère, le droit organise ; l'attaquant gauche est mobile, le droit est un avant-centre. Chaque note varie ensuite d'un point en plus ou en moins d'un joueur à l'autre. Un joueur de champ a 5 en réflexes et en jeu de mains.
 
@@ -404,7 +406,17 @@ Le jeu long rapporte donc surtout contre un bloc haut (occasions +24 % par rappo
 
 ## Les quatre équipes : premiers tests
 
-`node tools/levels.js 60` : chaque équipe contre chaque autre, 60 matchs de 90 minutes par affiche (moitié en Bleus, moitié en Rouges), consignes neutres. Chaque ligne se lit : l'équipe de gauche contre l'équipe de la colonne.
+**Après le resserrement (n° 92, 10 octobre 2026)**, `node tools/levels.js 60` : victoires – nuls – défaites de l'équipe de gauche, puis buts, puis possession.
+
+| | contre Élevé | contre Moyen | contre Faible |
+|---|---|---|---|
+| Élite | 62 – 25 – 13 · 2,7 – 1,4 · 49 % | 93 – 7 – 0 · 4,0 – 0,5 · 51 % | 100 – 0 – 0 · 6,4 – 0,3 · 56 % |
+| Élevé | | 72 – 18 – 10 · 2,5 – 0,9 · 52 % | 98 – 2 – 0 · 4,5 – 0,4 · 55 % |
+| Moyen | | | 82 – 15 – 3 · 3,2 – 0,7 · 52 % |
+
+Un cran d'écart : 62 à 82 % de victoires (cible de Frédéric : environ 70 %). Deux crans et plus : encore trop écrasant, et l'équipe forte n'a que 51 à 56 % du ballon (règle de Frédéric : 65 à 70 % contre une équipe nettement plus faible). À niveau égal : 3,2 à 3,7 buts par match.
+
+Tableaux plus anciens (avant le resserrement et avant la sixième séance), gardés pour mémoire. `node tools/levels.js 60` : chaque équipe contre chaque autre, 60 matchs de 90 minutes par affiche (moitié en Bleus, moitié en Rouges), consignes neutres. Chaque ligne se lit : l'équipe de gauche contre l'équipe de la colonne.
 
 Victoires, nuls, défaites (en % des matchs) :
 
@@ -579,6 +591,7 @@ Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la pos
 | 89 | Frédéric : « presser les centraux » est la conséquence de « harceler » + bloc haut | Avec ces deux consignes, quand l'adversaire relance chez lui : les milieux de côté montent sur ses défenseurs excentrés et sont choisis pour presser un porteur excentré, les attaquants se resserrent dans l'axe (premier essai sans ce placement : raté, n° 87) | 4-4-2 en « harceler » + bloc haut, 80 matchs, occasions pour – contre : contre un 4-4-2 1,86 – 2,12 → 2,43 – 2,23 (20 → 41 victoires) ; contre un 3-5-2 1,82 – 2,16 → 2,15 – 2,55 (le 3-5-2 résiste mieux) |
 | 90 | Écarts entre niveaux : Élite contre Faible 10,5 à 0,0, Faible tire 0,4 fois par match. Nouvel outil `tools/gap.js` : on efface l'écart sur un seul groupe de notes (les deux équipes prennent la moyenne, poste par poste) | — | Aucun groupe ne fait l'écart à lui seul. Buts de l'Élite quand on efface : physique 7,1, prise de balle et dribble 7,8, passe et vision 8,6 (possession 50 %), défense 9,1, mental 10,3, gardien 10,3, finition 11,1. Faible perd le ballon partout : 70 % de passes au sol réussies, 45 interceptions par match, aucun long ballon |
 | 91 | Essai : le moteur ne prend qu'une part de l'écart entre une note et 14 (un 14 reste un 14) | 75 % puis 60 % de l'écart | Abandonné : à 60 %, Élite – Faible 5,9 à 0,4, un cran d'écart donne encore 67 à 88 % de victoires, et l'Élite n'a plus que 54 % du ballon (règle de Frédéric : 65 à 70 %). À décider avec Frédéric : quel résultat attendre entre ces équipes, et l'écart des notes des quatre équipes est-il trop grand ? |
+| 92 | Choix de Frédéric : les quatre équipes sont dans un même championnat ; un cran d'écart doit donner environ 70 % de victoires. Il a préféré resserrer seulement les équipes, sans toucher au moteur (le compromis équipes + moteur donnait de bons scores mais 50 % de possession partout) | `equipes.json` : chaque équipe rapprochée de moitié de la moyenne générale, même décalage pour toutes ses notes (profils gardés, une ligne par joueur conservée) | Un cran : 62 à 82 % de victoires (88 à 96 % avant). Élite – Faible : 6,4 à 0,3 (10,9 à 0,03 avant), possession 56 %. Classement : Élite 85 % de victoires, Élevé 61 %, Moyen 31 %, Faible 1 % |
 | 58 | Tournoi complet (`node tools/levels.js 60`) | — | Possession de l'équipe forte contre Faible : 56 à 59 %. Entre niveaux voisins : toujours 48 à 52 %. Élite contre Faible : 10,2 à 0,05. Passes réussies : l'équipe forte n'en réussit toujours pas plus que l'autre contre le même adversaire |
 
 | 59 | Demande de Frédéric : l'équipe forte doit garder le ballon. Découverte : le « goût du risque » de Faible (7,8) la rendait plus prudente que l'Élite (13,9) | Prudence et patience dépendent aussi de la lucidité : un joueur lucide sait ce que coûte une passe forcée et attend avant de forcer (rien à 14) | Seul : +1 à 3 points de possession |
@@ -599,7 +612,7 @@ Après la sixième séance (à reprendre) :
 - **Consigne « Centres adverses »** : effet encore modeste sur le nombre de centres (12,0 · 11,5 · 10,1). Les centres contrés ne finissent presque jamais en corner.
 - **Pressing haut contre un 3-5-2** (n° 89) : le nouveau placement rend « harceler + bloc haut » gagnant contre un 4-4-2, mais pas contre un 3-5-2. À regarder en mouvement avec Frédéric.
 
-- **Les écarts de score restent énormes** : Élite contre Faible 10,8 à 0,02, contre Moyen 6,5 à 0,15. Un cran d'écart donne 82 à 90 % de victoires.
+- **Écarts entre niveaux (n° 92)** : un cran donne maintenant 62 à 82 % de victoires (cible 70 %), mais deux ou trois crans restent écrasants (Élite – Faible 6,4 à 0,3, Faible tire 2 fois par match), et l'équipe forte n'a que 51 à 56 % du ballon (cible 65 à 70 %). Piste : une équipe dominée qui se regroupe doit concéder peu d'occasions, ce qui laisserait le ballon à l'équipe forte sans qu'elle marque à chaque attaque.
 - **Trop de contrôles ratés pour les équipes faibles** : 28 à 48 par match pour Faible, 20 à 40 pour Moyen (une quinzaine en vrai). L'effet « passe mal ajustée » est sans doute trop fort pour elles.
 - **Vu sur les cartes (n° 63)** : un arrière latéral standard ne passe presque jamais la ligne médiane ; le gardien et les centraux touchent très peu le ballon (10,7 % des passes reçues pour les deux centraux, n° 72). Cause principale trouvée (n° 73) : sous pression dans son camp, le porteur conduit le ballon une fois sur deux au lieu de le donner.
 - Personne n'a encore regardé en mouvement la panique, les « Ne voit pas … », le contre-pressing et l'amorti.
