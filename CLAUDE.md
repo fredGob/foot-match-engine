@@ -415,7 +415,7 @@ Le jeu long rapporte donc surtout contre un bloc haut (occasions +24 % par rappo
 | Élevé | | 72 – 18 – 10 · 2,5 – 0,9 · 52 % | 98 – 2 – 0 · 4,5 – 0,4 · 55 % |
 | Moyen | | | 82 – 15 – 3 · 3,2 – 0,7 · 52 % |
 
-Un cran d'écart : 62 à 82 % de victoires (cible de Frédéric : environ 70 %). Deux crans et plus : encore trop écrasant, et l'équipe forte n'a que 51 à 56 % du ballon (règle de Frédéric : 65 à 70 % contre une équipe nettement plus faible). À niveau égal : 3,2 à 3,7 buts par match.
+Un cran d'écart : 62 à 82 % de victoires (cible de Frédéric : environ 70 %). **Verdict de Frédéric (10 octobre 2026) : Élite contre Faible à 5-0 « n'est pas choquant, c'est plutôt D1 contre D2 », donc acceptable.** Reste à surveiller : et l'équipe forte n'a que 51 à 56 % du ballon (règle de Frédéric : 65 à 70 % contre une équipe nettement plus faible). À niveau égal : 3,2 à 3,7 buts par match.
 
 Tableaux plus anciens (avant le resserrement et avant la sixième séance), gardés pour mémoire. `node tools/levels.js 60` : chaque équipe contre chaque autre, 60 matchs de 90 minutes par affiche (moitié en Bleus, moitié en Rouges), consignes neutres. Chaque ligne se lit : l'équipe de gauche contre l'équipe de la colonne.
 
@@ -615,7 +615,7 @@ Après la sixième séance (à reprendre) :
 - **Consigne « Centres adverses »** : effet encore modeste sur le nombre de centres (12,0 · 11,5 · 10,1). Les centres contrés ne finissent presque jamais en corner.
 - **Pressing haut contre un 3-5-2** (n° 89) : le nouveau placement rend « harceler + bloc haut » gagnant contre un 4-4-2, mais pas contre un 3-5-2. À regarder en mouvement avec Frédéric.
 
-- **Écarts entre niveaux (n° 92)** : un cran donne maintenant 62 à 82 % de victoires (cible 70 %), mais deux ou trois crans restent écrasants (Élite – Faible 6,4 à 0,3, Faible tire 2 fois par match), et l'équipe forte n'a que 51 à 56 % du ballon (cible 65 à 70 %). Piste : une équipe dominée qui se regroupe doit concéder peu d'occasions, ce qui laisserait le ballon à l'équipe forte sans qu'elle marque à chaque attaque.
+- **Écarts entre niveaux (n° 92 à 94)** : un cran donne 62 à 82 % de victoires (cible 70 %). Élite – Faible vers 5-0 : acceptable pour Frédéric (« D1 contre D2 »). Restent : l'équipe forte n'a que 51 à 56 % du ballon (cible 65 à 70 %) ; une équipe faible ne joue presque jamais long (2 longs ballons par match) ; se regrouper (bloc bas) n'aide pas une équipe dominée.
 - **Trop de contrôles ratés pour les équipes faibles** : 28 à 48 par match pour Faible, 20 à 40 pour Moyen (une quinzaine en vrai). L'effet « passe mal ajustée » est sans doute trop fort pour elles.
 - **Vu sur les cartes (n° 63)** : un arrière latéral standard ne passe presque jamais la ligne médiane ; le gardien et les centraux touchent très peu le ballon (10,7 % des passes reçues pour les deux centraux, n° 72). Cause principale trouvée (n° 73) : sous pression dans son camp, le porteur conduit le ballon une fois sur deux au lieu de le donner.
 - Personne n'a encore regardé en mouvement la panique, les « Ne voit pas … », le contre-pressing et l'amorti.
