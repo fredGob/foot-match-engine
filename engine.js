@@ -177,6 +177,7 @@ const MISREAD = 0.6;       // vision 8 : il ne voit que 40 % du danger d'interce
 const DUEL_MIND = 0.4;     // part de l'anticipation (défenseur) et du sang-froid (porteur) dans un duel
 const PRESS_Q = 10;        // presseur (moyenne démarrage, anticipation, agressivité) : pèse 1,5 m plus près à 17, 3 m plus loin à 8
 const AMORTI_FREE = 2.5;   // sans adversaire à moins de 2,5 m, un ballon aérien s'amortit au lieu de se jouer de la tête
+const AIR_DUEL = 0.35, AIR_HOME = 0.12, AIR_CROWD = 0.75;   // centre dans sa surface : le défenseur va au duel s'il arrive au plus 0,35 s après l'attaquant, et gagne la tête 12 points plus souvent ; le passeur le sait, et compte chaque autre défenseur près du point de chute (×0,75)
 const CROSS_BLOCK = 0.55;     // centre contré : chance maximale qu'un adversaire collé devant le centreur touche le ballon
 const CROSS_MARK = 1;      // centre possible : marquage serré dans la surface
 const AXIS_D = 35;         // à moins de 35 m du but, un défenseur ferme l'axe ballon-but s'il est ouvert
@@ -501,7 +502,8 @@ function wantsChase(m, p) {
   if (pass && pass.to && pass.kind === 'pass') {
     const rec = m.icpt[pass.to.id];
     if (pass.to.team === p.team) return me.t < rec.t - 0.8;                       // un coéquipier est servi
-    if (me.t > rec.t - 0.05 + noise() + (chasing ? 0.25 : 0)) return false;       // je n'arriverai pas avant lui
+    const duelAir = pass.lofted && inOwnBox(T, me.x, me.y) ? AIR_DUEL : 0;          // centre dans ma surface : arriver en même temps suffit pour disputer la tête
+    if (me.t > rec.t - 0.05 + duelAir + noise() + (chasing ? 0.25 : 0)) return false;       // je n'arriverai pas avant lui
   }
   let better = 0;
   for (const q of T.players) {
@@ -814,7 +816,9 @@ function passOption(m, p, q, pr, sp, hands, risk) {
     const arrR = Math.max(tr, lo.t), arrO = Math.max(tO, lo.t);
     // tous deux sous le ballon avant lui : libre si le défenseur arrive bien après, sinon duel de la tête (et une tête gagnée ne garde pas toujours le ballon)
     const who = fastestOpp.who, free = sigmoid((tO - tr - 1.0) / 0.35);
-    const duel = fastestOpp.keeper ? 0.1 : 0.75 * clamp(0.45 + 0.6 * (q.a.heading - who.a.heading), 0.15, 0.8);
+    const box = inOwnBox(O, qx, qy) ? AIR_HOME : 0;                                  // dans sa surface, le défenseur gagne plus souvent la tête
+    let crowd = 0; for (const o of O.players) if (o !== who && o.role !== 'GK' && hyp(o.x - qx, o.y - qy) < 5) crowd++;      // une surface garnie : d'autres défenseurs peuvent toucher le ballon
+    const duel = (fastestOpp.keeper ? 0.1 : 0.75 * clamp(0.45 + 0.6 * (q.a.heading - who.a.heading) - box, 0.15, 0.8)) * Math.pow(AIR_CROWD, crowd);
     const win = arrR === arrO ? free + (1 - free) * duel : sigmoid((arrO - arrR) / 0.3);
     const pOk = win * passAcc(p, D, pr, off, true) * 0.85 * seen;
     keep({ kind: 'pass', u: score(pOk, qx, qy, 0.6 + 0.4 * clamp(oppDist(O, qx, qy) / 8, 0, 1), qx, qy, qx * d > P.HL - P.BOX_D && Math.abs(qy) < P.BOX_HW ? 0.9 : 0.6), to: q, qx, qy, v0: lo.v, lofted: true, elev: 28, pOk });
@@ -1102,7 +1106,8 @@ function header(m, p0, z) {
   let p = p0;
   for (const o of m.teams[1 - p.team].players) {                          // duel aérien
     if (o.stunUntil > m.t || o.noControlUntil > m.t || o.role === 'GK' || hyp(o.x - b.x, o.y - b.y) > 1.5) continue;      // celui qui vient de toucher le ballon ne dispute pas le duel suivant
-    if (rng() > clamp(0.5 + 0.6 * (p.a.heading - o.a.heading) + (pass && pass.to === p ? 0.08 : 0), 0.15, 0.85)) p = o;
+    const home = (inOwnBox(m.teams[o.team], b.x, b.y) ? AIR_HOME : 0) - (inOwnBox(m.teams[p.team], b.x, b.y) ? AIR_HOME : 0);      // dans sa surface, le défenseur est face au jeu et mieux placé
+    if (rng() > clamp(0.5 + 0.6 * (p.a.heading - o.a.heading) + (pass && pass.to === p ? 0.08 : 0) - home, 0.15, 0.85)) p = o;
     break;
   }
   if (offsideCheck(m, p)) return;
