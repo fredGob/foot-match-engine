@@ -1,4 +1,5 @@
-// Fabrique les dix équipes de Ligue 1 de equipes.json : les dix premiers du championnat 2025-26, avec les notes du jeu EA Sports FC 27.
+// Fabrique les dix équipes de Ligue 1 de equipes.json : les dix premiers du championnat 2025-26, avec leur effectif d'octobre 2026
+// (après le mercato d'été 2026) et les notes du jeu EA Sports FC 27.
 // Usage : node tools/ligue1.js          → réécrit ces dix équipes dans equipes.json (les quatre équipes de niveau ne bougent pas) et affiche les moyennes
 //         node tools/ligue1.js voir     → n'écrit rien, affiche seulement les moyennes
 // Attention : relancer cet outil efface les retouches faites à la main sur ces dix équipes dans equipes.json.
@@ -11,7 +12,13 @@
 // - Chaque joueur porte une « source » :
 //     « carte »      : note générale et au moins une partie des six valeurs trouvées (les valeurs manquantes sont estimées) ;
 //     « note seule » : seule la note générale a été trouvée, les six valeurs sont estimées d'après le poste ;
-//     « supposé »    : joueur de l'effectif 2025-26 que je n'ai pas trouvé dans les notes FC 27 : présence au club et note estimées par moi.
+//     « supposé »    : joueur dont je n'ai pas trouvé la note FC 27 (souvent une recrue de l'été 2026) : note estimée par moi,
+//                      d'après sa note FC 26 quand je la connaissais.
+//
+// Effectifs (recherche du 11 octobre 2026) : bilans du mercato d'été 2026 (fermé le 1er septembre) et compositions des matchs de
+// septembre et octobre 2026 (6e journée). Titulaires : la meilleure note FC 27 à chaque place du 4-4-2 (choix de Frédéric), pas
+// forcément le onze de l'entraîneur. Remplaçants : trois à sept joueurs de l'effectif. Laissés de côté : les blessés pour longtemps
+// (Panichelli à Strasbourg, absent jusqu'en 2027) et les joueurs dont je n'ai pas pu vérifier qu'ils étaient encore au club.
 //
 // La conversion, en deux temps :
 // 1. Des six valeurs de la carte aux vingt notes, sur l'échelle du jeu (1 à 99) : formules de DETAIL ci-dessous
@@ -86,62 +93,66 @@ const CLUBS = [
     ['G', 'Safonov', 'GK', 83, _, N], ['AG', 'Nuno Mendes', 'LB', 89, [94, _, _, _, _, _], C], ['DCG', 'Pacho', 'CB', 89, [80, 34, 63, 65, 90, 86], C],
     ['DCD', 'Marquinhos', 'CB', 87, _, N], ['AD', 'Hakimi', 'RB', 88, [92, _, _, _, _, _], C], ['MG', 'Kvaratskhelia', 'LW', 89, _, N],
     ['MCG', 'João Neves', 'CM', 88, _, N], ['MCD', 'Vitinha', 'CM', 90, [_, _, 88, 91, _, _], C], ['MD', 'Doué', 'RW', 86, _, N],
-    ['ATG', 'Barcola', 'LW', 85, _, N], ['ATD', 'Dembélé', 'ST', 90, [90, 89, 83, 93, 55, 70], C]],
-    remplacants: [['G', 'Chevalier', 'GK', 80, _, N], ['DC', 'L. Hernández', 'CB', 81, _, N], ['MC', 'Fabián Ruiz', 'CM', 86, _, N], ['MC', 'Zaïre-Emery', 'CM', 83, _, N], ['AT', 'Mbaye', 'RW', 76, _, N]] },
+    ['ATG', 'Ferran Torres', 'ST', 84, [88, _, _, _, _, _], C], ['ATD', 'Dembélé', 'ST', 90, [90, 89, 83, 93, 55, 70], C]],
+    remplacants: [['G', 'Chevalier', 'GK', 80, _, N], ['DC', 'Zabarnyi', 'CB', 80, _, N], ['AG', 'L. Hernández', 'LB', 81, _, N], ['MC', 'Fabián Ruiz', 'CM', 86, _, N],
+      ['MC', 'Zaïre-Emery', 'CM', 83, _, N], ['MD', 'Akliouche', 'CAM', 81, _, N], ['MG', 'Godts', 'LW', 78, _, N]] },
   { id: 'lens', nom: 'Lens', rang: 2, points: 70, titulaires: [
-    ['G', 'Risser', 'GK', 81, [82, 76, 84, 84, 39, 78], C], ['AG', 'Udol', 'LB', 81, [70, 61, 76, 76, 79, 84], C], ['DCG', 'Ganiou', 'CB', 77, [73, _, 61, _, 77, 80], C],
-    ['DCD', 'Baidoo', 'CB', 78, _, N], ['AD', 'Abdulhamid', 'RB', 77, _, N], ['MG', 'Sima', 'LW', 75, _, S],
-    ['MCG', 'Haidara', 'CDM', 75, [61, 67, 75, 76, _, _], C], ['MCD', 'Sangaré', 'CM', 76, _, S], ['MD', 'Thauvin', 'RW', 82, [70, 79, 84, 83, 46, 68], C],
-    ['ATG', 'Saïd', 'ST', 75, _, S], ['ATD', 'Édouard', 'ST', 78, _, N]],
-    remplacants: [['G', 'Gurtner', 'GK', 70, _, S], ['DC', 'Gradit', 'CB', 77, [64, 29, _, _, 77, 77], C], ['AD', 'Aguilar', 'RB', 77, [64, _, 70, _, 75, 75], C], ['MC', 'Fulgini', 'CAM', 73, _, S], ['AT', 'Guilavogui', 'ST', 74, _, S]] },
+    ['G', 'Risser', 'GK', 81, [82, 76, 84, 84, 39, 78], C], ['AG', 'Udol', 'LB', 81, [70, 61, 76, 76, 79, 84], C], ['DCG', 'Todibo', 'CB', 78, _, N],
+    ['DCD', 'Baidoo', 'CB', 78, _, N], ['AD', 'Aguilar', 'RB', 77, [64, _, 70, _, 75, 75], C], ['MG', 'Skóraś', 'LM', 73, _, S],
+    ['MCG', 'Haidara', 'CDM', 75, [61, 67, 75, 76, _, _], C], ['MCD', 'Cuisance', 'CM', 73, _, S], ['MD', 'Thauvin', 'RW', 82, [70, 79, 84, 83, 46, 68], C],
+    ['ATG', 'Sotoca', 'ST', 74, _, S], ['ATD', 'Édouard', 'ST', 78, _, N]],
+    remplacants: [['G', 'Gorgelin', 'GK', 70, _, S], ['DC', 'Ganiou', 'CB', 77, [73, _, 61, _, 77, 80], C], ['DC', 'Gradit', 'CB', 77, [64, 29, _, _, 77, 77], C], ['AD', 'Abdulhamid', 'RB', 77, _, N],
+      ['MC', 'Titraoui', 'CM', 71, _, S], ['AT', 'Ivanović', 'ST', 74, _, S], ['MG', 'Kadile', 'LW', 70, _, S]] },
   { id: 'lille', nom: 'Lille', rang: 3, points: 61, titulaires: [
     ['G', 'Özer', 'GK', 79, [79, 74, 72, 82, 44, 79], C], ['AG', 'Perraud', 'LB', 78, [_, _, 78, _, _, _], C], ['DCG', 'Ngoy', 'CB', 77, [79, _, _, _, _, _], C],
-    ['DCD', 'Alexsandro', 'CB', 79, _, N], ['AD', 'Meunier', 'RB', 77, [_, _, _, _, _, 82], C], ['MG', 'Sahraoui', 'LM', 76, [_, _, _, 82, _, _], C],
-    ['MCG', 'André', 'CDM', 80, [54, 64, 73, 76, 79, 83], C], ['MCD', 'Bouaddi', 'CDM', 80, [75, 56, 74, 79, 75, 76], C], ['MD', 'Fernandez-Pardo', 'RW', 78, [91, _, _, 82, _, _], C],
-    ['ATG', 'Haraldsson', 'CAM', 78, [_, _, _, 81, _, _], C], ['ATD', 'Giroud', 'ST', 78, [_, 79, _, _, _, _], C]],
-    remplacants: [['G', 'Mannone', 'GK', 68, _, S], ['DC', 'Mandi', 'CB', 77, _, N], ['MC', 'Mukau', 'CM', 73, _, N], ['MG', 'Correia', 'LW', 75, _, N], ['AT', 'Igamane', 'ST', 76, _, N]] },
+    ['DCD', 'Alexsandro', 'CB', 78, _, N], ['AD', 'Tiago Santos', 'RB', 77, _, S], ['MG', 'Correia', 'LW', 75, _, N],
+    ['MCG', 'André', 'CDM', 80, [54, 64, 73, 76, 79, 83], C], ['MCD', 'Haraldsson', 'CAM', 78, [_, _, _, 81, _, _], C], ['MD', 'Bakwa', 'RW', 76, _, S],
+    ['ATG', 'Ueda', 'ST', 78, _, N], ['ATD', 'Giroud', 'ST', 78, [_, 79, _, _, _, _], C]],
+    remplacants: [['MC', 'Bentaleb', 'CDM', 74, _, S], ['MC', 'Önal', 'CAM', 73, _, S], ['MC', 'Mukau', 'CM', 73, _, N], ['MC', 'Kjærgaard', 'CM', 73, _, S], ['MD', 'E. Mbappé', 'CM', 72, _, S]] },
   { id: 'lyon', nom: 'Lyon', rang: 4, points: 60, titulaires: [
-    ['G', 'Greif', 'GK', 80, [78, 76, 82, 82, 24, 81], C], ['AG', 'Tagliafico', 'LB', 78, _, N], ['DCG', 'Niakhaté', 'CB', 80, [69, 49, 65, 64, 81, 81], C],
-    ['DCD', 'Mata', 'CB', 76, _, S], ['AD', 'Maitland-Niles', 'RB', 75, _, S], ['MG', 'Fofana', 'LW', 78, [86, _, _, 82, _, _], C],
-    ['MCG', 'Morton', 'CDM', 79, _, N], ['MCD', 'Tolisso', 'CM', 82, [69, 79, 80, 76, 78, 82], C], ['MD', 'Moreira', 'RW', 76, [91, _, _, _, _, _], S],
-    ['ATG', 'Šulc', 'CAM', 78, _, N], ['ATD', 'Endrick', 'ST', 78, [87, _, _, 80, _, _], C]],
-    remplacants: [['G', 'Descamps', 'GK', 70, _, S], ['AG', 'Abner', 'LB', 74, _, S], ['AD', 'Kumbedi', 'RB', 72, _, S], ['MC', 'Karabec', 'CAM', 75, _, S], ['AT', 'Satriano', 'ST', 74, _, S]] },
+    ['G', 'Greif', 'GK', 81, [78, 76, 82, 82, 24, 81], C], ['AG', 'Tagliafico', 'LB', 77, _, S], ['DCG', 'Niakhaté', 'CB', 81, [69, 49, 65, 64, 81, 81], C],
+    ['DCD', 'Mata', 'CB', 76, _, S], ['AD', 'Athekame', 'RB', 74, _, S], ['MG', 'Nakamura', 'LW', 75, _, S],
+    ['MCG', 'Morton', 'CDM', 79, _, N], ['MCD', 'Tolisso', 'CM', 82, [69, 79, 80, 76, 78, 82], C], ['MD', 'Nuamah', 'RM', 74, _, N],
+    ['ATG', 'Šulc', 'CAM', 79, _, N], ['ATD', 'Openda', 'ST', 79, [94, _, _, _, _, _], S]],
+    remplacants: [['G', 'Descamps', 'GK', 70, _, S], ['AG', 'Abner', 'LB', 74, _, S], ['DC', 'Bacher', 'CB', 73, _, S], ['MC', 'Tessmann', 'CM', 75, _, N],
+      ['MC', 'Bidstrup', 'CM', 75, _, S], ['MG', 'Duranville', 'LW', 72, _, S]] },
   { id: 'marseille', nom: 'Marseille', rang: 5, points: 59, titulaires: [
-    ['G', 'Rulli', 'GK', 80, [81, 77, 80, 85, 54, 75], C], ['AG', 'Emerson', 'LB', 76, _, S], ['DCG', 'Aguerd', 'CB', 80, [75, 50, 66, 65, 81, 81], C],
-    ['DCD', 'Balerdi', 'CB', 79, _, N], ['AD', 'Murillo', 'RB', 77, _, S], ['MG', 'Paixão', 'LM', 79, [87, 78, 75, 80, 32, 70], C],
-    ['MCG', 'Højbjerg', 'CDM', 80, [49, 71, 75, 74, 76, 82], C], ['MCD', 'Timber', 'CM', 79, [76, 77, 75, 79, 74, 83], C], ['MD', 'Weah', 'RM', 78, [87, 75, 72, 77, 68, 67], C],
-    ['ATG', 'Gouiri', 'ST', 80, [77, 82, 77, 81, 45, 71], C], ['ATD', 'Vaz', 'ST', 74, _, S]],
-    remplacants: [['G', 'De Lange', 'GK', 72, _, S], ['DC', 'Egan-Riley', 'CB', 74, _, S], ['AD', 'Pavard', 'RB', 78, _, S], ['MC', 'Gomes', 'CM', 77, _, S], ['MC', 'Nadir', 'CAM', 73, _, S]] },
+    ['G', 'De Lange', 'GK', 74, _, N], ['AG', 'Emerson', 'LB', 77, [71, _, 75, _, _, _], C], ['DCG', 'Aguerd', 'CB', 80, [75, 50, 66, 65, 81, 81], C],
+    ['DCD', 'Egan-Riley', 'CB', 75, [80, _, _, _, 74, _], C], ['AD', 'U. Garcia', 'RB', 73, _, N], ['MG', 'Paixão', 'LM', 79, [87, 78, 75, 80, 32, 70], C],
+    ['MCG', 'Højbjerg', 'CDM', 80, [49, 71, 75, 74, 76, 82], C], ['MCD', 'A. Gomes', 'CM', 75, [71, _, _, 78, _, _], C], ['MD', 'Weah', 'RM', 78, [87, 75, 72, 77, 68, 67], C],
+    ['ATG', 'Abdelli', 'CAM', 75, _, N], ['ATD', 'Gouiri', 'ST', 80, [77, 82, 77, 81, 45, 71], C]],
+    remplacants: [['AT', 'Maupay', 'ST', 74, [70, 74, _, _, _, _], C], ['MC', 'Harit', 'CAM', 74, _, N], ['MC', 'Nnadi', 'CDM', 73, _, S]] },
   { id: 'rennes', nom: 'Rennes', rang: 6, points: 59, titulaires: [
-    ['G', 'Samba', 'GK', 80, _, N], ['AG', 'Merlin', 'LB', 76, _, N], ['DCG', 'Brassier', 'CB', 76, _, N],
-    ['DCD', 'Rouault', 'CB', 76, _, N], ['AD', 'Hateboer', 'RB', 76, _, N], ['MG', 'Blas', 'LM', 77, _, N],
+    ['G', 'Samba', 'GK', 81, _, N], ['AG', 'Nagida', 'LB', 72, _, S], ['DCG', 'Cresswell', 'CB', 78, _, N],
+    ['DCD', 'Rouault', 'CB', 76, _, N], ['AD', 'Reynolds', 'RB', 74, _, S], ['MG', 'Nordin', 'LW', 74, _, S],
     ['MCG', 'Rongier', 'CDM', 80, [60, 66, 75, 78, 74, 78], C], ['MCD', 'Thomasson', 'CM', 81, [57, 74, 82, 80, 71, 75], C], ['MD', 'Al-Tamari', 'RW', 76, _, S],
-    ['ATG', 'Embolo', 'ST', 77, _, N], ['ATD', 'Lepaul', 'ST', 81, [76, 83, 61, 78, 39, 71], C]],
-    remplacants: [['G', 'Silistrie', 'GK', 68, _, S], ['DC', 'Cresswell', 'CB', 78, _, S], ['MC', 'Camara', 'CM', 78, _, N], ['MC', 'Fofana', 'CM', 77, _, N], ['AT', 'Dia', 'ST', 78, [83, 79, 66, 78, 43, 66], C]] },
+    ['ATG', 'Dia', 'ST', 78, [83, 79, 66, 78, 43, 66], C], ['ATD', 'Lepaul', 'ST', 81, [76, 83, 61, 78, 39, 71], C]],
+    remplacants: [['G', 'Silistrie', 'GK', 68, _, S], ['MC', 'Camara', 'CM', 78, _, N], ['AT', 'Mayenda', 'ST', 74, _, S]] },
   { id: 'monaco', nom: 'Monaco', rang: 7, points: 54, titulaires: [
-    ['G', 'Hrádecký', 'GK', 79, _, N], ['AG', 'Caio Henrique', 'LB', 75, _, S], ['DCG', 'Kehrer', 'CB', 76, _, S],
-    ['DCD', 'Teze', 'CB', 78, _, N], ['AD', 'Vanderson', 'RB', 77, _, N], ['MG', 'Golovin', 'CAM', 78, [_, _, _, 82, _, _], C],
-    ['MCG', 'Zakaria', 'CDM', 81, [80, 67, 74, 77, 80, 85], C], ['MCD', 'Camara', 'CM', 80, [79, 69, 82, 79, 71, 72], C], ['MD', 'Minamino', 'CAM', 77, _, N],
+    ['G', 'Hrádecký', 'GK', 79, _, N], ['AG', 'Nazinho', 'LB', 72, _, S], ['DCG', 'Teze', 'CB', 78, _, N],
+    ['DCD', 'Dier', 'CB', 77, _, N], ['AD', 'Vanderson', 'RB', 77, _, N], ['MG', 'Ansu Fati', 'LW', 77, _, N],
+    ['MCG', 'Zakaria', 'CDM', 81, [80, 67, 74, 77, 80, 85], C], ['MCD', 'Camara', 'CM', 80, [79, 69, 82, 79, 71, 72], C], ['MD', 'Golovin', 'CAM', 78, [_, _, _, 82, _, _], C],
     ['ATG', 'Abline', 'ST', 77, [86, _, _, _, _, _], S], ['ATD', 'Balogun', 'ST', 80, [84, 80, 63, 78, 24, 71], C]],
-    remplacants: [['G', 'Köhn', 'GK', 77, _, N], ['DC', 'Mawissa', 'CB', 74, _, S], ['MC', 'Magassa', 'CDM', 74, _, S], ['MG', 'Ben Seghir', 'CAM', 76, _, S], ['AT', 'Biereth', 'ST', 76, _, S]] },
+    remplacants: [['G', 'Köhn', 'GK', 77, _, N], ['DC', 'Salisu', 'CB', 76, _, S], ['DC', 'Mawissa', 'CB', 74, _, S], ['DC', 'Sané', 'CB', 72, _, S],
+      ['MC', 'Diop', 'CM', 72, _, S], ['MD', 'Idumbo', 'RW', 70, _, S]] },
   { id: 'strasbourg', nom: 'Strasbourg', rang: 8, points: 53, titulaires: [
-    ['G', 'Penders', 'GK', 78, _, N], ['AG', 'Chilwell', 'LB', 77, _, N], ['DCG', 'Doukouré', 'CB', 77, _, N],
-    ['DCD', 'Omobamidele', 'CB', 75, _, S], ['AD', 'G. Doué', 'RB', 78, _, N], ['MG', 'Godo', 'LM', 76, _, N],
-    ['MCG', 'El Mourabet', 'CDM', 75, _, N], ['MCD', 'Barco', 'CM', 77, _, S], ['MD', 'Moreira', 'RM', 79, [89, 69, 70, 83, 64, 69], C],
-    ['ATG', 'Enciso', 'CAM', 78, [78, 74, 72, 83, 33, 53], C], ['ATD', 'Panichelli', 'ST', 79, [69, 81, 63, 73, 28, 82], C]],
-    remplacants: [['DC', 'Sarr', 'CB', 74, _, S], ['MC', 'Ouattara', 'CDM', 72, _, S], ['MD', 'Nanasi', 'RW', 75, _, N], ['MD', 'Bakwa', 'RW', 74, _, S]] },
+    ['G', 'F. Jørgensen', 'GK', 77, _, N], ['AG', 'Oso', 'LB', 73, _, S], ['DCG', 'Doukouré', 'CB', 77, _, N],
+    ['DCD', 'K. Coulibaly', 'CB', 74, _, S], ['AD', 'Antwi', 'RB', 72, _, S], ['MG', 'Nanasi', 'RW', 75, _, N],
+    ['MCG', 'Essugo', 'CDM', 75, _, N], ['MCD', 'El Mourabet', 'CDM', 75, _, N], ['MD', 'Amo-Ameyaw', 'RW', 72, _, S],
+    ['ATG', 'Reyna', 'CAM', 73, _, N], ['ATD', 'Harder', 'ST', 74, _, S]],
+    remplacants: [['DC', 'Mitchell', 'CB', 72, _, S], ['DC', 'S. Coulibaly', 'CB', 72, _, N], ['MC', 'Diogo Sousa', 'CDM', 70, _, N], ['AT', 'Deivid Washington', 'ST', 73, _, S], ['MD', 'Yassine', 'RW', 72, _, S]] },
   { id: 'toulouse', nom: 'Toulouse', rang: 9, points: 45, titulaires: [
-    ['G', 'Restes', 'GK', 78, [79, 75, 80, 80, 40, 78], C], ['AG', 'Methalie', 'LB', 72, _, S], ['DCG', 'Nicolaisen', 'CB', 76, [46, 41, 56, 60, 76, 80], C],
-    ['DCD', 'McKenzie', 'CB', 75, _, N], ['AD', 'Sidibé', 'RB', 72, _, S], ['MG', 'Gboho', 'LW', 77, [79, 70, 71, 82, 36, 65], C],
-    ['MCG', 'Cásseres', 'CDM', 76, [77, 64, 69, 73, 76, 77], C], ['MCD', 'Schmidt', 'CM', 73, _, S], ['MD', 'Dønnum', 'RM', 76, [81, 68, 72, 77, 52, 74], C],
-    ['ATG', 'Hidalgo', 'RW', 73, _, N], ['ATD', 'Magri', 'ST', 73, _, S]],
-    remplacants: [['G', 'Haug', 'GK', 70, _, S], ['AD', 'Kamanzi', 'RB', 72, _, S], ['MC', 'Jørgensen', 'CM', 72, _, S], ['AT', 'Emersonn', 'ST', 72, _, S]] },
+    ['G', 'Restes', 'GK', 78, [79, 75, 80, 80, 40, 78], C], ['AG', 'I. Diallo', 'LB', 70, _, S], ['DCG', 'Nicolaisen', 'CB', 76, [46, 41, 56, 60, 76, 80], C],
+    ['DCD', 'McKenzie', 'CB', 75, _, N], ['AD', 'Sidibé', 'RB', 72, _, S], ['MG', 'Hidalgo', 'RW', 73, _, N],
+    ['MCG', 'Cásseres', 'CDM', 76, [77, 64, 69, 73, 76, 77], C], ['MCD', 'T. Jørgensen', 'CM', 76, _, S], ['MD', 'Dønnum', 'RM', 76, [81, 68, 72, 77, 52, 74], C],
+    ['ATG', 'Russell-Rowe', 'ST', 72, _, S], ['ATD', 'Tengstedt', 'ST', 72, _, S]],
+    remplacants: [['G', 'Haug', 'GK', 70, _, S], ['AD', 'Kamanzi', 'RB', 72, _, S], ['MC', 'Sigur', 'CM', 72, _, S]] },
   { id: 'lorient', nom: 'Lorient', rang: 10, points: 45, titulaires: [
-    ['G', 'Mvogo', 'GK', 77, _, N], ['AG', 'Yongwa', 'LB', 71, _, S], ['DCG', 'Talbi', 'CB', 75, _, N],
-    ['DCD', 'Touré', 'CB', 70, _, N], ['AD', 'Kouassi', 'RB', 77, _, N], ['MG', 'Le Bris', 'LM', 70, _, S],
-    ['MCG', 'Abergel', 'CDM', 74, _, S], ['MCD', 'Makengo', 'CM', 72, _, S], ['MD', 'Pagis', 'RW', 73, _, S],
-    ['ATG', 'Aiyegun', 'ST', 73, _, S], ['ATD', 'Meïté', 'ST', 73, _, S]],
-    remplacants: [['AD', 'Katseris', 'RB', 70, _, S], ['MC', 'Ponceau', 'CM', 71, _, S], ['AT', 'Dieng', 'ST', 72, _, S]] },
+    ['G', 'Mvogo', 'GK', 77, _, N], ['AG', 'Kouassi', 'LB', 77, _, N], ['DCG', 'Talbi', 'CB', 75, _, N],
+    ['DCD', 'Adjei', 'CB', 70, _, N], ['AD', 'Katseris', 'RB', 70, _, S], ['MG', 'Le Bris', 'LW', 70, _, S],
+    ['MCG', 'Cadiou', 'CDM', 70, _, S], ['MCD', 'Makengo', 'CAM', 74, _, N], ['MD', 'Mbamba', 'CM', 70, _, S],
+    ['ATG', 'Jensen', 'ST', 70, _, S], ['ATD', 'Baldé', 'ST', 70, _, S]],
+    remplacants: [['DC', 'Sylla', 'CB', 70, _, S], ['MC', 'Georgen', 'CM', 68, _, S], ['AT', 'Bernardeau', 'ST', 66, _, S]] },
 ];
 const NUM = { G: 1, AG: 3, DCG: 4, DCD: 5, AD: 2, MG: 7, MCG: 6, MCD: 8, MD: 10, ATG: 11, ATD: 9 };
 const NATUREL = { G: 'G', AG: 'AG', DCG: 'DC', DCD: 'DC', AD: 'AD', MG: 'MG', MCG: 'MC', MCD: 'MC', MD: 'MD', ATG: 'AT', ATD: 'AT' };
@@ -160,8 +171,8 @@ function build() {
     if (K.titulaires.length !== 11) throw new Error(K.nom + ' : il faut 11 titulaires');
     return {
       id: K.id, nom: K.nom,
-      description: K.rang + (K.rang === 1 ? 'er' : 'e') + ' de Ligue 1 en 2025-26 (' + K.points + ' points). D\'après les notes EA Sports FC 27 (octobre 2026), converties sur 20 par tools/ligue1.js.',
-      championnat: 'Ligue 1 2025-26', classement: K.rang,
+      description: K.rang + (K.rang === 1 ? 'er' : 'e') + ' de Ligue 1 en 2025-26 (' + K.points + ' points). Effectif d\'octobre 2026, notes EA Sports FC 27 converties sur 20 par tools/ligue1.js.',
+      championnat: 'Ligue 1 2026-27', classement: K.rang,
       joueurs: K.titulaires.map(([poste, nom, pos, O, carte, src]) => ({ poste, numero: NUM[poste], nom, poste_naturel: NATUREL[poste], fc: O, source: src, notes: notesOf(pos, O, carte) })),
       remplacants: K.remplacants.map(([pn, nom, pos, O, carte, src], k) => ({ poste_naturel: pn, numero: 12 + k, nom, fc: O, source: src, notes: notesOf(pos, O, carte) })),
     };
