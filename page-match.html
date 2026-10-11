@@ -52,8 +52,9 @@
   .tghost { position: fixed; z-index: 30; pointer-events: none; transform: translate(-50%, -50%); }
   .tdrop.over { outline: 2px dashed var(--accent); outline-offset: 3px; border-radius: 10px; }
   .tvbt { margin: 8px auto 4px; max-width: 470px; font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
-  .tbench { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; max-width: 470px; margin: 0 auto; padding: 8px 4px 6px; border-radius: 10px; background: #1b2530; border: 1px solid var(--line); }
-  .tbench .tdrop { width: 78px; display: flex; justify-content: center; }
+  .tbench { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; max-width: 470px; margin: 0 auto; padding: 8px 4px 6px; border-radius: 10px; background: #1b2530; border: 1px solid var(--line); }
+  .tbench .tdrop { width: 62px; display: flex; justify-content: center; }      /* sept remplaçants sur une seule ligne */
+  .tbench .ttok .nm { max-width: 62px; }
   .tvside { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .tvcard { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
   .tvcard .attrs { margin-top: 6px; }

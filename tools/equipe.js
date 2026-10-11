@@ -83,7 +83,7 @@ function choisir(D) {
     await page.mouse.move(a.x + a.width / 2 + 10, a.y + a.height / 2 + 10, { steps: 3 });
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2 - 10, { steps: 12 }); await page.mouse.up();
   };
-  const k = await page.evaluate(`S.bench.findIndex(id => byId[id].poste === 'AT')`), b0 = await page.evaluate('S.bench[' + k + ']'), was10 = await page.evaluate('S.lineup[10]');
+  const k = await page.evaluate(`S.bench.findIndex(id => ['AT', 'MG', 'MD'].includes(byId[id].poste))`), b0 = await page.evaluate('S.bench[' + k + ']'), was10 = await page.evaluate('S.lineup[10]');
   await drag('[data-drop="b' + k + '"]', '[data-drop="p10"]');
   check(await page.evaluate('S.lineup[10]') === b0 && await page.evaluate('S.bench[' + k + ']') === was10, 'glisser un attaquant remplaçant sur l\'avant-centre : les deux sont échangés');
   // un défenseur central glissé en attaque : marqué « hors poste »
@@ -159,7 +159,7 @@ function choisir(D) {
   check(JSON.stringify(await page.evaluate('S.lineup.map(id => byId[id].nom)')) === JSON.stringify(want) && await page.evaluate('S.formation') === '442', 'chaque titulaire à sa place du 4-4-2 de equipes.json', want.join(', '));
   check(/pas de budget/.test(await page.textContent('#teamInfo')) && (await page.textContent('#back')) === 'Changer de club' && /Choisir le club/.test(await page.textContent('#st1')), 'pas de budget affiché, bouton « Changer de club »', await page.textContent('#teamInfo'));
   // le remplaçant attaquant glissé sur l'attaquant mobile (place n° 9 en 4-4-2)
-  const kb = await page.evaluate(`S.bench.findIndex(id => byId[id].poste === 'AT')`), sub = await page.evaluate('S.bench[' + kb + ']'), ac = await page.evaluate('S.lineup[9]');
+  const kb = await page.evaluate(`S.bench.findIndex(id => ['AT', 'MG', 'MD'].includes(byId[id].poste))`), sub = await page.evaluate('S.bench[' + kb + ']'), ac = await page.evaluate('S.lineup[9]');
   await drag('[data-drop="b' + kb + '"]', '[data-drop="p9"]');
   check(await page.evaluate('S.lineup[9]') === sub && await page.evaluate('S.bench[' + kb + ']') === ac, 'glisser le remplaçant attaquant sur l\'attaquant mobile : échangés', await page.evaluate('byId[S.lineup[9]].nom'));
   await page.click('#forms button[data-form="4231"]');
@@ -195,7 +195,7 @@ function choisir(D) {
   await page.click('#home'); await page.click('#goClubs'); await page.waitForURL(/#clubs/); await page.click('#clubs .club[data-club="lens"]');
   await page.click('#forms button[data-form="352"]'); await page.selectOption('#preset', 'contre');
   const advs = await page.$$eval('#adv optgroup', g => g.map(x => x.label + ' : ' + x.children.length));
-  check(advs.length === 2 && advs[0] === 'Niveaux : 5' && advs[1] === 'Ligue 1 2025-26 : 10', 'choix de l\'adversaire : Standard, quatre niveaux, dix clubs', advs.join(' | '));
+  check(advs.length === 2 && advs[0] === 'Niveaux : 5' && advs[1] === 'Ligue 1 2026-27 : 10', 'choix de l\'adversaire : Standard, quatre niveaux, dix clubs', advs.join(' | '));
   await page.selectOption('#adv', 'marseille');
   const tacLens = await page.evaluate('Object.assign({}, S.tac)'), lineLens = await page.evaluate('S.lineup.map(id => byId[id].nom)');
   await Promise.all([page.waitForURL(/match\.html#partie=/), page.click('#play')]);

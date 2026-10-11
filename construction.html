@@ -165,8 +165,8 @@
   <!-- choix d'un club de Ligue 1 (clubs de equipes.json) -->
   <section id="vClubs" hidden>
     <div class="card">
-      <h2>Les dix premiers de Ligue 1 (saison 2025-26)</h2>
-      <p class="hint" style="margin-top:0">Notes du jeu EA Sports FC 27 (octobre 2026), converties sur 20. La note à droite est la note globale moyenne des onze titulaires. Pas d'achat ici : on prend l'effectif du club tel quel.</p>
+      <h2>Les dix premiers de Ligue 1 2025-26, effectifs d'octobre 2026</h2>
+      <p class="hint" style="margin-top:0">Joueurs présents au club en octobre 2026 (après le mercato d'été), notes du jeu EA Sports FC 27 converties sur 20. La note à droite est la note globale moyenne des onze titulaires. Pas d'achat ici : on prend l'effectif du club tel quel.</p>
       <div class="clubs" id="clubs"></div>
     </div>
   </section>
@@ -575,7 +575,7 @@ function exportTeam() {
   const slug = nom.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'mon-equipe';
   const notes = j => { const o = {}; for (const [k] of D.qualities) o[k] = j.notes[k]; return o; };
   return {
-    id: slug, nom, description: S.club ? 'Effectif de ' + CLUBS.find(C => C.id === S.club).nom + ' (Ligue 1 2025-26, notes EA Sports FC 27), placé dans equipe.html : ' + forme().name + '.'
+    id: slug, nom, description: S.club ? 'Effectif de ' + CLUBS.find(C => C.id === S.club).nom + ' (effectif d\'octobre 2026, notes EA Sports FC 27), placé dans equipe.html : ' + forme().name + '.'
       : 'Équipe construite dans equipe.html : ' + forme().name + ', effectif de ' + euros(depense()) + ' sur un budget de ' + D.budget + ' M€.',
     formation: S.formation, consignes: Object.assign({}, S.tac),
     joueurs: pls.map((pl, i) => { const j = byId[S.lineup[i]]; return { poste: pl.code, numero: pl.num, nom: j.nom, place: pl.label, poste_naturel: j.poste, notes: notes(j) }; }),

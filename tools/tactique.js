@@ -19,6 +19,7 @@ const url = 'file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURICo
   const seek = t => page.evaluate(t => { const r = document.getElementById('time'); r.value = t; r.dispatchEvent(new Event('input')); r.dispatchEvent(new Event('change')); }, t);
   const ready = () => page.waitForFunction(() => !document.getElementById('time').disabled && document.getElementById('busy').hidden, null, { timeout: 60000 });
   const drag = async (a, b) => {
+    await (await page.$(a)).scrollIntoViewIfNeeded();
     const A = await (await page.$(a)).boundingBox(), B = await (await page.$(b)).boundingBox();
     await page.mouse.move(A.x + A.width / 2, A.y + A.height / 2); await page.mouse.down();
     await page.mouse.move(A.x + A.width / 2 + 12, A.y + A.height / 2 + 12, { steps: 3 }); await page.mouse.move(B.x + B.width / 2, B.y + B.height / 2, { steps: 8 }); await page.mouse.up();
@@ -64,7 +65,7 @@ const url = 'file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURICo
   for (let k = 0; k < 4; k++) await drag('#tvBench .tdrop:not(:has(.gone)):not(:has(.leaving)) .ttok', '#tvPitch [data-tdrop="p' + (5 + k) + '"]');
   check(/remplacements 5 \/ 5/.test(await page.textContent('#tvSubs')), 'cinq remplacements préparés', await page.textContent('#tvSubs'));
   const benchLeft = await page.$$('#tvBench .tdrop:not(:has(.gone)):not(:has(.leaving)) .ttok');
-  if (benchLeft.length) { await drag('#tvBench .tdrop:not(:has(.gone)):not(:has(.leaving)) .ttok', '#tvPitch [data-tdrop="p10"]'); check(/Plus de remplacement possible/.test(await page.textContent('#tvPending')), 'un sixième est refusé', await page.textContent('#tvPending')); }
+  if (benchLeft.length) { await drag('#tvBench .tdrop:not(:has(.gone)):not(:has(.leaving)) .ttok', '#tvPitch [data-tdrop="p10"]'); check(/Plus de remplacement possible/.test(await page.textContent('#tvPending')), 'un sixième est refusé', (await page.textContent('#tvPending')) + ' | ' + (await page.textContent('#tvSubs')) + ' | ' + (await page.textContent('#tvDraft'))); }
   else check(true, 'plus de remplaçant disponible (le sixième ne peut pas être tenté)');
   await page.click('#tvReset');
 
