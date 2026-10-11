@@ -202,8 +202,10 @@ function choisir(D) {
   await page.waitForTimeout(800);
   const nm = [await page.textContent('#name0'), await page.textContent('#name1')];
   check(/Lens/.test(nm[0]) && /Marseille/.test(nm[1]) && (await page.$$('#squads select')).length === 0, '« Passer au match » ouvre match.html : Lens contre Marseille, aucun choix d\'équipe dans la page', nm.join(' / '));
-  const formM = await page.inputValue('#tactics select[data-formation="0"]'), tacM = {};
-  for (const k of Object.keys(tacLens)) tacM[k] = +(await page.inputValue('#tactics select[data-team="0"][data-key="' + k + '"]'));
+  await page.click('#tabTac'); await page.waitForTimeout(200);      // formation et consignes : dans l'onglet Tactique
+  const formM = await page.getAttribute('#tvForms button.on', 'data-tv-form'), tacM = {};
+  for (const k of Object.keys(tacLens)) tacM[k] = +(await page.inputValue('#tvTac select[data-tv-key="' + k + '"]'));
+  await page.click('#tabMatch');
   check(formM === '352' && JSON.stringify(tacM) === JSON.stringify(tacLens), 'la formation (3-5-2) et la tactique « Contre-attaque » sont en place dans le match', formM + ' ' + JSON.stringify(tacM));
   await page.click('#kick'); await page.waitForFunction(() => !document.getElementById('time').disabled && document.getElementById('busy').hidden, null, { timeout: 30000 });
   const sent = JSON.parse(decodeURIComponent(/#partie=(.*)$/.exec(page.url())[1]));      // ce que la page équipe a envoyé, lu par le moteur

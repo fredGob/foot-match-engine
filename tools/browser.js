@@ -63,7 +63,7 @@ const stop = code => { try { browser.kill(); } catch (e) {} setTimeout(() => { f
   check(found, 'un vrai clic sur le terrain ouvre la fiche d\'un joueur', (await txt('player')).replace(/\s+/g, ' ').slice(0, 70));
 
   console.log('Consignes');
-  const pick = (team, key, v) => ev(`(() => { const s = document.querySelector('#tactics select[data-team="${team}"][data-key="${key}"]'); s.value = '${v}'; s.dispatchEvent(new Event('change')); })()`);
+  const pick = (team, key, v) => ev(`(() => { document.getElementById('tabTac').click(); document.querySelector('[data-tv-team="${team}"]').click(); const s = document.querySelector('#tvTac select[data-tv-key="${key}"]'); s.value = '${v}'; s.dispatchEvent(new Event('change', { bubbles: true })); document.getElementById('tvApply').click(); document.getElementById('tabMatch').click(); })()`);
   await pick(0, 'line', 1); await pick(0, 'press', 1); await pick(1, 'passing', 1); await wait(400);
   check(await ev(`document.querySelectorAll('#marks .mark.tactic').length`) === 3, 'trois changements de consigne posés sur la barre');
   await ev(`document.getElementById('intents').checked = true; document.getElementById('fwd').click(); document.getElementById('fwd').click(); document.getElementById('fwd').click()`); await wait(500);

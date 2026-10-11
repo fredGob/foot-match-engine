@@ -69,6 +69,14 @@
   .numbers td { padding: 3px 8px; }
   body.coach .godonly { display: none !important; }
   .modehint { font-size: 12.5px; color: var(--muted); }
+  [data-mode]:disabled { opacity: .4; cursor: not-allowed; }
+  .tvtac { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  .tvtac td { padding: 3px 0; }
+  .tvtac td.k { font-size: 13px; cursor: help; padding-right: 8px; white-space: nowrap; }
+  .tvtac select { width: 100%; padding: 4px 6px; }
+  .tvtac select.set { border-color: var(--accent); }
+  .tvtac tr.presets td { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .tvtac select.preset { font-weight: 600; }
   body:not(.coach) .coachonly { display: none !important; }
   .heatkey { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
   .heatkey i { display: inline-block; width: 90px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, rgba(255,236,179,0.4), #ffc466, #f2852e, #c94816, #8c1c0a); }
@@ -80,6 +88,8 @@
   .pre { position: absolute; left: 0; right: 0; bottom: 7%; display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 16px; font-weight: 500; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
   .pre > div { padding: 4px 14px; border-radius: 6px; background: rgba(10, 14, 18, 0.78); }
   .pre button { font-size: 18px; padding: 10px 26px; }
+  .pre > div.row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding: 0; background: none; }
+  .pre #preTac { font-size: 15px; padding: 8px 18px; }
   .busy { font-size: 18px; font-weight: 500; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 
@@ -172,7 +182,7 @@
 
   <main>
     <div class="tabs">
-      <span class="group" title="Mode God : on règle les deux équipes, on voit les intentions et toute la suite du match. Mode Coach It : on dirige les Bleus seulement, comme un vrai entraîneur, sans voir la suite."><button data-mode="god" class="on">Mode God</button><button data-mode="coach">Mode Coach It</button></span>
+      <span class="group" id="modes" title="Mode God : on règle les deux équipes, on voit les intentions et toute la suite du match. Mode Coach It : on dirige les Bleus seulement, comme un vrai entraîneur, sans voir la suite. Le mode se choisit avant le coup d'envoi."><button data-mode="god" class="on">Mode God</button><button data-mode="coach">Mode Coach It</button></span>
       <span class="group"><button id="tabMatch" class="on">Match</button><button id="tabStats">Statistiques</button><button id="tabTac">Tactique</button></span>
       <a class="homelink" href="index.html">Accueil</a>
       <span id="statsCtl" hidden>
@@ -186,7 +196,7 @@
     <div class="stage">
       <canvas id="pitch"></canvas>
       <div class="end" id="end" hidden><div id="endText"></div><div class="row"><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
-      <div class="pre" id="pre" hidden><div>Réglez vos consignes, puis donnez le coup d'envoi.</div><button id="kick" class="main">Lancer le match</button></div>
+      <div class="pre" id="pre" hidden><div>Choisissez le mode, réglez votre tactique (onglet Tactique), puis donnez le coup d'envoi.</div><div class="row"><button id="preTac">Régler la tactique</button><button id="kick" class="main">Lancer le match</button></div></div>
       <div class="busy" id="busy" hidden>Calcul du match…</div>
       <div class="tip" id="tip" hidden></div>
       <div class="tacview" id="tacView" hidden>
@@ -198,10 +208,15 @@
           <p class="hint">Cliquez sur un joueur pour voir ses notes. Faites glisser un remplaçant sur un joueur pour le faire entrer, ou deux joueurs pour les échanger de place (au doigt : « Échanger ce joueur » dans sa fiche, puis toucher l'autre). Rond orange « ! » : hors de son poste.</p>
         </div>
         <div class="tvside">
+          <div class="tvcard"><b>Consignes</b>
+            <table class="tvtac" id="tvTac"></table>
+            <div class="row" style="margin-top:6px"><button id="tvNeutral">Tout au neutre</button></div>
+          </div>
           <div class="tvcard"><b>Changements</b>
             <div id="tvDraft" class="small"></div>
             <div class="row" style="margin-top:8px"><button class="main" id="tvApply">Valider</button><button id="tvReset">Annuler</button></div>
             <div id="tvPending" class="small muted" style="margin-top:8px"></div>
+            <div id="tacHint" class="small muted" style="margin-top:8px"></div>
           </div>
           <div class="tvcard" id="tvLook"></div>
         </div>
@@ -244,7 +259,7 @@
       <div class="bar">
         <label>Nombre de matchs <input type="number" id="nSeries" min="1" max="5000" step="1" value="20"></label>
         <button id="runSeries" class="main">Simuler la série</button>
-        <span class="muted" id="seriesHint">Avec les équipes et les consignes affichées à droite, et la durée choisie. Sert à voir ce qu'un réglage change en moyenne.</span>
+        <span class="muted" id="seriesHint">Avec les équipes, la composition et les consignes en vigueur (onglet Tactique), et la durée choisie. Sert à voir ce qu'un réglage change en moyenne.</span>
       </div>
       <div class="progress" id="prog" hidden><div id="progFill"></div></div>
       <div id="seriesOut"></div>
@@ -257,12 +272,6 @@
       <div id="squads"></div>
       <div class="muted small" style="margin-top: 8px">Les équipes se choisissent dans la page équipe (equipe.html), pas ici. Standard : tous les joueurs à 14.</div>
       <div style="margin-top: 8px"><a id="teamLink" class="small" href="equipe.html">← Choisir les équipes</a></div>
-    </div>
-    <div class="card">
-      <h2>Consignes</h2>
-      <table class="tac" id="tactics"></table>
-      <div class="muted small" id="tacHint" style="margin-top: 8px"></div>
-      <div style="margin-top: 8px"><button id="neutral" class="small">Tout remettre au neutre</button></div>
     </div>
     <div class="card">
       <h2>Joueur</h2>
@@ -2278,13 +2287,6 @@ return { create, add, rows, rowsOf };
     }
     const st = rec.stats[Math.min(Math.floor(tick / 10), rec.stats.length - 1)];
     $('stats').innerHTML = statRows(St.rowsOf(st[0], st[1]));
-    // consignes en vigueur à cet instant
-    const t = tacAt(coach() ? Math.min(tickOf(live), rec.n - 1) : tick);      // Coach It : les consignes en vigueur au moment du direct
-    document.querySelectorAll('#tactics select[data-formation]').forEach(sel => { const v = t[+sel.dataset.formation].formation || '442'; if (sel.value !== v && document.activeElement !== sel) sel.value = v; sel.classList.toggle('set', v !== '442'); });
-    document.querySelectorAll('#tactics select[data-preset]').forEach(sel => { const id = presetOf(t[+sel.dataset.preset]); if (sel.value !== id && document.activeElement !== sel) sel.value = id; const P = PRE.find(P => P.id === id); sel.title = P ? P.help : 'Consignes réglées à la main'; });
-    document.querySelectorAll('#tactics select[data-key]').forEach(sel => { const v = String(t[+sel.dataset.team][sel.dataset.key]); if (sel.value !== v && document.activeElement !== sel) sel.value = v; sel.classList.toggle('set', v !== '0'); });
-    if (coach()) $('tacHint').textContent = pending ? 'Choisissez les consignes de votre équipe (les Bleus). L\'adversaire joue avec des consignes neutres.' : 'Un changement s\'applique au prochain arrêt de jeu après le direct (' + mmss(live) + '), même si vous revoyez une action plus ancienne.';
-    else $('tacHint').textContent = pending ? 'Choisissez les consignes des deux équipes pour le coup d\'envoi. Vous pourrez les changer en cours de match.' : tick <= 0 ? 'Au coup d\'envoi : un changement vaut pour tout le match.' : 'Un changement s\'applique au prochain arrêt de jeu après ' + mmss(cur) + ' et réécrit la suite du match.';
     if (selected >= 0) {
       const p = view.players[selected], T = view.teams[p.team];
       $('player').className = '';
@@ -2461,12 +2463,11 @@ return { create, add, rows, rowsOf };
   function newMatch(s) {
     tac0 = rec ? tacAt(tickOf(cur)) : tac0; changes = [];           // les consignes affichées deviennent celles du coup d'envoi
     seed = s; cur = 0; live = 0; marked = -1; selected = -1; playing = false; pending = true; tv.base = null;
-    $('seed').value = seed;
+    $('seed').value = seed; lockMode();
     $('player').className = 'muted'; $('player').textContent = 'Cliquez sur un joueur pour voir ce qu\'il est en train de faire.';
     simulate(false);
   }
-  function launch() { if (!pending) return; pending = false; cur = 0; live = 0; marked = -1; playing = true; rebuild(); }
-  function setTactic(team, key, v) { setTactics(team, { [key]: v }); }
+  function launch() { if (!pending) return; pending = false; lockMode(); cur = 0; live = 0; marked = -1; playing = true; if (tab === 'tac') setTab('match'); rebuild(); }
   // plusieurs consignes d'un coup (tactique prédéfinie) : un seul recalcul
   function setTactics(team, obj, preset) {
     if (!rec) return;
@@ -2475,7 +2476,7 @@ return { create, add, rows, rowsOf };
     const tick = Math.min(tickOf(coach() ? live : cur), rec.n - 1), now = tacAt(tick), keys = Object.keys(obj).filter(k => JSON.stringify(now[team][k]) !== JSON.stringify(obj[k]));
     if (!keys.length) return;
     if (tick <= 0) { for (const k of keys) tac0[team][k] = obj[k]; changes = []; }
-    else for (const k of keys) { changes = changes.filter(c => c.tick < tick || (c.tick === tick && !(c.team === team && c.key === k))); changes.push({ tick, team, key: k, v: obj[k], preset }); }
+    else for (const k of keys) { changes = changes.filter(c => c.tick < tick || (c.tick === tick && !(c.team === team && c.key === k))); changes.push({ tick, team, key: k, v: obj[k], preset: k === 'formation' || k === 'lineup' ? undefined : preset }); }
     rebuild();
   }
 
@@ -2503,35 +2504,13 @@ return { create, add, rows, rowsOf };
   }
   showSquads();
 
-  // tableau des consignes
+  // tactiques prédéfinies : la page reconnaît une tactique quand les six consignes correspondent
   const PRE = E.PRESETS || [];
   const presetOf = t => { const P = PRE.find(P => TAC.every(c => (P.t[c.key] || 0) === t[c.key])); return P ? P.id : ''; };
-  const formSel = team => '<select class="preset" data-formation="' + team + '" aria-label="Formation des ' + (team ? 'Rouges' : 'Bleus') + '">' + E.FORMATIONS.map(f => '<option value="' + f.id + '">' + f.name + '</option>').join('') + '</select>';
-  const preSel = team => '<select class="preset" data-preset="' + team + '" aria-label="Tactique des ' + (team ? 'Rouges' : 'Bleus') + '"><option value="">Personnalisée</option>' + PRE.map(P => '<option value="' + P.id + '" title="' + esc(P.help) + '">' + esc(P.name) + '</option>').join('') + '</select>';
-  $('tactics').innerHTML = '<tr><th><span class="dot" style="background: var(--blue)"></span> Bleus</th><th></th><th>Rouges <span class="dot" style="background: var(--red)"></span></th></tr>'
-    + '<tr class="presets"><td>' + formSel(0) + '</td><td class="k" title="La formation place les onze joueurs. Les joueurs gardent leur rang dans l\'effectif : en 4-3-3, les milieux de côté deviennent ailiers.">Formation</td><td>' + formSel(1) + '</td></tr>'
-    + '<tr class="presets"><td>' + preSel(0) + '</td><td class="k" title="Une tactique règle les six consignes d\'un coup. Vous pouvez ensuite changer une consigne : la tactique devient « Personnalisée ».">Tactique</td><td>' + preSel(1) + '</td></tr>'
-    + TAC.map(c => { const sel = team => '<select data-team="' + team + '" data-key="' + c.key + '" aria-label="' + esc(c.label) + ' des ' + (team ? 'Rouges' : 'Bleus') + '">' + c.options.map((o, i) => '<option value="' + (i - 1) + '"' + (i === 1 ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';
-      return '<tr><td>' + sel(0) + '</td><td class="k" title="' + esc(c.help) + '">' + esc(c.label) + '</td><td>' + sel(1) + '</td></tr>'; }).join('');
-  document.querySelectorAll('#tactics select[data-key]').forEach(sel => sel.onchange = () => { setTactic(+sel.dataset.team, sel.dataset.key, +sel.value); sel.blur(); });
-  document.querySelectorAll('#tactics select[data-formation]').forEach(sel => sel.onchange = () => { setTactics(+sel.dataset.formation, { formation: sel.value }); sel.blur(); nextHud = 0; });
-  document.querySelectorAll('#tactics select[data-preset]').forEach(sel => sel.onchange = () => { const P = PRE.find(P => P.id === sel.value); if (P) setTactics(+sel.dataset.preset, P.t, P.name); sel.blur(); nextHud = 0; });
-  $('neutral').onclick = () => {
-    if (!rec) return;
-    if (pending) { tac0 = [blank(), blank()]; simulate(false); return; }
-    const tick = Math.min(tickOf(coach() ? live : cur), rec.n - 1), t = tacAt(tick);
-    if (!TAC.some(c => t[0][c.key] || t[1][c.key]) && !changes.some(c => c.tick >= tick)) return;      // tout est déjà neutre à partir d'ici
-    if (tick <= 0) { tac0 = [blank(), blank()]; changes = []; }
-    else {
-      changes = changes.filter(c => c.tick < tick);
-      const before = tacAt(tick);
-      for (let team = 0; team < 2; team++) for (const c of TAC) if (before[team][c.key] !== 0) changes.push({ tick, team, key: c.key, v: 0 });
-    }
-    rebuild();
-  };
 
   // ---------- onglet Tactique : formation, places et remplacements, comme dans la construction d'équipe ----------
-  // On prépare les changements (brouillon tv), puis « Valider » : ils deviennent une demande, faite au prochain arrêt de jeu.
+  // On prépare les changements (brouillon tv : formation, joueurs, consignes), puis « Valider » : ils deviennent une demande, faite au prochain arrêt de jeu.
+  // Les consignes ne se règlent qu'ici (un seul endroit pour une action, choix de Frédéric).
   // Avant le coup d'envoi, on choisit librement ses titulaires (ce ne sont pas des remplacements).
   const NAT_NAME = { G: 'Gardien', AG: 'Arrière gauche', DC: 'Défenseur central', AD: 'Arrière droit', MG: 'Milieu gauche', MC: 'Milieu axial', MD: 'Milieu droit', AT: 'Attaquant' };
   // postes naturels qui conviennent à une place (mêmes règles que la construction d'équipe)
@@ -2542,15 +2521,17 @@ return { create, add, rows, rowsOf };
     if (pl.role === 'MID') return pl.side === 0 ? (/offensif/.test(pl.label) ? ['MC', 'AT'] : ['MC']) : piston ? ['M' + cote, 'A' + cote] : ['M' + cote];
     return pl.side === 0 ? ['AT'] : ['AT', 'M' + cote];
   }
-  const tv = { team: 0, base: null, form: '442', rids: [], look: null, sel: null, msg: '', key: '' };
+  const tv = { team: 0, base: null, form: '442', rids: [], tac: {}, look: null, sel: null, msg: '', key: '' };
   const nowTick = () => Math.min(tickOf(coach() ? live : cur), rec.n - 1);
   // état demandé à cet instant (formation, joueurs), et état réel (qui joue, remplacements faits, joueurs sortis)
   function tvState(team) {
     const tick = pending ? 0 : nowTick(), t = tacAt(tick)[team], L = lineupAt(tick);
-    return { tick, form: t.formation || '442', rids: (t.lineup || L.rids[team]).slice(), applied: L.rids[team], out: L.out[team], subs: L.subs[team] };
+    const tac = {}; for (const c of TAC) tac[c.key] = t[c.key];
+    return { tick, form: t.formation || '442', rids: (t.lineup || L.rids[team]).slice(), tac, applied: L.rids[team], out: L.out[team], subs: L.subs[team] };
   }
-  function tvLoad() { if (coach()) tv.team = 0; tv.base = tvState(tv.team); tv.form = tv.base.form; tv.rids = tv.base.rids.slice(); tv.sel = null; tv.key = JSON.stringify(tv.base); }
-  const tvDirty = () => tv.base && (tv.form !== tv.base.form || tv.rids.some((r, i) => r !== tv.base.rids[i]));
+  function tvLoad() { if (coach()) tv.team = 0; tv.base = tvState(tv.team); tv.form = tv.base.form; tv.rids = tv.base.rids.slice(); tv.tac = Object.assign({}, tv.base.tac); tv.sel = null; tv.key = JSON.stringify(tv.base); }
+  const tacDiff = () => TAC.filter(c => tv.tac[c.key] !== tv.base.tac[c.key]);
+  const tvDirty = () => tv.base && (tv.form !== tv.base.form || tv.rids.some((r, i) => r !== tv.base.rids[i]) || tacDiff().length > 0);
   const newcomers = () => pending ? [] : tv.rids.filter(r => !tv.base.applied.includes(r));
   const subsUsed = () => pending ? 0 : tv.base.subs + newcomers().length;
   function tvSync() {           // la barre de temps a bougé, un changement a été fait : on recharge, sauf brouillon en cours
@@ -2593,10 +2574,21 @@ return { create, add, rows, rowsOf };
     $('tvPitch').innerHTML = h;
     const bench = R.filter(e => !tv.rids.includes(e.rid));
     $('tvBench').innerHTML = bench.length ? bench.map(e => '<div class="tdrop" data-tdrop="b' + e.rid + '">' + ttok(e.rid, null) + '</div>').join('') : '<span class="muted small">Pas de remplaçant.</span>';
+    // consignes de l'équipe affichée (brouillon)
+    const opt = (c, v) => '<option value="' + v + '"' + (tv.tac[c.key] === v ? ' selected' : '') + '>' + esc(c.options[v + 1]) + '</option>', pid = presetOf(tv.tac), who = tv.team ? 'Rouges' : 'Bleus';
+    $('tvTac').innerHTML = '<tr class="presets"><td class="k" title="Une tactique règle les six consignes d\'un coup. Vous pouvez ensuite changer une consigne : la tactique devient « Personnalisée ».">Tactique</td><td><select class="preset" data-tv-preset aria-label="Tactique des ' + who + '"><option value="">Personnalisée</option>' + PRE.map(P => '<option value="' + P.id + '"' + (P.id === pid ? ' selected' : '') + ' title="' + esc(P.help) + '">' + esc(P.name) + '</option>').join('') + '</select></td></tr>'
+      + TAC.map(c => '<tr><td class="k" title="' + esc(c.help) + '">' + esc(c.label) + '</td><td><select data-tv-key="' + c.key + '" aria-label="' + esc(c.label) + ' des ' + who + '"' + (tv.tac[c.key] ? ' class="set"' : '') + '>' + [-1, 0, 1].map(v => opt(c, v)).join('') + '</select></td></tr>').join('');
+    $('tvNeutral').disabled = !TAC.some(c => tv.tac[c.key]);
+    $('tacHint').textContent = coach() && !pending ? 'Ce que vous validez s\'applique au prochain arrêt de jeu après le direct (' + mmss(live) + '), même si vous revoyez une action plus ancienne.'
+      : pending ? (coach() ? 'Avant le coup d\'envoi : réglez votre équipe. L\'adversaire joue avec des consignes neutres.' : 'Avant le coup d\'envoi : ce que vous validez vaut dès le début du match.')
+      : tv.base.tick <= 0 ? 'Au coup d\'envoi : un changement vaut pour tout le match.' : 'Ce que vous validez s\'applique au prochain arrêt de jeu après ' + mmss(cur) + ' et réécrit la suite du match.';
     $('tvSubs').textContent = pending ? '· avant le coup d\'envoi : titulaires au choix' : '· remplacements ' + subsUsed() + ' / ' + E.MAX_SUBS;
     // ce qui est en préparation
     const lines = [];
     if (tv.form !== tv.base.form) lines.push('Formation : ' + E.FORMATIONS.find(f => f.id === tv.form).name);
+    const td = tacDiff();
+    if (td.length > 1 && pid && pid !== presetOf(tv.base.tac)) lines.push('Tactique : ' + esc(PRE.find(P => P.id === pid).name));
+    else for (const c of td) lines.push(esc(c.label) + ' : ' + esc(c.options[tv.tac[c.key] + 1].toLowerCase()));
     const was = tv.base.rids, nm = r => esc(R[r].name);
     for (let i = 0; i < 11; i++) if (tv.rids[i] !== was[i]) {
       const r = tv.rids[i];
@@ -2637,13 +2629,22 @@ return { create, add, rows, rowsOf };
     const obj = {};
     if (tv.form !== tv.base.form) obj.formation = tv.form;
     if (tv.rids.some((r, i) => r !== tv.base.rids[i])) obj.lineup = tv.rids.slice();
+    const td = tacDiff(), pid = presetOf(tv.tac), P = td.length > 1 && pid ? PRE.find(P => P.id === pid) : null;
+    for (const c of td) obj[c.key] = tv.tac[c.key];
     const at = pending ? 0 : tv.base.tick * DT;
-    setTactics(tv.team, obj);
+    setTactics(tv.team, obj, P ? P.name : undefined);
     tv.msg = pending ? 'Composition du coup d\'envoi enregistrée.' : 'Demandé à ' + mmss(at) + ' : fait au prochain arrêt de jeu.';
     tvLoad(); tvDraw(); nextHud = 0;
   }
   $('tvApply').onclick = tvApply;
   $('tvReset').onclick = () => { tv.msg = ''; tvLoad(); tvDraw(); };
+  $('tvNeutral').onclick = () => { for (const c of TAC) tv.tac[c.key] = 0; tv.msg = ''; tvDraw(); };
+  $('tvTac').addEventListener('change', e => {
+    const sel = e.target;
+    if (sel.dataset.tvKey) tv.tac[sel.dataset.tvKey] = +sel.value;
+    else { const P = PRE.find(P => P.id === sel.value); if (P) for (const c of TAC) tv.tac[c.key] = P.t[c.key] || 0; }
+    tv.msg = ''; tvDraw();
+  });
   $('tacView').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.tvForm) { tv.form = b.dataset.tvForm; tvDraw(); }
@@ -2700,23 +2701,26 @@ return { create, add, rows, rowsOf };
   time.addEventListener('input', () => { cur = +time.value; if (coach() && cur > live) { cur = live; time.value = cur; } nextHud = 0; });
   const release = () => { if (scrub) { scrub = false; nextHud = 0; } };
   time.addEventListener('change', release); window.addEventListener('pointerup', release);
+  // le mode se choisit avant le coup d'envoi : une fois le match lancé, il est fixé (choix de Frédéric : changer de mode ne doit pas faire perdre le match)
   function setMode(md) {
-    if (md === mode) return;
+    if (md === mode || !pending) return;
     mode = md; document.body.classList.toggle('coach', coach());
     document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
-    document.querySelectorAll('#tactics select[data-team="1"], #tactics select[data-preset="1"], #tactics select[data-formation="1"]').forEach(sel => { sel.disabled = coach(); sel.title = coach() ? 'Mode Coach It : l\'adversaire joue avec des consignes neutres' : ''; });
     showSquads();
-    const heads = document.querySelectorAll('#tactics th');
-    heads.forEach(th => { const t = th.textContent.trim(); if (/Bleus|Votre équipe/.test(t)) th.lastChild.textContent = coach() ? ' Votre équipe' : ' Bleus'; if (/Rouges|Adversaire/.test(t)) th.firstChild.textContent = coach() ? 'Adversaire ' : 'Rouges '; });
-    if (coach()) { tac0 = [rec ? tacAt(tickOf(cur))[0] : tac0[0], blank()]; changes = []; }
-    newMatch(seed);
-    if (coach()) tac0[1] = blank();
-    simulate(false); nextHud = 0;
+    if (coach()) { tac0[1] = blank(); simulate(false); }      // Coach It : l'adversaire joue avec des consignes neutres
+    tv.base = null; if (tab === 'tac') { tv.look = null; tv.msg = ''; tvLoad(); tvDraw(); }
+    nextHud = 0;
+  }
+  function lockMode() {
+    document.querySelectorAll('[data-mode]').forEach(b => { b.disabled = !pending && b.dataset.mode !== mode; });
+    $('modes').title = pending ? 'Mode God : on règle les deux équipes, on voit les intentions et toute la suite du match. Mode Coach It : on dirige les Bleus seulement, comme un vrai entraîneur, sans voir la suite. Le mode se choisit avant le coup d\'envoi.'
+      : 'Le mode est fixé pour ce match. Pour en changer : « Rejouer ce match » ou « Nouveau match ».';
   }
   document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
   $('tabMatch').onclick = () => setTab('match');
   $('tabStats').onclick = () => setTab('stats');
   $('tabTac').onclick = () => setTab('tac');
+  $('preTac').onclick = () => setTab('tac');
   document.querySelectorAll('[data-st-team]').forEach(b => b.onclick = () => setStats({ team: +b.dataset.stTeam }));
   document.querySelectorAll('[data-st-map]').forEach(b => b.onclick = () => setStats({ map: b.dataset.stMap }));
   document.querySelectorAll('[data-st-src]').forEach(b => b.onclick = () => setStats({ src: b.dataset.stSrc }));
@@ -2777,7 +2781,7 @@ return { create, add, rows, rowsOf };
     if (!S.stop && S.done < S.n) return setTimeout(seriesStep, 0);
     series = null;
     $('runSeries').textContent = 'Simuler la série'; $('prog').hidden = true;
-    $('seriesHint').textContent = 'Avec les équipes et les consignes affichées à droite, et la durée choisie. Sert à voir ce qu\'un réglage change en moyenne.';
+    $('seriesHint').textContent = 'Avec les équipes, la composition et les consignes en vigueur (onglet Tactique), et la durée choisie. Sert à voir ce qu\'un réglage change en moyenne.';
     if (S.done) showSeries(S);
   }
   // cartes de la série : on cumule les positions (carte de chaleur) et les passes (réseau), poste par poste
