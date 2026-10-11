@@ -99,7 +99,7 @@ const pick = async (team, key, v) => { const s = d.querySelector(`#tactics selec
   const mk = d.querySelector('#marks .mark.tactic'), mkT = mk ? mk.title.slice(0, 5) : '';
   check(mkT >= '01:00', 'le changement attend le prochain arrêt de jeu après 1 minute', 'fait à ' + mkT);
   await goTo(599);
-  check(/Consigne des Bleus : jeu de passes → long/.test($('log').textContent), 'le changement est noté dans le fil du match');
+  check(/Consigne des Bleus : jeu direct → direct/.test($('log').textContent), 'le changement est noté dans le fil du match');
   await goTo(600);
   const endLong1 = stat('Longs ballons');
   check(+endLong1[0] > +endLong0[0], 'les Bleus en jeu long font plus de longs ballons sur le même match', endLong0[0] + ' → ' + endLong1[0] + ' (Rouges : ' + endLong0[1] + ' → ' + endLong1[1] + ')');

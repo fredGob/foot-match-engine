@@ -408,8 +408,8 @@ const NAMES = ['Morel', 'Garnier', 'Faure', 'Roussel', 'Blanchard', 'Guérin', '
 // Une consigne oriente les choix de chaque joueur sans les dicter : une équipe qui « joue court » tente encore
 // un long ballon quand c'est nettement la meilleure solution.
 const TACTICS = [
-  { key: 'passing', label: 'Jeu de passes', options: ['Court', 'Mixte', 'Long'], notes: ['jouer court', '', 'jouer long'],
-    help: 'Court : passes dans les pieds, partenaires proches du porteur. Long : on cherche vite les attaquants, par-dessus ou dans la profondeur.' },
+  { key: 'passing', label: 'Jeu direct', options: ['Construire', 'Équilibré', 'Direct'], notes: ['construire', '', 'jouer direct'],
+    help: 'Construire : on ressort le ballon patiemment, passes courtes dans les pieds, partenaires proches du porteur. Direct : on cherche vite les attaquants vers l\'avant, par-dessus ou dans la profondeur.' },
   { key: 'tempo', label: 'Rythme', options: ['Posé', 'Normal', 'Rapide'], notes: ['jouer posé', '', 'jouer vite'],
     help: 'Posé : le porteur attend qu\'une bonne solution s\'ouvre. Rapide : le ballon circule en une ou deux touches, quitte à forcer.' },
   { key: 'width', label: 'Largeur', options: ['Resserré', 'Normal', 'Large'], notes: ['jouer dans l\'axe', '', 'jouer sur les ailes'],

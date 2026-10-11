@@ -29,7 +29,7 @@ Chaque équipe a six consignes à trois positions. Une consigne est une **intent
 
 | Consigne | Positions |
 |---|---|
-| Jeu de passes | Court · Mixte · Long |
+| Jeu direct | Construire · Équilibré · Direct |
 | Rythme | Posé · Normal · Rapide |
 | Largeur | Resserré · Normal · Large |
 | Hauteur du bloc | Bas · Médian · Haut |
