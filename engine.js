@@ -130,8 +130,8 @@ const NAMES = ['Morel', 'Garnier', 'Faure', 'Roussel', 'Blanchard', 'Guérin', '
 // Une consigne oriente les choix de chaque joueur sans les dicter : une équipe qui « joue court » tente encore
 // un long ballon quand c'est nettement la meilleure solution.
 const TACTICS = [
-  { key: 'passing', label: 'Jeu de passes', options: ['Court', 'Mixte', 'Long'], notes: ['jouer court', '', 'jouer long'],
-    help: 'Court : passes dans les pieds, partenaires proches du porteur. Long : on cherche vite les attaquants, par-dessus ou dans la profondeur.' },
+  { key: 'passing', label: 'Jeu de passes', options: ['Court', 'Mixte', 'Direct'], notes: ['jouer court', '', 'jouer direct'],
+    help: 'Court : on fait circuler, en retrait et en largeur (transversales comprises), partenaires proches du porteur ; on force moins vers l\'avant. Direct : on cherche vite les attaquants vers l\'avant, au sol, par-dessus ou dans la profondeur.' },
   { key: 'tempo', label: 'Rythme', options: ['Posé', 'Normal', 'Rapide'], notes: ['jouer posé', '', 'jouer vite'],
     help: 'Posé : le porteur attend qu\'une bonne solution s\'ouvre. Rapide : le ballon circule en une ou deux touches, quitte à forcer.' },
   { key: 'width', label: 'Largeur', options: ['Resserré', 'Normal', 'Large'], notes: ['jouer dans l\'axe', '', 'jouer sur les ailes'],
@@ -904,12 +904,16 @@ function passOption(m, p, q, pr, sp, hands, risk) {
 
 // Poids des consignes sur une option du porteur, en parts de l'enjeu du moment (0,3 = « 30 % plus tentant »).
 // C'est un penchant, pas un interdit : une option nettement meilleure l'emporte quand même.
+const SHORT_BACK = 0.2, SHORT_LOB = 0.3, DIRECT_ATT = 0.2;      // jeu court : passe en retrait ou latérale, long ballon vers l'avant ; jeu direct : passe vers un attaquant
 function intentBias(T, p, o, pr, waited) {
   const tac = T.tac, d = T.dir, kp = tac.passing, kt = tac.tempo, kw = tac.width, part = { passing: 0, tempo: 0, width: 0 };
   if (o.kind === 'pass') {
     const D = hyp(o.qx - p.x, o.qy - p.y), fwd = (o.qx - p.x) * d, cross = o.lofted && isCross(T, p);
-    if (kp < 0) part.passing = -kp * (o.lofted ? (cross ? -0.25 : -0.45) : 0.25 * clamp((20 - D) / 12, -1, 1));
-    else if (kp > 0) part.passing = kp * (o.lofted ? (cross ? 0 : 0.9 * clamp(fwd / 25, 0, 1) * clamp(o.pOk / 0.4, 0.2, 1)) : o.feet ? 0.15 * clamp(fwd / 20, 0, 1) - 0.2 * clamp((12 - fwd) / 12, 0, 1) : 0.3 * clamp(fwd / 15, 0, 1));
+    // jeu court (choix de Frédéric) : on fait circuler en retrait et en largeur, transversales comprises, et on force moins vers l'avant ;
+    // c'est la direction qui compte, pas la longueur. Jeu direct : vers l'avant, à la recherche des attaquants, au sol ou par-dessus.
+    if (kp < 0) part.passing = -kp * (SHORT_BACK * clamp((4 - fwd) / 12, -1, 1) - (o.lofted && !cross && fwd > 10 ? SHORT_LOB : 0));
+    else if (kp > 0) part.passing = kp * ((o.lofted ? (cross ? 0 : 0.9 * clamp(fwd / 25, 0, 1) * clamp(o.pOk / 0.4, 0.2, 1)) : o.feet ? 0.15 * clamp(fwd / 20, 0, 1) - 0.2 * clamp((12 - fwd) / 12, 0, 1) : 0.3 * clamp(fwd / 15, 0, 1))
+      + (o.to && o.to.role === 'FWD' && fwd > 5 ? DIRECT_ATT : 0));
     if (kt > 0) part.tempo = 0.12 * kt; else if (kt < 0) part.tempo = kt * 0.3 * Math.max(0, 0.85 - o.pOk);
     if (kw) part.width = 0.15 * kw * clamp((Math.abs(o.qy) - 14) / 10, -1, 1) + (cross ? 0.3 * kw : 0);
   } else if (o.kind === 'hold') part.tempo = kt > 0 ? -0.5 * kt : -0.25 * kt * (1 - pr) * Math.max(0, 1 - waited / 2.5);

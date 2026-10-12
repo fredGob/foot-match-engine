@@ -80,9 +80,9 @@ const pick = async (team, key, v) => {
   console.log('Lecture');
   $('kick').click(); await wait(300);
   check($('pre').hidden, 'le bouton « Lancer le match » calcule le match et démarre la lecture');
-  d.querySelector('[data-speed="8"]').click(); await wait(2000);
+  d.querySelector('[data-speed="2"]').click(); await wait(2000);
   const c1 = $('clock').textContent;
-  check(/^00:[1-4]\d/.test(c1), 'l\'horloge avance à vitesse ×8 (plus vite encore pendant les arrêts de jeu)', c1 + ' | ' + $('name0').textContent + ' ' + $('goals').textContent + ' ' + $('name1').textContent);
+  check(/^00:(0[3-9]|[1-4]\d)/.test(c1), 'l\'horloge avance à vitesse ×2 (plus vite pendant les temps faibles et les arrêts de jeu)', c1 + ' | ' + $('name0').textContent + ' ' + $('goals').textContent + ' ' + $('name1').textContent);
   let found = false;
   for (let x = 200; x < 1000 && !found; x += 50) for (let y = 150; y < 650 && !found; y += 50) { $('pitch').onclick({ clientX: x, clientY: y }); await wait(40); if (!/Cliquez/.test($('player').textContent)) found = true; }
   await wait(300);
@@ -110,10 +110,10 @@ const pick = async (team, key, v) => {
   const mk = d.querySelector('#marks .mark.tactic'), mkT = mk ? mk.title.slice(0, 5) : '';
   check(mkT >= '01:00', 'le changement attend le prochain arrêt de jeu après 1 minute', 'fait à ' + mkT);
   await goTo(599);
-  check(/Consigne des Bleus : jeu de passes → long/.test($('log').textContent), 'le changement est noté dans le fil du match');
+  check(/Consigne des Bleus : jeu de passes → direct/.test($('log').textContent), 'le changement est noté dans le fil du match');
   await goTo(600);
   const endLong1 = stat('Longs ballons');
-  check(+endLong1[0] > +endLong0[0], 'les Bleus en jeu long font plus de longs ballons sur le même match', endLong0[0] + ' → ' + endLong1[0] + ' (Rouges : ' + endLong0[1] + ' → ' + endLong1[1] + ')');
+  check(+endLong1[0] > +endLong0[0], 'les Bleus en jeu direct font plus de longs ballons sur le même match', endLong0[0] + ' → ' + endLong1[0] + ' (Rouges : ' + endLong0[1] + ' → ' + endLong1[1] + ')');
   await goTo(30);
   check(tacOf(d, 0).passing === '0', 'avant le changement, la consigne affichée est l\'ancienne');
   await goTo(0); await pick(1, 'press', 1);

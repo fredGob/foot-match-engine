@@ -39,7 +39,7 @@ const stop = code => { try { browser.kill(); } catch (e) {} setTimeout(() => { f
   await ev(`document.getElementById('kick').click()`); await wait(300);
   const c0 = await txt('clock'); await wait(2000); const c1 = await txt('clock');
   check(c0 !== c1 && /^00:0[1-6]/.test(c1), 'après « Lancer le match », le match se lit à vitesse réelle', c0 + ' → ' + c1 + ' en 2 secondes');
-  await ev(`document.querySelector('[data-speed="8"]').click()`); await wait(1500);
+  await ev(`document.querySelector('[data-speed="2"]').click()`); await wait(1500);
   check(/^00:[1-5]/.test(await txt('clock')), 'vitesse ×8', await txt('clock'));
 
   console.log('Barre de temps, à la souris');

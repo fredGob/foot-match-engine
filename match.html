@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Moteur de match</title>
+<title>Entraîneur en carton</title>
 <style>
   :root { color-scheme: dark; --bg: #11151a; --panel: #1a2028; --line: #2b3440; --text: #e8edf2; --muted: #93a0af; --blue: #2f6fdf; --red: #d8423a; --accent: #ffe45c; }
   * { box-sizing: border-box; }
@@ -94,6 +94,8 @@
   .pre > div.row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding: 0; background: none; }
   .pre #preTac { font-size: 15px; padding: 8px 18px; }
   .busy { font-size: 18px; font-weight: 500; }
+  .spin { width: 46px; height: 46px; border-radius: 50%; border: 5px solid rgba(255, 255, 255, 0.15); border-top-color: var(--accent); animation: tourne-rond 0.8s linear infinite; }      /* tourne même quand la page calcule */
+  @keyframes tourne-rond { to { transform: rotate(360deg); } }
   .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 
   /* barre de temps : repères au-dessus, curseur dessous */
@@ -120,16 +122,24 @@
 
   /* ---------- téléphone (choix de Frédéric) : match en largeur, mode Coach It ; terrain à gauche, colonne de commandes à droite ---------- */
   .ppanel, .rotate, .phoneonly { display: none; }
-  body.phone { --pw: 236px; overflow: hidden; }
+  body.phone { --pw: 200px; overflow: hidden; }
+  body.phone.pclosed { --pw: 0px; }
+  body.phone.pclosed .ppanel { display: none; }
+  .pmini { display: none; }
+  body.phone.pclosed .pmini { display: flex; position: absolute; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 5; gap: 6px; }
+  body.phone .stage.tac ~ .pmini, body.phone .pmini.hide { display: none !important; }
+  .pmini button { min-width: 46px; min-height: 42px; padding: 6px 12px; font-size: 16px; background: rgba(17, 21, 26, 0.85); }
+  .pmini #miniTac { background: var(--accent); border-color: var(--accent); color: #11151a; font-weight: 700; }
+  body.phone .ppanel #pclose { align-self: flex-end; padding: 4px 10px; font-size: 13px; }
   body.phone .app { display: block; max-width: none; padding: 0; }
   body.phone main { position: fixed; left: 0; top: 0; bottom: 0; right: var(--pw); z-index: 10; }      /* au-dessus de la colonne : l'écran Tactique couvre tout */
-  body.phone .tabs, body.phone .bar, body.phone .series, body.phone aside, body.phone .statsnote, body.phone .legend, body.phone [data-speed="8"], body.phone [data-speed="16"] { display: none !important; }
+  body.phone .tabs, body.phone .bar, body.phone .series, body.phone aside, body.phone .statsnote, body.phone .legend, body.phone .score { display: none !important; }
   body.phone .stage { height: 100%; }
   body.phone #pitch { width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; }
   body.phone .numbers, body.phone .end, body.phone .busy { border-radius: 0; }
   body.phone .pre { bottom: 5%; font-size: 14px; }
   body.phone .pre button { font-size: 16px; padding: 9px 20px; }
-  body.phone .ppanel { display: flex; flex-direction: column; gap: 8px; position: fixed; top: 0; right: 0; bottom: 0; width: var(--pw); padding: 8px 10px calc(10px + env(safe-area-inset-bottom)) 10px; overflow-y: auto; background: var(--panel); border-left: 1px solid var(--line); }
+  body.phone .ppanel { display: flex; flex-direction: column; gap: 7px; position: fixed; top: 0; right: 0; bottom: 0; width: var(--pw); padding: 6px 8px calc(10px + env(safe-area-inset-bottom)) 10px; overflow-y: auto; background: var(--panel); border-left: 1px solid var(--line); }
   body.phone .ppanel .score { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 4px 6px; font-size: 13px; }
   body.phone .ppanel .score .team { min-width: 0; gap: 4px; }
   body.phone .ppanel .score .team span:not(.dot) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -137,7 +147,7 @@
   body.phone .ppanel .score .clock { grid-column: 1 / -1; text-align: center; font-size: 13px; min-width: 0; }
   body.phone .ppanel .timeline { margin: 0 -4px; }
   body.phone .ppanel .pctl, body.phone .ppanel .ptabs { display: flex; gap: 6px; }
-  body.phone .ppanel .pctl > *, body.phone .ppanel .ptabs > button { flex: 1; padding: 8px 0; min-height: 40px; }
+  body.phone .ppanel .pctl > *, body.phone .ppanel .ptabs > button { flex: 1; padding: 7px 0; min-height: 38px; font-size: 13px; }
   body.phone .ppanel .pspeed { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
   body.phone .ppanel .pspeed button { flex: 1; padding: 6px 0; }
   body.phone .ppanel #tabTac { background: var(--accent); border-color: var(--accent); color: #11151a; font-weight: 700; }
@@ -249,7 +259,7 @@
       <canvas id="pitch"></canvas>
       <div class="end" id="end" hidden><canvas id="card" width="2400" height="1350" aria-label="Résumé du match"></canvas><div id="endText" hidden></div><div class="row"><button id="saveCard" class="main">Enregistrer l'image</button><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
       <div class="pre" id="pre" hidden><div>Choisissez le mode, réglez votre tactique (onglet Tactique), puis donnez le coup d'envoi.</div><div class="row"><button id="preTac">Régler la tactique</button><button id="kick" class="main">Lancer le match</button></div></div>
-      <div class="busy" id="busy" hidden>Calcul du match…</div>
+      <div class="busy" id="busy" hidden><div class="spin" aria-hidden="true"></div><span>Calcul du match…</span></div>
       <div class="tip" id="tip" hidden></div>
       <div class="ff" id="ff" hidden>⏩ temps faible ×8</div>
       <div class="tacview" id="tacView" hidden>
@@ -277,6 +287,7 @@
       <div class="numbers" id="numbers" hidden><div class="sides" id="numSides"></div><table id="stats"></table><table id="statsSeries" hidden></table></div>
     </div>
 
+    <div class="pmini" id="pmini"><button id="miniPlay" aria-label="Lecture">▶</button><button id="miniTac">Tactique</button><button id="miniMenu" aria-label="Ouvrir le menu">☰</button></div>
     <div class="statsnote" id="statsNote" hidden></div>
     <div class="timeline">
       <div class="marks" id="marks"></div>
@@ -298,7 +309,7 @@
       <button id="play">Pause</button>
       <span class="group"><button id="back" title="Reculer de 10 secondes">−10 s</button><button id="fwd" title="Avancer de 10 secondes">+10 s</button></span>
       <span class="group">Vitesse
-        <button data-speed="1" class="on">×1</button><button data-speed="2">×2</button><button data-speed="4">×4</button><button data-speed="8">×8</button><button data-speed="16">×16</button>
+        <button data-speed="1" class="on">×1</button><button data-speed="1.5">×1,5</button><button data-speed="2">×2</button>
       </span>
       <label class="godonly"><input type="checkbox" id="intents"> Montrer où chaque joueur veut aller</label>
       <label class="godonly"><input type="checkbox" id="labels"> Montrer l'intention de chaque joueur</label>
@@ -474,8 +485,8 @@ const NAMES = ['Morel', 'Garnier', 'Faure', 'Roussel', 'Blanchard', 'Guérin', '
 // Une consigne oriente les choix de chaque joueur sans les dicter : une équipe qui « joue court » tente encore
 // un long ballon quand c'est nettement la meilleure solution.
 const TACTICS = [
-  { key: 'passing', label: 'Jeu de passes', options: ['Court', 'Mixte', 'Long'], notes: ['jouer court', '', 'jouer long'],
-    help: 'Court : passes dans les pieds, partenaires proches du porteur. Long : on cherche vite les attaquants, par-dessus ou dans la profondeur.' },
+  { key: 'passing', label: 'Jeu de passes', options: ['Court', 'Mixte', 'Direct'], notes: ['jouer court', '', 'jouer direct'],
+    help: 'Court : on fait circuler, en retrait et en largeur (transversales comprises), partenaires proches du porteur ; on force moins vers l\'avant. Direct : on cherche vite les attaquants vers l\'avant, au sol, par-dessus ou dans la profondeur.' },
   { key: 'tempo', label: 'Rythme', options: ['Posé', 'Normal', 'Rapide'], notes: ['jouer posé', '', 'jouer vite'],
     help: 'Posé : le porteur attend qu\'une bonne solution s\'ouvre. Rapide : le ballon circule en une ou deux touches, quitte à forcer.' },
   { key: 'width', label: 'Largeur', options: ['Resserré', 'Normal', 'Large'], notes: ['jouer dans l\'axe', '', 'jouer sur les ailes'],
@@ -1248,12 +1259,16 @@ function passOption(m, p, q, pr, sp, hands, risk) {
 
 // Poids des consignes sur une option du porteur, en parts de l'enjeu du moment (0,3 = « 30 % plus tentant »).
 // C'est un penchant, pas un interdit : une option nettement meilleure l'emporte quand même.
+const SHORT_BACK = 0.2, SHORT_LOB = 0.3, DIRECT_ATT = 0.2;      // jeu court : passe en retrait ou latérale, long ballon vers l'avant ; jeu direct : passe vers un attaquant
 function intentBias(T, p, o, pr, waited) {
   const tac = T.tac, d = T.dir, kp = tac.passing, kt = tac.tempo, kw = tac.width, part = { passing: 0, tempo: 0, width: 0 };
   if (o.kind === 'pass') {
     const D = hyp(o.qx - p.x, o.qy - p.y), fwd = (o.qx - p.x) * d, cross = o.lofted && isCross(T, p);
-    if (kp < 0) part.passing = -kp * (o.lofted ? (cross ? -0.25 : -0.45) : 0.25 * clamp((20 - D) / 12, -1, 1));
-    else if (kp > 0) part.passing = kp * (o.lofted ? (cross ? 0 : 0.9 * clamp(fwd / 25, 0, 1) * clamp(o.pOk / 0.4, 0.2, 1)) : o.feet ? 0.15 * clamp(fwd / 20, 0, 1) - 0.2 * clamp((12 - fwd) / 12, 0, 1) : 0.3 * clamp(fwd / 15, 0, 1));
+    // jeu court (choix de Frédéric) : on fait circuler en retrait et en largeur, transversales comprises, et on force moins vers l'avant ;
+    // c'est la direction qui compte, pas la longueur. Jeu direct : vers l'avant, à la recherche des attaquants, au sol ou par-dessus.
+    if (kp < 0) part.passing = -kp * (SHORT_BACK * clamp((4 - fwd) / 12, -1, 1) - (o.lofted && !cross && fwd > 10 ? SHORT_LOB : 0));
+    else if (kp > 0) part.passing = kp * ((o.lofted ? (cross ? 0 : 0.9 * clamp(fwd / 25, 0, 1) * clamp(o.pOk / 0.4, 0.2, 1)) : o.feet ? 0.15 * clamp(fwd / 20, 0, 1) - 0.2 * clamp((12 - fwd) / 12, 0, 1) : 0.3 * clamp(fwd / 15, 0, 1))
+      + (o.to && o.to.role === 'FWD' && fwd > 5 ? DIRECT_ATT : 0));
     if (kt > 0) part.tempo = 0.12 * kt; else if (kt < 0) part.tempo = kt * 0.3 * Math.max(0, 0.85 - o.pOk);
     if (kw) part.width = 0.15 * kw * clamp((Math.abs(o.qy) - 14) / 10, -1, 1) + (cross ? 0.3 * kw : 0);
   } else if (o.kind === 'hold') part.tempo = kt > 0 ? -0.5 * kt : -0.25 * kt * (1 - pr) * Math.max(0, 1 - waited / 2.5);
@@ -2016,7 +2031,7 @@ function drawMatch(ctx, W, H, m, alpha, opts) {
   ctx.beginPath(); ctx.arc(X(bx), Y(by) - bz * 0.45 * s, br, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
   // chrono façon télé, dans la marge au-dessus du terrain : temps de jeu, score, arrêt de jeu
   if (opts.clock) {
-    const c = opts.clock, txt = c.time + (c.score ? '   ' + c.score : '') + (c.dead ? '   Arrêt de jeu' : '');
+    const c = opts.clock, sc = c.score ? (c.teams ? c.teams[0] + '  ' + c.score + '  ' + c.teams[1] : c.score) : '', txt = c.time + (sc ? '   ' + sc : '') + (c.dead ? '   Arrêt de jeu' : '');      // c.teams : noms courts des équipes (téléphone)
     ctx.font = '700 ' + Math.max(12, Math.round(1.6 * s)) + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
     const tw = ctx.measureText(txt).width + 16, th = Math.max(18, Math.min(2.4 * s, MY * s - 4)), lx = X(-HL), ly = Y(-HW) - (MY * s + th) / 2;
     ctx.fillStyle = 'rgba(12,16,20,0.85)'; ctx.fillRect(lx, ly, tw, th);
@@ -2293,6 +2308,7 @@ return { create, add, rows, rowsOf, highlights };
   const DT = E.DT, NP = 22, F = 8, TAC = E.TACTICS;
   const cv = $('pitch'), ctx = cv.getContext('2d');
   // téléphone : petit écran tactile (ou « tel » dans l'adresse, pour les essais sur ordinateur)
+  const short = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase();      // « Lens » → LEN
   const PHONE = /[#&?]tel\b/.test(location.href) || (typeof matchMedia === 'function' && Math.min(screen.width, screen.height) < 600 && matchMedia('(pointer: coarse)').matches);
   const CHASE = { chase: 1, receive: 1, claim: 1, press: 1 };
 
@@ -2484,7 +2500,9 @@ return { create, add, rows, rowsOf, highlights };
     if (over) { $('endText').textContent = view.teams[0].name + ' ' + s0 + ' – ' + s1 + ' ' + view.teams[1].name; if (cardOf !== rec) { cardOf = rec; drawCard(); } }
     $('end').hidden = !over || tab !== 'match';
     tvSync();
-    $('play').textContent = pending ? 'Lancer le match' : playing ? 'Pause' : 'Lecture';
+    $('play').textContent = pending ? (PHONE ? '▶ Lancer' : 'Lancer le match') : playing ? (PHONE ? '⏸ Pause' : 'Pause') : (PHONE ? '▶ Lecture' : 'Lecture');
+    keepAwake(playing && !pending);
+    if (PHONE) { $('miniPlay').textContent = playing && !pending ? '⏸' : '▶'; $('pmini').classList.toggle('hide', tab !== 'match' || !$('end').hidden); }
   }
 
   // ---------- carte de fin de match : score et buteurs, domination, chiffres clés, homme du match ----------
@@ -2718,7 +2736,7 @@ return { create, add, rows, rowsOf, highlights };
       if (tab === 'stats') drawStats(ts);
       else {
       const stopped = !!rec.D[Math.min(Math.floor(cur / DT), rec.n - 1)];
-      R.drawMatch(ctx, W, H, view, show(cur), { intents: !coach() && $('intents').checked, labels: !coach() && $('labels').checked, hideMind: coach(), big: PHONE ? 1.4 : 1, selected, clock: { time: mmss(cur), score: $('goals').textContent, dead: stopped && cur > 0 && cur < end } });
+      R.drawMatch(ctx, W, H, view, show(cur), { intents: !coach() && $('intents').checked, labels: !coach() && $('labels').checked, hideMind: coach(), big: PHONE ? 1.4 : 1, selected, clock: { time: mmss(cur), score: $('goals').textContent, teams: PHONE ? view.teams.map(t => short(t.club || t.name)) : null, dead: stopped && cur > 0 && cur < end } });
       }
       if (ts >= nextHud) { hud(); nextHud = ts + 150; }
     }
@@ -2740,6 +2758,16 @@ return { create, add, rows, rowsOf, highlights };
     $('player').className = 'muted'; $('player').textContent = 'Cliquez sur un joueur pour voir ce qu\'il est en train de faire.';
     simulate(false);
   }
+  // l'écran reste allumé pendant la lecture (téléphone en veille sinon ; sur un site en https, pas en fichier ouvert à la main)
+  let wake = null, wantWake = false;
+  function keepAwake(on) {
+    wantWake = on;
+    try {
+      if (on && !wake && navigator.wakeLock && document.visibilityState === 'visible') { wake = true; navigator.wakeLock.request('screen').then(w => { wake = w; w.addEventListener('release', () => { wake = null; }); if (!wantWake) w.release(); }).catch(() => { wake = null; }); }
+      else if (!on && wake && wake.release) { wake.release(); wake = null; }
+    } catch (e) { wake = null; }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && wantWake) { wake = null; keepAwake(true); } });
   // téléphone : plein écran et écran couché, quand le navigateur le permet (Android ; pas l'iPhone)
   function fullscreen() {
     const d = document.documentElement;
@@ -3105,9 +3133,15 @@ return { create, add, rows, rowsOf, highlights };
     document.body.classList.add('phone', 'coach'); mode = 'coach'; tac0[1] = blank(); showSquads();
     const P = $('ppanel'), box = (cls, ...els) => { const d = document.createElement('div'); d.className = cls; d.append(...els); return d; }, head = t => { const h = document.createElement('h3'); h.textContent = t; return h; };
     const speeds = document.querySelector('[data-speed]').parentNode; speeds.className = 'pspeed';
-    P.append(document.querySelector('.score'), document.querySelector('.timeline'), box('pctl', $('back'), $('play'), $('fwd')), speeds,
+    const close = document.createElement('button'); close.id = 'pclose'; close.textContent = 'Masquer ›';
+    P.append(close, box('pctl', $('back'), $('play'), $('fwd')), document.querySelector('.timeline'), speeds,
       box('ptabs', $('tabMatch'), $('tabStats'), $('tabTac')), head('Joueur'), $('player'), head('Fil du match'), $('log'), document.querySelector('.homelink'));
     $('tabStats').textContent = 'Stats';
+    // colonne rétractable (remarque de Frédéric : trop large) : fermée, le terrain prend tout l'écran, avec trois boutons par-dessus
+    const menu = open => { document.body.classList.toggle('pclosed', !open); try { localStorage.setItem('menuFerme', open ? '' : '1'); } catch (e) {} resize(); nextHud = 0; };
+    close.onclick = () => menu(false); $('miniMenu').onclick = () => menu(true);
+    $('miniPlay').onclick = () => $('play').click(); $('miniTac').onclick = () => setTab('tac');
+    try { if (localStorage.getItem('menuFerme')) document.body.classList.add('pclosed'); } catch (e) {}
   }
   newMatch(randomSeed());
   resize();

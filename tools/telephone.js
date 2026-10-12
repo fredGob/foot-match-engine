@@ -1,7 +1,7 @@
 // Teste la page de match sur téléphone (Chromium sans fenêtre, par Playwright, écran tactile) : message « Tournez votre téléphone »
 // en vertical ; en largeur, mode Coach It, terrain à gauche et colonne de commandes à droite, lecture, joueur touché, écran Tactique
 // en plein écran (« Valider » ramène au match, qui reprend), statistiques, carte de fin. Petit téléphone (667 × 375) aussi.
-// Captures : docs/telephone-avant.png, docs/telephone-match.png, docs/telephone-tactique.png, docs/telephone-fin.png, docs/telephone-vertical.png.
+// Captures : docs/telephone-avant.png, docs/telephone-match.png, docs/telephone-tactique.png, docs/telephone-fin.png, docs/telephone-vertical.png, docs/telephone-menu-ferme.png.
 // Usage : node build.js && node tools/telephone.js
 const path = require('path');
 const ROOT = path.join(__dirname, '..'), DOCS = path.join(ROOT, 'docs');
@@ -39,25 +39,37 @@ const phone = (browser, w, h) => browser.newContext({ viewport: { width: w, heig
   await page.waitForTimeout(200);
   await page.tap('#kick'); await ready(); await page.waitForTimeout(2500);
   const c1 = await page.textContent('#clock');
-  check(!/^00:00/.test(c1) && await page.textContent('#play') === 'Pause', 'au toucher, le match se lance et se lit', c1);
+  check(!/^00:00/.test(c1) && await page.textContent('#play') === '⏸ Pause', 'au toucher, le match se lance et se lit', c1);
   // toucher un joueur : sa fiche dans la colonne
   for (let x = 40; x < 580 && /Cliquez/.test(await page.textContent('#player')); x += 30) for (let y = 30; y < 370 && /Cliquez/.test(await page.textContent('#player')); y += 30) await page.mouse.click(x, y);
   check(!/Cliquez/.test(await page.textContent('#player')), 'toucher un joueur affiche sa fiche dans la colonne', (await page.textContent('#player')).replace(/\s+/g, ' ').slice(0, 60));
+  check(await page.isHidden('.score') && (await page.$$('.pspeed button')).length === 3 && /×1,5/.test(await page.textContent('.pspeed')), 'score et temps une seule fois (sur le terrain) ; vitesses ×1, ×1,5, ×2');
   await page.screenshot({ path: path.join(DOCS, 'telephone-match.png') }); console.log('        capture : docs/telephone-match.png');
+
+  console.log('Menu rétractable');
+  await page.tap('#pclose'); await page.waitForTimeout(300);
+  const pf = await box('#pitch');
+  check(await page.isHidden('#ppanel') && pf.width >= 840 && await page.isVisible('#pmini'), '« Masquer » : le terrain prend tout l\'écran, trois boutons par-dessus', Math.round(pf.width) + ' × ' + Math.round(pf.height));
+  await page.tap('#miniPlay'); await page.waitForTimeout(300);
+  check(await page.textContent('#play') === '▶ Lecture' && await page.textContent('#miniPlay') === '▶', 'le bouton flottant met en pause');
+  await page.tap('#miniPlay'); await page.waitForTimeout(300);
+  await page.screenshot({ path: path.join(DOCS, 'telephone-menu-ferme.png') }); console.log('        capture : docs/telephone-menu-ferme.png');
+  await page.tap('#miniMenu'); await page.waitForTimeout(300);
+  check(await page.isVisible('#ppanel') && await page.isHidden('#pmini') && await page.textContent('#play') === '⏸ Pause', '« ☰ » rouvre le menu, le match continue');
 
   console.log('Tactique en plein écran');
   await page.tap('#tabTac'); await page.waitForTimeout(300);
   const tb = await box('#tacView');
-  check(tb.x === 0 && tb.y === 0 && tb.width >= 840 && await page.textContent('#play') === 'Lecture', '« Tactique » met en pause et ouvre l\'écran Tactique en plein écran', Math.round(tb.width) + ' × ' + Math.round(tb.height));
+  check(tb.x === 0 && tb.y === 0 && tb.width >= 840 && await page.textContent('#play') === '▶ Lecture', '« Tactique » met en pause et ouvre l\'écran Tactique en plein écran', Math.round(tb.width) + ' × ' + Math.round(tb.height));
   check((await page.$$('#tvPitch .ttok')).length === 11 && await page.isHidden('#tvTeams') && await page.isVisible('#tvBack'), 'onze joueurs, votre équipe seulement, bouton « Retour au match »');
   await page.selectOption('#tvTac select[data-tv-key="press"]', '1'); await page.waitForTimeout(100);
   await page.screenshot({ path: path.join(DOCS, 'telephone-tactique.png') }); console.log('        capture : docs/telephone-tactique.png');
   await page.tap('#tvApply'); await ready(); await page.waitForTimeout(400);
-  check(await page.isHidden('#tacView') && await page.textContent('#play') === 'Pause', '« Valider » ramène au match, qui reprend');
+  check(await page.isHidden('#tacView') && await page.textContent('#play') === '⏸ Pause', '« Valider » ramène au match, qui reprend');
   await page.waitForTimeout(400); await page.tap('#tabTac'); await page.waitForTimeout(200);
   check(/pressing/.test(await page.textContent('#tvPending')) || /harceler/i.test(await page.inputValue('#tvTac select[data-tv-key="press"]').then(v => v === '1' ? 'harceler' : '')), 'la consigne est en attente ou en place', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
   await page.tap('#tvBack'); await page.waitForTimeout(300);
-  check(await page.isHidden('#tacView') && await page.textContent('#play') === 'Pause', '« Retour au match » : le match reprend');
+  check(await page.isHidden('#tacView') && await page.textContent('#play') === '⏸ Pause', '« Retour au match » : le match reprend');
 
   console.log('Statistiques et fin du match');
   await page.tap('#tabStats'); await page.waitForTimeout(300);
@@ -65,7 +77,7 @@ const phone = (browser, w, h) => browser.newContext({ viewport: { width: w, heig
   await page.tap('#tabMatch'); await page.waitForTimeout(200);
   await page.evaluate(() => { const r = document.getElementById('time'); r.value = 600; r.dispatchEvent(new Event('input')); r.dispatchEvent(new Event('change')); });
   // Coach It : pas au-delà du direct ; on laisse la lecture filer jusqu'au bout
-  await page.tap('[data-speed="4"]');
+  await page.tap('[data-speed="2"]');
   await page.waitForFunction(() => !document.getElementById('end').hidden, null, { timeout: 240000 });
   const eb = await box('#card');
   check(eb.width > 400 && eb.y >= 0 && eb.y + eb.height <= 390, 'carte de fin de match en entier sur l\'écran', Math.round(eb.width) + ' × ' + Math.round(eb.height));

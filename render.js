@@ -116,7 +116,7 @@ function drawMatch(ctx, W, H, m, alpha, opts) {
   ctx.beginPath(); ctx.arc(X(bx), Y(by) - bz * 0.45 * s, br, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
   // chrono façon télé, dans la marge au-dessus du terrain : temps de jeu, score, arrêt de jeu
   if (opts.clock) {
-    const c = opts.clock, txt = c.time + (c.score ? '   ' + c.score : '') + (c.dead ? '   Arrêt de jeu' : '');
+    const c = opts.clock, sc = c.score ? (c.teams ? c.teams[0] + '  ' + c.score + '  ' + c.teams[1] : c.score) : '', txt = c.time + (sc ? '   ' + sc : '') + (c.dead ? '   Arrêt de jeu' : '');      // c.teams : noms courts des équipes (téléphone)
     ctx.font = '700 ' + Math.max(12, Math.round(1.6 * s)) + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
     const tw = ctx.measureText(txt).width + 16, th = Math.max(18, Math.min(2.4 * s, MY * s - 4)), lx = X(-HL), ly = Y(-HW) - (MY * s + th) / 2;
     ctx.fillStyle = 'rgba(12,16,20,0.85)'; ctx.fillRect(lx, ly, tw, th);
