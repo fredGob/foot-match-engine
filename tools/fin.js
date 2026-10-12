@@ -23,6 +23,7 @@ const secs = s => { const m = /^(\d+):(\d+)/.exec(s); return 60 * +m[1] + +m[2];
   console.log('Temps forts');
   check(await page.isChecked('#hl'), 'la case « Accélérer les temps faibles » est cochée par défaut');
   await page.click('#kick'); await ready();
+  await page.waitForFunction(() => document.body.dataset.calcul === 'fini', null, { timeout: 60000 });      // le match se calcule en arrière-plan
   const bands = (await page.$$('#hlBands i')).length;
   check(bands > 30, 'les temps forts sont dessinés sur la barre de temps', bands + ' temps forts');
   // vitesse ×1 : en temps faible l'horloge file à ×8, en temps fort elle avance normalement

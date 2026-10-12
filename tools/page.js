@@ -21,7 +21,8 @@ const tacOf = (dd, team) => { const $d = id => dd.getElementById(id); $d('tabTac
 const pick = async (team, key, v) => {
   $('tabTac').click(); d.querySelector(`[data-tv-team="${team}"]`).click();
   const s = d.querySelector(`#tvTac select[data-tv-key="${key}"]`); s.value = String(v); s.dispatchEvent(new w.Event('change', { bubbles: true }));
-  $('tvApply').click(); $('tabMatch').click(); await wait(500);
+  $('tvApply').click(); $('tabMatch').click(); await wait(300);
+  for (let k = 0; k < 100 && d.body.dataset.calcul !== 'fini'; k++) await wait(100);      // la suite du match se recalcule en arrière-plan
 };
 
 (async () => {

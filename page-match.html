@@ -404,45 +404,55 @@
   }
 
   // ---------- calcul et enregistrement du match ----------
+  // Le match se calcule par morceaux (idée de Frédéric) : au coup d'envoi, seulement les premières secondes, puis la suite pendant
+  // qu'on regarde, sans bloquer la page (en Coach It, 15 minutes d'avance sur le direct ; en mode God, tout le match, pour voir la suite).
+  // Toutes les minutes de jeu, une photo du match (E.snapshot) : après un changement, on repart de la dernière photo d'avant
+  // le changement, au lieu de tout recalculer depuis le coup d'envoi. Le passé ne bouge pas.
+  const SNAP_EVERY = Math.round(60 / DT), LEAD = Math.round(15 * 60 / DT);
+  let job = null;      // le calcul en cours : le moteur, où il en est (f), les passes en vol, les photos
   // full = false : seulement l'image du coup d'envoi (avant-match)
   function simulate(full) {
     const m = startMatch(seed, duration, tac0, squad), key = seed + '|' + squad.map(clubOf).join('|');
     const cap = full ? Math.round(duration / DT) + 4 : 1;
     const buf = buffers[cap] || (buffers[cap] = { P: new Float32Array(cap * NP * F), B: new Float32Array(cap * 4), L: new Uint16Array(cap * NP), N: new Uint16Array(cap * NP), K: new Uint8Array(cap * NP), D: new Uint8Array(cap) });
-    const r = Object.assign({ n: 0, texts: [''], kinds: [], stats: [], events: m.events, passes: [], lineups: [] }, buf);
-    // qui joue à chaque place (les remplacements et changements de place changent la personne, pas la place) : une photo à chaque changement
-    const snap = f => r.lineups.push({ f, rids: m.teams.map(T => T.players.map(p => p.rid)), out: m.teams.map(T => T.roster.filter(e => e.out).map(e => e.rid)), subs: m.teams.map(T => T.subs) });
-    snap(0);
-    // passes jouées (pour le réseau de passes) : on note chaque passe au départ, et on la range quand on connaît son issue
-    const open = []; let lastQ = null;
-    const trackPasses = () => {
-      const q = m.pass;
-      if (q && q !== lastQ && q.kind === 'pass' && q.type !== 'tete' && q.from) open.push({ q, t: m.t, team: q.from.team, from: q.from.id, to: q.to ? q.to.id : -1 });
-      lastQ = q;
-      for (let j = open.length - 1; j >= 0; j--) if (open[j].q.ended) { const o = open.splice(j, 1)[0]; r.passes.push({ t: o.t, team: o.team, from: o.from, to: o.to, ok: o.q.how === 'ok' }); }
-    };
-    const textId = new Map([['', 0]]), kindId = new Map();
-    const id = (map, list, s) => { let i = map.get(s); if (i === undefined) { i = list.length; list.push(s); map.set(s, i); } return i; };
-    const capture = f => {
-      const b = m.ball, live = !b.owner && m.mode === 'play';
-      for (const p of m.players) {
-        const k = (f * NP + p.id) * F, it = p.intent; let tx = it.tx, ty = it.ty;
-        if (CHASE[it.type]) { const ic = live && m.icpt[p.id]; tx = ic ? ic.x : b.x; ty = ic ? ic.y : b.y; }
-        r.P[k] = p.x; r.P[k + 1] = p.y; r.P[k + 2] = p.face; r.P[k + 3] = tx; r.P[k + 4] = ty; r.P[k + 5] = Math.hypot(p.vx, p.vy); r.P[k + 6] = p.stam; r.P[k + 7] = p.dist;
-        r.K[f * NP + p.id] = id(kindId, r.kinds, it.type); r.L[f * NP + p.id] = id(textId, r.texts, it.label); r.N[f * NP + p.id] = id(textId, r.texts, it.note || '');
-      }
-      r.B[f * 4] = b.x; r.B[f * 4 + 1] = b.y; r.B[f * 4 + 2] = b.z; r.B[f * 4 + 3] = b.owner ? b.owner.id : -1;
-      r.D[f] = m.mode === 'dead' ? 1 : 0;                      // arrêt de jeu : la lecture pourra l'accélérer
-      if (f % 10 === 0) r.stats.push(m.teams.map(T => { const s = Object.assign({ dist: 0, fresh: 0 }, T.stats); for (const p of T.players) { s.dist += p.dist; if (p.role !== 'GK') s.fresh += p.stam; } return s; }));
-    };
-    let f = 0, ci = 0, due = [];
-    capture(0);
+    const r = Object.assign({ n: 1, texts: [''], kinds: [], stats: [], events: m.events, passes: [], lineups: [], hl: null }, buf);
+    const J = { m, r, cap, f: 0, ci: 0, due: [], open: [], lastQ: null, snaps: [], textId: new Map([['', 0]]), kindId: new Map(), done: !full, hlAt: 0 };
     for (const c of changes) c.at = undefined;
-    while (full && m.mode !== 'over' && f < cap - 1) {
+    lineupSnap(J, 0); capture(J, 0);
+    if (full) J.snaps.push({ f: 0, s: E.snapshot(m, { open: J.open, lastQ: null }), passes: 0, lu: r.lineups.length });
+    job = full ? J : null; rec = r; end = duration;
+    if (!view || view.key !== key) {
+      view = { seed, key, icpt: null, teams: m.teams.map(T => ({ name: T.name, club: T.club, color: T.color, dir: T.dir, roster: T.roster.map(e => ({ rid: e.rid, name: e.name, num: e.num, a: e.a, nat: e.nat })) })), ball: { x: 0, y: 0, z: 0, px: 0, py: 0, pz: 0, owner: null },
+        players: m.players.map(p => ({ id: p.id, idx: p.idx, rid: p.rid, team: p.team, num: p.num, name: p.name, role: p.role, poste: p.poste, a: p.a, x: 0, y: 0, px: 0, py: 0, face: 0, v: 0, stam: 1, dist: 0, intent: { type: 'position', label: '', note: null, tx: 0, ty: 0 } })) };
+    }
+    $('time').max = end; $('time').disabled = !full; $('pre').hidden = full; $('name0').textContent = PHONE ? view.teams[0].club || view.teams[0].name : view.teams[0].name + (view.teams[0].club ? ' · ' + view.teams[0].club : ''); $('name1').textContent = PHONE ? view.teams[1].club || view.teams[1].name : (view.teams[1].club ? view.teams[1].club + ' · ' : '') + view.teams[1].name;      // téléphone : le nom du club seulement
+    drawMarks(); shown = -1; nextHud = 0;
+  }
+  // qui joue à chaque place (les remplacements et changements de place changent la personne, pas la place) : une photo à chaque changement
+  function lineupSnap(J, f) { const m = J.m; J.r.lineups.push({ f, rids: m.teams.map(T => T.players.map(p => p.rid)), out: m.teams.map(T => T.roster.filter(e => e.out).map(e => e.rid)), subs: m.teams.map(T => T.subs) }); }
+  const idOf = (map, list, s) => { let i = map.get(s); if (i === undefined) { i = list.length; list.push(s); map.set(s, i); } return i; };
+  function capture(J, f) {
+    const m = J.m, r = J.r, b = m.ball, live = !b.owner && m.mode === 'play';
+    for (const p of m.players) {
+      const k = (f * NP + p.id) * F, it = p.intent; let tx = it.tx, ty = it.ty;
+      if (CHASE[it.type]) { const ic = live && m.icpt[p.id]; tx = ic ? ic.x : b.x; ty = ic ? ic.y : b.y; }
+      r.P[k] = p.x; r.P[k + 1] = p.y; r.P[k + 2] = p.face; r.P[k + 3] = tx; r.P[k + 4] = ty; r.P[k + 5] = Math.hypot(p.vx, p.vy); r.P[k + 6] = p.stam; r.P[k + 7] = p.dist;
+      r.K[f * NP + p.id] = idOf(J.kindId, r.kinds, it.type); r.L[f * NP + p.id] = idOf(J.textId, r.texts, it.label); r.N[f * NP + p.id] = idOf(J.textId, r.texts, it.note || '');
+    }
+    r.B[f * 4] = b.x; r.B[f * 4 + 1] = b.y; r.B[f * 4 + 2] = b.z; r.B[f * 4 + 3] = b.owner ? b.owner.id : -1;
+    r.D[f] = m.mode === 'dead' ? 1 : 0;                      // arrêt de jeu : la lecture pourra l'accélérer
+    if (f % 10 === 0) r.stats[f / 10] = m.teams.map(T => { const s = Object.assign({ dist: 0, fresh: 0 }, T.stats); for (const p of T.players) { s.dist += p.dist; if (p.role !== 'GK') s.fresh += p.stam; } return s; });
+  }
+  // calcule jusqu'à l'image « until », ou jusqu'à ce que « ms » millisecondes soient passées (0 : pas de limite)
+  function advance(J, until, ms) {
+    const t0 = performance.now(), r = J.r;
+    until = Math.min(until, J.cap - 1);
+    while (!J.done && J.f < until) {
+      const m = J.m;
       // un changement demandé (consigne, formation, joueurs) attend le prochain arrêt de jeu (choix de Frédéric) ; c.at : quand il a été fait
-      for (; ci < changes.length && changes[ci].tick <= m.tick; ci++) due.push(changes[ci]);
-      if (due.length && m.mode === 'dead') {
-        const wait = [];
+      for (; J.ci < changes.length && changes[J.ci].tick <= m.tick; J.ci++) J.due.push(changes[J.ci]);
+      if (J.due.length && m.mode === 'dead') {
+        const wait = [], due = J.due;
         for (let i = 0; i < due.length; i++) {
           const c = due[i];
           if (c.key === 'formation') E.setFormation(m, c.team, c.v);
@@ -451,22 +461,40 @@
           else E.setTactics(m, c.team, { [c.key]: c.v });
           c.at = m.tick;
         }
-        due = wait;
+        J.due = wait;
       }
-      E.step(m); capture(++f); trackPasses();
-      if (m.lineupAt === m.tick - 1 || m.lineupAt === m.tick) { if (!r.lineups.length || r.lineups[r.lineups.length - 1].f !== f) snap(f); else { r.lineups.pop(); snap(f); } }
+      E.step(m); const f = ++J.f; capture(J, f);
+      // passes jouées (pour le réseau de passes) : on note chaque passe au départ, et on la range quand on connaît son issue
+      const q = m.pass, open = J.open;
+      if (q && q !== J.lastQ && q.kind === 'pass' && q.type !== 'tete' && q.from) open.push({ q, t: m.t, team: q.from.team, from: q.from.id, to: q.to ? q.to.id : -1 });
+      J.lastQ = q;
+      for (let j = open.length - 1; j >= 0; j--) if (open[j].q.ended) { const o = open.splice(j, 1)[0]; r.passes.push({ t: o.t, team: o.team, from: o.from, to: o.to, ok: o.q.how === 'ok' }); }
+      if (m.lineupAt === m.tick - 1 || m.lineupAt === m.tick) { if (r.lineups[r.lineups.length - 1].f !== f) lineupSnap(J, f); else { r.lineups.pop(); lineupSnap(J, f); } }
+      if (m.mode === 'over' || f >= J.cap - 1) J.done = true;
+      else if (f % SNAP_EVERY === 0) J.snaps.push({ f, s: E.snapshot(m, { open: J.open, lastQ: J.lastQ }), passes: r.passes.length, lu: r.lineups.length });
+      if (ms && (f & 31) === 0 && performance.now() - t0 > ms) break;
     }
-    r.n = f + 1;
-    // temps forts (actions qui finissent en tir, ballon près du but) : lus à vitesse normale, le reste en accéléré
-    r.hl = full ? St.highlights({ n: r.n, DT, x: k => r.B[k * 4], team: k => { const o = r.B[k * 4 + 3]; return o < 0 ? -1 : o < 11 ? 0 : 1; }, dir: m.teams.map(T => T.dir), HL: E.PITCH.HL, events: r.events }) : null;
-    rec = r; end = full ? f * DT : duration;
-    if (!view || view.key !== key) {
-      view = { seed, key, icpt: null, teams: m.teams.map(T => ({ name: T.name, club: T.club, color: T.color, dir: T.dir, roster: T.roster.map(e => ({ rid: e.rid, name: e.name, num: e.num, a: e.a, nat: e.nat })) })), ball: { x: 0, y: 0, z: 0, px: 0, py: 0, pz: 0, owner: null },
-        players: m.players.map(p => ({ id: p.id, idx: p.idx, rid: p.rid, team: p.team, num: p.num, name: p.name, role: p.role, poste: p.poste, a: p.a, x: 0, y: 0, px: 0, py: 0, face: 0, v: 0, stam: 1, dist: 0, intent: { type: 'position', label: '', note: null, tx: 0, ty: 0 } })) };
-    }
-    $('time').max = end; $('time').disabled = !full; $('pre').hidden = full; $('name0').textContent = PHONE ? view.teams[0].club || view.teams[0].name : view.teams[0].name + (view.teams[0].club ? ' · ' + view.teams[0].club : ''); $('name1').textContent = PHONE ? view.teams[1].club || view.teams[1].name : (view.teams[1].club ? view.teams[1].club + ' · ' : '') + view.teams[1].name;      // téléphone : le nom du club seulement
-    drawMarks(); shown = -1; nextHud = 0;
+    r.n = J.f + 1;
+    if (J.done) { end = J.f * DT; $('time').max = end; }
   }
+  // repart de la dernière photo d'avant l'image « tick » (un changement vient d'être demandé là) : tout ce qui suit sera recalculé
+  function rewind(J, tick) {
+    let k = J.snaps.length - 1; while (k > 0 && J.snaps[k].f > tick) k--;
+    const S = J.snaps[k], R = E.restore(S.s), r = J.r;
+    J.snaps.length = k + 1; J.m = R.m; J.open = R.extra.open; J.lastQ = R.extra.lastQ; J.f = S.f; J.done = false;
+    r.events = J.m.events; r.passes.length = S.passes; r.lineups.length = S.lu; r.stats.length = Math.floor(S.f / 10) + 1; r.n = S.f + 1;
+    for (const c of changes) if (c.at != null && c.at > S.f) c.at = undefined;
+    J.due = changes.filter(c => c.tick <= S.f && c.at == null); J.ci = changes.filter(c => c.tick <= S.f).length;
+    end = duration; $('time').max = end;
+  }
+  // temps forts (actions qui finissent en tir, ballon près du but) et repères de la barre, sur ce qui est calculé
+  function refresh(J) {
+    const r = J.r;
+    r.hl = St.highlights({ n: r.n, DT, x: k => r.B[k * 4], team: k => { const o = r.B[k * 4 + 3]; return o < 0 ? -1 : o < 11 ? 0 : 1; }, dir: view.teams.map(T => T.dir), HL: E.PITCH.HL, events: r.events });
+    J.hlAt = performance.now(); drawMarks(); document.body.dataset.calcul = J.done ? 'fini' : 'en-cours';
+  }
+  // jusqu'où le calcul doit aller : 15 minutes après le direct en Coach It, tout le match en mode God
+  const target = J => coach() ? tickOf(live) + LEAD : J.cap - 1;
 
   // place l'image du match à l'instant t dans « view » ; renvoie la part d'interpolation entre deux pas
   function show(t) {
@@ -778,13 +806,18 @@
 
   function frame(ts) {
     const dt = Math.min(0.1, (ts - last) / 1000 || 0); last = ts;
+    if (job && !job.done && !pending && !series) {      // calcul en arrière-plan, quelques millisecondes par image
+      const J = job; advance(J, target(J), PHONE ? 6 : 10);
+      if (J.done || performance.now() - J.hlAt > 600) refresh(J);
+    }
     if (rec) {
       const fc = Math.min(Math.floor(cur / DT), rec.n - 1), weak = !pending && $('hl').checked && rec.hl && !rec.hl.on[fc];
       if (playing && !pending && !scrub && !series && $('busy').hidden) {
         const dead = $('skip').checked && rec.D[fc];
         const want = Math.max(speed * (dead ? 6 : 1), weak ? Math.max(FAST, speed) : 0);      // temps faible : ×8 (ou la vitesse choisie si elle est plus grande)
         rate += (want - rate) * Math.min(1, dt * 5);                     // on change de vitesse en douceur
-        cur = Math.min(end, cur + dt * rate); if (cur >= end) { playing = false; nextHud = 0; } }
+        cur = Math.min(end, cur + dt * rate); if (cur >= end) { playing = false; nextHud = 0; }
+        if (job && !job.done) cur = Math.min(cur, (rec.n - 1) * DT); }      // pas plus loin que ce qui est calculé
       else rate = speed;
       $('ff').hidden = !(weak && playing && tab === 'match');
       if (!pending && cur > live) live = cur;                        // le direct avance avec la lecture
@@ -799,11 +832,18 @@
   }
 
   // ---------- commandes ----------
-  function seek(t) { if (pending) return; cur = Math.min(coach() ? live : end, Math.max(0, t)); nextHud = 0; }      // Coach It : pas au-delà du direct
-  // calcule le match en entier (coup d'envoi, ou suite réécrite après un changement de consigne)
-  function rebuild(then) {
-    const go = () => { simulate(true); $('busy').hidden = true; if (cur > end) cur = end; if (then) then(); };
-    if (duration > 1200) { $('busy').hidden = false; $('pre').hidden = true; setTimeout(go, 30); } else go();
+  function seek(t) {
+    if (pending) return;
+    cur = Math.min(coach() ? live : end, Math.max(0, t));      // Coach It : pas au-delà du direct
+    if (job && !job.done && tickOf(cur) > job.f - 1) { advance(job, tickOf(cur) + 40, 0); refresh(job); cur = Math.min(cur, (rec.n - 1) * DT); }      // mode God : on va voir plus loin que le calcul
+    nextHud = 0;
+  }
+  // (re)calcule à partir de l'instant affiché : un coup d'envoi (tick 0), ou la suite réécrite après un changement ; quelques secondes d'avance, le reste en arrière-plan
+  function rebuild(tick) {
+    if (!job || tick <= 0) simulate(true); else rewind(job, tick);
+    advance(job, tickOf(cur) + 200, 0); refresh(job); shown = -1;
+    if (cur > (rec.n - 1) * DT) cur = (rec.n - 1) * DT;
+    $('busy').hidden = true; nextHud = 0;
   }
   // nouveau match : on revient à l'avant-match, terrain en place et match à l'arrêt
   function newMatch(s) {
@@ -828,7 +868,7 @@
     const d = document.documentElement;
     try { const p = d.requestFullscreen && !document.fullscreenElement && d.requestFullscreen({ navigationUI: 'hide' }); if (p) p.then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')).catch(() => {}); } catch (e) {}
   }
-  function launch() { if (!pending) return; if (PHONE) fullscreen(); pending = false; lockMode(); cur = 0; live = 0; marked = -1; playing = true; if (tab === 'tac') setTab('match'); rebuild(); }
+  function launch() { if (!pending) return; if (PHONE) fullscreen(); pending = false; lockMode(); cur = 0; live = 0; marked = -1; playing = true; if (tab === 'tac') setTab('match'); rebuild(0); }
   // plusieurs consignes d'un coup (tactique prédéfinie) : un seul recalcul
   function setTactics(team, obj, preset) {
     if (!rec) return;
@@ -838,7 +878,7 @@
     if (!keys.length) return;
     if (tick <= 0) { for (const k of keys) tac0[team][k] = obj[k]; changes = []; }
     else for (const k of keys) { changes = changes.filter(c => c.tick < tick || (c.tick === tick && !(c.team === team && c.key === k))); changes.push({ tick, team, key: k, v: obj[k], preset: k === 'formation' || k === 'lineup' ? undefined : preset }); }
-    rebuild();
+    rebuild(tick);
   }
 
   // équipes venues de la page équipe : « match.html#partie=… » contient votre équipe (au format de equipes.json, avec sa formation et ses consignes)
@@ -1061,7 +1101,7 @@
   $('duration').onchange = () => { duration = +$('duration').value; newMatch(seed); };
   const time = $('time');
   time.addEventListener('pointerdown', () => { scrub = true; });
-  time.addEventListener('input', () => { cur = +time.value; if (coach() && cur > live) { cur = live; time.value = cur; } nextHud = 0; });
+  time.addEventListener('input', () => { cur = +time.value; if (coach() && cur > live) { cur = live; time.value = cur; } if (job && !job.done && tickOf(cur) > job.f - 1) seek(cur); nextHud = 0; });
   const release = () => { if (scrub) { scrub = false; nextHud = 0; } };
   time.addEventListener('change', release); window.addEventListener('pointerup', release);
   // le mode se choisit avant le coup d'envoi : une fois le match lancé, il est fixé (choix de Frédéric : changer de mode ne doit pas faire perdre le match)

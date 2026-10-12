@@ -77,15 +77,16 @@ const url = 'file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURICo
   check(await page.isDisabled('[data-mode="coach"]') && !(await page.evaluate('document.body.classList.contains("coach")')), 'match lancé : le mode est fixé (bouton grisé), le match n\'est pas perdu');
   await page.click('#load'); await page.waitForTimeout(300);      // « Rejouer ce match » : retour à l'avant-match, le mode se choisit de nouveau
   await page.click('[data-mode="coach"]'); await page.waitForTimeout(300);
-  await page.click('#kick'); await ready(); await page.click('#play').catch(() => {}); await page.waitForTimeout(200);
+  await page.click('#kick'); await ready(); await page.waitForTimeout(1500); await page.click('#play').catch(() => {}); await page.waitForTimeout(200);
   await page.click('#tabTac'); await page.waitForTimeout(200);
   check(!(await page.isVisible('#tvTeams')), 'mode Coach It : seulement votre équipe dans l\'onglet Tactique');
   await drag('#tvBench .tdrop:not(:has(.gone)):not(:has(.leaving)) .ttok', '#tvPitch [data-tdrop="p8"]'); await page.click('#tvApply'); await ready();
-  check(/En attente du prochain arrêt de jeu/.test(await page.textContent('#tvPending')), 'mode Coach It : remplacement demandé au direct, en attente', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
+  const logOf = () => page.evaluate(() => document.getElementById('log').textContent);
+  check(/En attente du prochain arrêt de jeu/.test(await page.textContent('#tvPending')) || /Remplacement des Bleus/.test(await logOf()), 'mode Coach It : remplacement demandé au direct, en attente ou déjà fait (arrêt de jeu en cours)', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
   await page.selectOption('#tvTac select[data-tv-key="press"]', '1');
   check(/Pressing : harceler/.test(await page.textContent('#tvDraft')), 'une consigne changée dans l\'onglet Tactique se prépare avec le reste', (await page.textContent('#tvDraft')).replace(/\s+/g, ' '));
   await page.click('#tvApply'); await ready();
-  check(/pressing/.test(await page.textContent('#tvPending')), 'consigne validée : en attente du prochain arrêt de jeu', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
+  check(/pressing/.test(await page.textContent('#tvPending')) || /Consigne des Bleus : pressing/.test(await logOf()), 'consigne validée : en attente du prochain arrêt de jeu, ou déjà faite', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
   check(!(await page.$('#tactics')), 'plus de cadre « Consignes » dans la colonne de droite');
 
   console.log('Téléphone couché (844 × 390)');

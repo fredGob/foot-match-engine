@@ -25,8 +25,39 @@ function interp(tab, x) {
   return tab[tab.length - 1][1];
 }
 function makeRng(seed) {
-  let a = seed >>> 0;
-  return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const st = { a: seed >>> 0 };      // l'état du tirage est gardé à part, pour pouvoir photographier le match (snapshot)
+  const f = function () { let a = st.a; a |= 0; a = a + 0x6D2B79F5 | 0; st.a = a; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  f.st = st;
+  return f;
+}
+const addGauss = m => { m.gauss = () => { let u = 0; while (u < 1e-9) u = m.rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * m.rng()); }; };
+
+// Photo du match à un instant (copie complète de l'état, hasard compris), et retour à cette photo : la suite est exactement
+// la même que si l'on n'avait rien fait. Sert à la page pour recalculer seulement la fin du match après un changement.
+// extra : ce que l'appelant veut garder avec la photo (copié en même temps, les liens vers les objets du match sont conservés).
+// copie complète (liens entre objets conservés) ; structuredClone quand le navigateur l'a, sinon une copie à la main
+const deepCopy = typeof structuredClone === 'function' ? structuredClone : function copy(o) {
+  const seen = new Map();
+  const c = v => {
+    if (v === null || typeof v !== 'object') return v;
+    if (seen.has(v)) return seen.get(v);
+    if (ArrayBuffer.isView(v)) { const t = v.slice(); seen.set(v, t); return t; }
+    const out = Array.isArray(v) ? [] : {}; seen.set(v, out);
+    for (const k of Object.keys(v)) out[k] = c(v[k]);
+    return out;
+  };
+  return c(o);
+};
+function snapshot(m, extra) {
+  const keep = {};
+  for (const k of Object.keys(m)) if (typeof m[k] === 'function') { keep[k] = m[k]; delete m[k]; }
+  try { return deepCopy({ m, extra, a: keep.rng.st.a }); }
+  finally { Object.assign(m, keep); }
+}
+function restore(snap) {
+  const c = deepCopy(snap), m = c.m;
+  m.rng = makeRng(0); m.rng.st.a = c.a; addGauss(m);
+  return { m, extra: c.extra };
 }
 
 // ---------- physique du ballon ----------
@@ -321,7 +352,7 @@ function createMatch(opts) {
   opts = opts || {};
   const seed = opts.seed == null ? 1 : opts.seed;
   const m = { seed, rng: makeRng(seed), t: 0, tick: 0, duration: opts.duration || 600, mode: 'dead', players: [], teams: [], events: [], pass: null, shot: null, restart: null, corner: null, wall: null, path: [], icpt: [], icptTick: -9, poss: -1, lastTeam: -1, holder: -1, possSince: 0, playT: 0, count: {}, random: !!opts.random };
-  m.gauss = () => { let u = 0; while (u < 1e-9) u = m.rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * m.rng()); };
+  addGauss(m);
   const names = NAMES.slice();
   for (let i = names.length - 1; i > 0; i--) { const j = Math.floor(m.rng() * (i + 1)); const t = names[i]; names[i] = names[j]; names[j] = t; }
   // opts.teams : pour chaque camp, une équipe du fichier des équipes, ou rien (équipe standard, tous les joueurs à 14)
@@ -1554,5 +1585,5 @@ function step(m) {
 }
 
 // restart : met en scène un arrêt de jeu (penalty, coup franc, corner…), pour les outils de mesure
-return { createMatch, step, setTactics, setFormation, setLineup, formationPlaces, MAX_SUBS, FORMATIONS, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt };
+return { createMatch, step, snapshot, restore, setTactics, setFormation, setLineup, formationPlaces, MAX_SUBS, FORMATIONS, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt };
 });
