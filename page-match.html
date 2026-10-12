@@ -84,6 +84,9 @@
   .statsnote b { color: var(--text); font-weight: 600; }
   canvas { display: block; width: 100%; aspect-ratio: 114 / 75; border-radius: 10px; cursor: pointer; }
   .end, .busy { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(10, 14, 18, 0.72); border-radius: 10px; font-size: 26px; font-weight: 650; }
+  .end { background: rgba(10, 14, 18, 0.86); font-size: 15px; font-weight: 500; padding: 10px; }
+  .end canvas { width: min(100%, 900px); height: auto; aspect-ratio: 16 / 9; max-height: calc(100% - 56px); object-fit: contain; border-radius: 10px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); }
+  .end .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
   .end[hidden], .busy[hidden], .pre[hidden] { display: none; }
   .pre { position: absolute; left: 0; right: 0; bottom: 7%; display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 16px; font-weight: 500; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
   .pre > div { padding: 4px 14px; border-radius: 6px; background: rgba(10, 14, 18, 0.78); }
@@ -95,6 +98,10 @@
 
   /* barre de temps : repères au-dessus, curseur dessous */
   .timeline { margin-top: 8px; }
+  .hlbands { position: absolute; left: 8px; right: 8px; top: 13px; height: 3px; pointer-events: none; }
+  .hlbands i { position: absolute; top: 0; height: 100%; background: var(--accent); opacity: .55; border-radius: 2px; }
+  .ff { position: absolute; top: 10px; right: 12px; padding: 3px 9px; border-radius: 6px; background: rgba(10, 14, 18, 0.7); font-size: 13px; color: var(--muted); pointer-events: none; }
+  .ff[hidden], .stage.stats .ff, .stage.tac .ff { display: none; }
   .marks { position: relative; height: 16px; margin: 0 8px; }
   .timeline { position: relative; }
   .future { position: absolute; right: 8px; top: 16px; height: 20px; background: repeating-linear-gradient(135deg, rgba(17, 21, 26, 0.75) 0 6px, rgba(17, 21, 26, 0.45) 6px 12px); pointer-events: none; border-left: 2px solid var(--accent); }
@@ -195,10 +202,11 @@
     </div>
     <div class="stage">
       <canvas id="pitch"></canvas>
-      <div class="end" id="end" hidden><div id="endText"></div><div class="row"><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
+      <div class="end" id="end" hidden><canvas id="card" width="2400" height="1350" aria-label="Résumé du match"></canvas><div id="endText" hidden></div><div class="row"><button id="saveCard" class="main">Enregistrer l'image</button><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
       <div class="pre" id="pre" hidden><div>Choisissez le mode, réglez votre tactique (onglet Tactique), puis donnez le coup d'envoi.</div><div class="row"><button id="preTac">Régler la tactique</button><button id="kick" class="main">Lancer le match</button></div></div>
       <div class="busy" id="busy" hidden>Calcul du match…</div>
       <div class="tip" id="tip" hidden></div>
+      <div class="ff" id="ff" hidden>⏩ temps faible ×8</div>
       <div class="tacview" id="tacView" hidden>
         <div class="tvpitch">
           <div class="tvhead"><span class="group godonly" id="tvTeams"><button data-tv-team="0" class="on">Bleus</button><button data-tv-team="1">Rouges</button></span><span class="tvforms" id="tvForms"></span></div>
@@ -227,6 +235,7 @@
     <div class="statsnote" id="statsNote" hidden></div>
     <div class="timeline">
       <div class="marks" id="marks"></div>
+      <div class="hlbands" id="hlBands"></div>
       <div class="future coachonly" id="future"><span>direct</span></div>
       <input type="range" id="time" min="0" max="600" step="0.05" value="0" aria-label="Position dans le match">
       <div class="legend">
@@ -234,6 +243,7 @@
         <span><i class="mark shot" style="position: static; transform: none; background: var(--blue)"></i>tir</span>
         <span><i class="mark tactic" style="position: static; transform: rotate(45deg); background: var(--blue)"></i>changement de consigne</span>
         <span><i class="mark sub" style="position: static; transform: none; background: var(--blue)"></i>remplacement</span>
+        <span><i style="display:inline-block;width:14px;height:3px;background:var(--accent);opacity:.55;vertical-align:middle;margin-right:4px"></i>temps fort</span>
         <span>Faites glisser la barre, ou flèches ← → pour reculer et avancer de 5 secondes.</span>
         <span class="coachonly">Mode Coach It : on peut revoir le passé, jamais la suite du match.</span>
       </div>
@@ -248,6 +258,7 @@
       <label class="godonly"><input type="checkbox" id="intents"> Montrer où chaque joueur veut aller</label>
       <label class="godonly"><input type="checkbox" id="labels"> Montrer l'intention de chaque joueur</label>
       <label title="Pendant un arrêt de jeu (touche, coup franc, sortie de but…), la lecture va six fois plus vite"><input type="checkbox" id="skip" checked> Passer vite les arrêts de jeu</label>
+      <label title="Temps forts (lus à la vitesse choisie) : les actions qui finissent en tir, et les moments où une équipe a le ballon dans les 25 derniers mètres. Le reste passe à ×8."><input type="checkbox" id="hl" checked> Accélérer les temps faibles (×8)</label>
       <span class="group" style="margin-left: auto">Durée
         <select id="duration"><option value="5400" selected>90 min</option><option value="2700">45 min</option><option value="1200">20 min</option><option value="600">10 min (essais)</option></select>
       </span>
@@ -301,7 +312,8 @@
   // pending : avant le coup d'envoi. Le terrain est en place, on règle les consignes, rien n'est encore calculé.
   let seed = 1, duration = 5400, tac0 = [blank(), blank()], changes = [], pending = true;
   let rec = null, view = null, cur = 0, end = 5400, playing = false, scrub = false, speed = 1, last = 0;
-  let selected = -1, shown = 0, W = 0, H = 0, nextHud = 0, series = null;
+  let selected = -1, shown = 0, W = 0, H = 0, nextHud = 0, series = null, rate = 1;
+  const FAST = 8;      // vitesse des temps faibles
   // page Statistiques : onglet, équipe, carte (chaleur ou réseau de passes), joueur de la carte de chaleur (-1 : toute l'équipe)
   // mode God : tout voir, régler les deux équipes ; mode Coach It : les Bleus seulement, sans voir la suite (live : jusqu'où le match a été joué)
   let mode = 'god', live = 0, marked = -1;
@@ -385,6 +397,8 @@
       if (m.lineupAt === m.tick - 1 || m.lineupAt === m.tick) { if (!r.lineups.length || r.lineups[r.lineups.length - 1].f !== f) snap(f); else { r.lineups.pop(); snap(f); } }
     }
     r.n = f + 1;
+    // temps forts (actions qui finissent en tir, ballon près du but) : lus à vitesse normale, le reste en accéléré
+    r.hl = full ? St.highlights({ n: r.n, DT, x: k => r.B[k * 4], team: k => { const o = r.B[k * 4 + 3]; return o < 0 ? -1 : o < 11 ? 0 : 1; }, dir: m.teams.map(T => T.dir), HL: E.PITCH.HL, events: r.events }) : null;
     rec = r; end = full ? f * DT : duration;
     if (!view || view.key !== key) {
       view = { seed, key, icpt: null, teams: m.teams.map(T => ({ name: T.name, club: T.club, color: T.color, dir: T.dir, roster: T.roster.map(e => ({ rid: e.rid, name: e.name, num: e.num, a: e.a, nat: e.nat })) })), ball: { x: 0, y: 0, z: 0, px: 0, py: 0, pz: 0, owner: null },
@@ -414,6 +428,12 @@
   // repères sur la barre de temps : buts, tirs, changements de consigne
   function drawMarks() {
     const box = $('marks'); box.innerHTML = '';
+    const bands = $('hlBands'); bands.innerHTML = '';
+    if (rec.hl) for (const [a, b] of rec.hl.parts) {
+      if (coach() && a > live + 1e-6) break;                         // Coach It : rien du futur
+      const i = document.createElement('i'), b2 = coach() ? Math.min(b, live) : b;
+      i.style.left = (100 * a / end) + '%'; i.style.width = Math.max(0.15, 100 * (b2 - a) / end) + '%'; bands.appendChild(i);
+    }
     for (const e of rec.events) {
       if (coach() && e.t > live + 1e-6) break;                       // Coach It : pas de repères dans le futur
       let cls = null, team = e.team;
@@ -472,11 +492,95 @@
         + '<div class="attrs">' + attrsOf(p).map(k => '<div class="attr"><span>' + k[1] + '</span><b>' + Math.round(p.a[k[0]] * 20) + '</b></div>').join('') + '</div>';
     }
     const over = !pending && cur >= end - 1e-6 && !scrub;
-    if (over) $('endText').textContent = view.teams[0].name + ' ' + s0 + ' – ' + s1 + ' ' + view.teams[1].name;
+    if (over) { $('endText').textContent = view.teams[0].name + ' ' + s0 + ' – ' + s1 + ' ' + view.teams[1].name; if (cardOf !== rec) { cardOf = rec; drawCard(); } }
     $('end').hidden = !over || tab !== 'match';
     tvSync();
     $('play').textContent = pending ? 'Lancer le match' : playing ? 'Pause' : 'Lecture';
   }
+
+  // ---------- carte de fin de match : score et buteurs, domination, chiffres clés, homme du match ----------
+  let cardOf = null;
+  const minute = t => Math.min(Math.floor(t / 60) + 1, Math.ceil(end / 60)) + "'";
+  const nameAt = (id, t) => { const p = view.players[id], L = lineupAt(Math.min(tickOf(t), rec.n - 1)); return view.teams[p.team].roster[L.rids[p.team][p.idx]].name; };
+  function summaryData() {
+    const ev = rec.events, T = view.teams, score = [0, 0];
+    for (const e of ev) if (e.kind === 'goal') score[e.team]++;
+    // buteurs (« BUT pour les Bleus ! Nom (1-0) », « But contre son camp de Nom (1-0) »)
+    const scorers = [[], []], goals = [];
+    for (const e of ev) if (e.kind === 'goal') {
+      const og = /contre son camp de (.+) \(\d+-\d+\)$/.exec(e.text), g = og || /! (.+) \(\d+-\d+\)$/.exec(e.text), nm = g ? g[1] : '?';
+      const list = scorers[e.team]; let s = list.find(x => x.name === nm && x.og === !!og);
+      if (!s) list.push(s = { name: nm, og: !!og, mins: [] });
+      s.mins.push(minute(e.t)); goals.push({ at: e.t / end, team: e.team });
+    }
+    // domination : temps passé avec le ballon près du but adverse (plus il est près, plus il compte), plus les occasions
+    const NB = 90, bin = new Float64Array(NB), D = rec.D, B = rec.B, st = rec.stats;
+    for (let f = 0; f < rec.n; f += 2) {
+      const o = B[f * 4 + 3]; if (o < 0 || D[f]) continue;
+      const t = o < 11 ? 0 : 1, x = B[f * 4] * T[t].dir, w = Math.min(1, Math.max(0, (x + 10) / (E.PITCH.HL + 10)));
+      bin[Math.min(NB - 1, Math.floor(f * DT / end * NB))] += (t ? -1 : 1) * w * w * 2 * DT;
+    }
+    for (let i = 0; i < NB; i++) {
+      const a = st[Math.min(st.length - 1, Math.floor(i * end / NB / DT / 10))], b = st[Math.min(st.length - 1, Math.floor((i + 1) * end / NB / DT / 10))];
+      bin[i] += 40 * ((b[0].xg - a[0].xg) - (b[1].xg - a[1].xg));
+    }
+    let M = Array.from(bin);
+    for (let k = 0; k < 2; k++) M = M.map((v, i) => (M[Math.max(0, i - 1)] + 2 * v + M[Math.min(NB - 1, i + 1)]) / 4);
+    const mx = Math.max(1e-6, ...M.map(Math.abs)); M = M.map(v => v / mx);
+    const full = Math.round(end / 60), step = full >= 60 ? 15 : full >= 20 ? 5 : full >= 10 ? 2 : 1, ticks = [];
+    for (let m = 0; m <= full; m += step) ticks.push({ at: m * 60 / end, label: m + "'" });
+    // chiffres clés
+    const fin = st[st.length - 1], want = ['Possession', 'Tirs', 'Tirs cadrés', 'Buts attendus', 'Passes réussies', 'Corners', 'Fautes'];
+    const stats = St.rowsOf(fin[0], fin[1]).filter(r => want.includes(r.label)).sort((x, y) => want.indexOf(x.label) - want.indexOf(y.label));
+    // homme du match : une note calculée (buts, passes décisives, arrêts, tirs contrés, passes réussies, résultat)
+    const P = new Map(), get = (team, name) => { const k = team + '|' + name; let q = P.get(k); if (!q) P.set(k, q = { team, name, goals: 0, og: 0, assists: 0, shots: 0, onT: 0, saves: 0, blocks: 0, passes: 0, ok: 0, gk: (T[team].roster.find(e => e.name === name) || {}).nat === 'G' }); return q; };
+    for (const q of rec.passes) { const a = get(q.team, nameAt(q.from, q.t)); a.passes++; if (q.ok) a.ok++; }
+    for (const e of ev) {
+      let r;
+      if (e.kind === 'shot' && (r = /^Tir de (.+?) (au-dessus|à côté)$/.exec(e.text))) get(e.team, r[1]).shots++;
+      else if (e.kind === 'save' && (r = /^Tir de (.+?), (arrêt|parade) de (.+)$/.exec(e.text))) { const a = get(1 - e.team, r[1]); a.shots++; a.onT++; get(e.team, r[3]).saves++; }
+      else if (e.kind === 'block' && (r = /^Tir de (.+?) contré par (.+)$/.exec(e.text))) { get(1 - e.team, r[1]).shots++; get(e.team, r[2]).blocks++; }
+      else if (e.kind === 'block' && (r = /^Coup franc de (.+?) dans le mur$/.exec(e.text))) get(1 - e.team, r[1]).shots++;
+      else if (e.kind === 'goal') {
+        const og = /contre son camp de (.+) \(\d+-\d+\)$/.exec(e.text);
+        if (og) { get(1 - e.team, og[1]).og++; continue; }
+        const g = /! (.+) \(\d+-\d+\)$/.exec(e.text); if (!g) continue;
+        const a = get(e.team, g[1]); a.goals++; a.shots++; a.onT++;
+        // passe décisive : la dernière passe réussie vers le buteur, moins de 12 secondes avant
+        for (let j = rec.passes.length - 1; j >= 0; j--) {
+          const q = rec.passes[j]; if (q.t > e.t) continue; if (e.t - q.t > 12) break;
+          if (q.team === e.team && q.ok && q.to >= 0) { if (nameAt(q.to, q.t) === g[1] && nameAt(q.from, q.t) !== g[1]) get(e.team, nameAt(q.from, q.t)).assists++; break; }
+        }
+      }
+    }
+    let best = null;
+    for (const q of P.values()) {
+      const mine = score[q.team], theirs = score[1 - q.team];
+      q.rating = 6 + 1.2 * q.goals + 0.8 * q.assists + 0.2 * q.onT + 0.05 * (q.shots - q.onT) + 0.45 * q.saves + 0.35 * q.blocks + 0.012 * q.ok
+        + (q.passes >= 10 ? 1.5 * (q.ok / q.passes - 0.85) : 0) - q.og + (mine > theirs ? 0.4 : mine === theirs ? 0.1 : -0.2) + (q.gk ? (theirs ? -0.35 * theirs : 0.4) : 0);
+      q.rating = Math.max(3, Math.min(10, q.rating));
+      if (!best || q.rating > best.rating) best = q;
+    }
+    const plural = (n, a, b) => n + ' ' + (n > 1 ? b : a);
+    const motm = best && {
+      name: best.name, team: T[best.team].club ? T[best.team].club + ' (' + T[best.team].name + ')' : T[best.team].name, color: T[best.team].color, rating: best.rating.toFixed(1).replace('.', ','),
+      line: [best.goals && plural(best.goals, 'but', 'buts'), best.assists && plural(best.assists, 'passe décisive', 'passes décisives'), best.saves && plural(best.saves, 'arrêt', 'arrêts'),
+        best.blocks && plural(best.blocks, 'tir contré', 'tirs contrés'), best.passes && best.ok + ' passes réussies sur ' + best.passes].filter(Boolean)
+    };
+    return {
+      title: 'Fin du match', sub: 'Match n°' + seed + ' · ' + Math.round(end / 60) + ' min' + (coach() ? ' · mode Coach It' : ''),
+      teams: T.map((t, k) => ({ name: t.club || t.name, sub: t.club ? t.name : 'Équipe standard', color: t.color, score: score[k], scorers: scorers[k] })),
+      momentum: M, ticks, half: full >= 20 ? 0.5 : null, goals, stats, motm
+    };
+  }
+  function drawCard() {
+    const c = $('card'), g = c.getContext('2d'), k = c.width / R.SUMMARY.W;
+    g.setTransform(k, 0, 0, k, 0, 0); R.drawSummary(g, summaryData()); g.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  $('saveCard').onclick = () => {
+    const name = view.teams.map(t => t.club || t.name).join('-').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9-]+/g, '').toLowerCase();
+    $('card').toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'match-' + name + '-' + seed + '.png'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }, 'image/png');
+  };
 
   // ---------- page Statistiques : carte de chaleur et réseau de passes, jusqu'à l'instant affiché ----------
   const teamName = t => view.teams[t].name + (view.teams[t].club ? ' (' + view.teams[t].club + ')' : '');
@@ -613,9 +717,14 @@
   function frame(ts) {
     const dt = Math.min(0.1, (ts - last) / 1000 || 0); last = ts;
     if (rec) {
+      const fc = Math.min(Math.floor(cur / DT), rec.n - 1), weak = !pending && $('hl').checked && rec.hl && !rec.hl.on[fc];
       if (playing && !pending && !scrub && !series && $('busy').hidden) {
-        const dead = $('skip').checked && rec.D[Math.min(Math.floor(cur / DT), rec.n - 1)];
-        cur = Math.min(end, cur + dt * speed * (dead ? 6 : 1)); if (cur >= end) { playing = false; nextHud = 0; } }
+        const dead = $('skip').checked && rec.D[fc];
+        const want = Math.max(speed * (dead ? 6 : 1), weak ? Math.max(FAST, speed) : 0);      // temps faible : ×8 (ou la vitesse choisie si elle est plus grande)
+        rate += (want - rate) * Math.min(1, dt * 5);                     // on change de vitesse en douceur
+        cur = Math.min(end, cur + dt * rate); if (cur >= end) { playing = false; nextHud = 0; } }
+      else rate = speed;
+      $('ff').hidden = !(weak && playing && tab === 'match');
       if (!pending && cur > live) live = cur;                        // le direct avance avec la lecture
       if (tab === 'stats') drawStats(ts);
       else {

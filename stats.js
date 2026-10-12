@@ -62,5 +62,33 @@ function rows(acc) {
 // pour un match en cours : mêmes lignes à partir de deux blocs de statistiques
 function rowsOf(statsA, statsB) { return rows({ n: 1, teams: [statsA, statsB] }); }
 
-return { create, add, rows, rowsOf };
+// Temps forts (choix de Frédéric) : les actions qui finissent en tir (on remonte avant le tir, on garde un peu après),
+// et les moments où une équipe a le ballon dans les 25 derniers mètres, même sans tir. Le reste est un temps faible, lu en accéléré.
+// o : { n (images), DT, x(f) (position du ballon), team(f) (équipe qui a le ballon, -1 personne), dir [sens des Bleus, des Rouges], HL (demi-longueur), events }
+// renvoie { on: Uint8Array (1 = temps fort, image par image), parts: [[début, fin] en secondes] }
+const HL_ZONE = 25, HL_PRE = 5, HL_POST = 1.5, HL_SHOT_PRE = 10, HL_SHOT_POST = 3, HL_GOAL_POST = 5, HL_GAP = 6, HL_MIN = 1.5;
+function highlights(o) {
+  const n = o.n, DT = o.DT, on = new Uint8Array(n), mark = (t0, t1) => { for (let f = Math.max(0, Math.round(t0 / DT)), e = Math.min(n - 1, Math.round(t1 / DT)); f <= e; f++) on[f] = 1; };
+  // ballon près du but : à une équipe, ou libre juste après qu'elle l'a perdu
+  let last = -1, f0 = -1;
+  for (let f = 0; f <= n; f++) {
+    let hot = false;
+    if (f < n) { const t = o.team(f); if (t >= 0) last = t; hot = last >= 0 && o.x(f) * o.dir[last] > o.HL - HL_ZONE; }
+    if (hot && f0 < 0) f0 = f;
+    else if (!hot && f0 >= 0) { if ((f - f0) * DT >= HL_MIN) mark(f0 * DT - HL_PRE, f * DT + HL_POST); f0 = -1; }      // un ballon qui ne fait que passer ne compte pas
+  }
+  // actions qui finissent en tir, et penalties
+  for (const e of o.events) {
+    if (e.kind === 'goal') mark(e.t - HL_SHOT_PRE, e.t + HL_GOAL_POST);
+    else if (e.kind === 'shot' || e.kind === 'save' || e.kind === 'block' || (e.kind === 'foul' && /penalty/.test(e.text))) mark(e.t - HL_SHOT_PRE, e.t + HL_SHOT_POST);
+  }
+  // deux temps forts proches n'en font qu'un (pas d'accéléré de 2 secondes au milieu d'une action)
+  const gap = Math.round(HL_GAP / DT);
+  for (let f = 0, prev = -1; f < n; f++) if (on[f]) { if (prev >= 0 && f - prev > 1 && f - prev <= gap) for (let k = prev + 1; k < f; k++) on[k] = 1; prev = f; }
+  const parts = [];
+  for (let f = 0; f < n; f++) if (on[f] && (f === 0 || !on[f - 1])) { let g = f; while (g + 1 < n && on[g + 1]) g++; parts.push([f * DT, g * DT]); }
+  return { on, parts };
+}
+
+return { create, add, rows, rowsOf, highlights };
 });
