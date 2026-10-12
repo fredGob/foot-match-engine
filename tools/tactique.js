@@ -88,8 +88,8 @@ const url = 'file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURICo
   check(/pressing/.test(await page.textContent('#tvPending')), 'consigne validée : en attente du prochain arrêt de jeu', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
   check(!(await page.$('#tactics')), 'plus de cadre « Consignes » dans la colonne de droite');
 
-  console.log('Téléphone (390 × 844)');
-  const pp = await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true })).newPage();
+  console.log('Téléphone couché (844 × 390)');
+  const pp = await (await browser.newContext({ viewport: { width: 844, height: 390 }, screen: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true })).newPage();
   pp.on('pageerror', e => errors.push(String(e)));
   await pp.goto(url); await pp.waitForTimeout(400); await pp.click('#tabTac'); await pp.waitForTimeout(200);
   check(await pp.evaluate('document.documentElement.scrollWidth <= window.innerWidth') && (await pp.$$('#tvPitch .ttok')).length === 11, 'onglet Tactique sur téléphone : pas de défilement de côté');

@@ -67,10 +67,10 @@ function drawMatch(ctx, W, H, m, alpha, opts) {
     }
   }
 
-  // joueurs
-  const r = 1.05 * s;
+  // joueurs (opts.big : plus gros, pour un petit écran)
+  const big = opts.big || 1, r = 1.05 * s * big;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = '600 ' + Math.max(7, Math.round(1.15 * s)) + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
+  ctx.font = '600 ' + Math.max(7, Math.round(1.15 * s * big)) + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
   for (const q of pos) {
     const p = q.p, x = X(q.x), y = Y(q.y);
     ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(x + 0.15 * s, y + 0.25 * s, r, r * 0.9, 0, 0, 2 * Math.PI); ctx.fill();
@@ -110,7 +110,7 @@ function drawMatch(ctx, W, H, m, alpha, opts) {
   }
 
   // ballon : ombre au sol, ballon décalé et grossi quand il est en l'air
-  const br = (0.42 + 0.05 * Math.min(bz, 8)) * s;
+  const br = (0.42 + 0.05 * Math.min(bz, 8)) * s * Math.sqrt(big);
   ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(X(bx) + 0.1 * s, Y(by) + 0.12 * s, 0.42 * s, 0.34 * s, 0, 0, 2 * Math.PI); ctx.fill();
   ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1b1b1b'; ctx.lineWidth = Math.max(1, 0.1 * s);
   ctx.beginPath(); ctx.arc(X(bx), Y(by) - bz * 0.45 * s, br, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();

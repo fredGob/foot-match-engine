@@ -1,5 +1,5 @@
 // Teste les temps forts (lecture accélérée des temps faibles) et la carte de fin de match dans un vrai navigateur
-// (Chromium sans fenêtre, par Playwright). Captures : docs/fin-de-match.png (la carte seule), docs/fin-de-match-page.png, docs/fin-telephone.png.
+// (Chromium sans fenêtre, par Playwright). Captures : docs/fin-de-match.png (la carte seule), docs/fin-de-match-page.png. Sur téléphone : tools/telephone.js.
 // Usage : node build.js && node tools/fin.js
 const path = require('path'), fs = require('fs');
 const ROOT = path.join(__dirname, '..'), DOCS = path.join(ROOT, 'docs');
@@ -54,16 +54,6 @@ const secs = s => { const m = /^(\d+):(\d+)/.exec(s); return 60 * +m[1] + +m[2];
   check(/^match-lens-marseille-12\.png$/.test(dl.suggestedFilename()) && head === '89504e470d0a1a0a' && fs.statSync(file).size > 30000, '« Enregistrer l\'image » télécharge une image PNG', dl.suggestedFilename() + ', ' + Math.round(fs.statSync(file).size / 1024) + ' ko');
   await page.click('#rewatch'); await page.waitForTimeout(300);
   check(await page.isHidden('#end'), '« Revoir depuis le début » ferme la carte');
-
-  console.log('Téléphone (390 × 844)');
-  const pp = await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true })).newPage();
-  pp.on('pageerror', e => errors.push(String(e)));
-  await pp.goto(url); await pp.waitForTimeout(300);
-  await pp.selectOption('#duration', '600'); await pp.waitForTimeout(200); await pp.click('#kick');
-  await pp.waitForFunction(() => !document.getElementById('time').disabled, null, { timeout: 60000 });
-  await pp.evaluate(() => { const r = document.getElementById('time'); r.value = 600; r.dispatchEvent(new Event('input')); r.dispatchEvent(new Event('change')); }); await pp.waitForTimeout(500);
-  check(await pp.isVisible('#card') && await pp.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), 'sur téléphone : la carte s\'affiche, pas de défilement de côté');
-  await pp.screenshot({ path: path.join(DOCS, 'fin-telephone.png') }); console.log('        capture : docs/fin-telephone.png');
 
   check(errors.length === 0, 'aucune erreur JavaScript', errors.join(' | '));
   await browser.close();
