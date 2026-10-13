@@ -52,7 +52,7 @@ const secs = s => { const m = /^(\d+):(\d+)/.exec(s); return 60 * +m[1] + +m[2];
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#saveCard')]);
   const file = path.join(require('os').tmpdir(), dl.suggestedFilename()); await dl.saveAs(file);
   const head = fs.readFileSync(file).slice(0, 8).toString('hex');
-  check(/^match-lens-marseille-12\.png$/.test(dl.suggestedFilename()) && head === '89504e470d0a1a0a' && fs.statSync(file).size > 30000, '« Enregistrer l\'image » télécharge une image PNG', dl.suggestedFilename() + ', ' + Math.round(fs.statSync(file).size / 1024) + ' ko');
+  check(/^match-rclentilles-olympiquedemarsupilami-12\.png$/.test(dl.suggestedFilename()) && head === '89504e470d0a1a0a' && fs.statSync(file).size > 30000, '« Enregistrer l\'image » télécharge une image PNG', dl.suggestedFilename() + ', ' + Math.round(fs.statSync(file).size / 1024) + ' ko');
   await page.click('#rewatch'); await page.waitForTimeout(300);
   check(await page.isHidden('#end'), '« Revoir depuis le début » ferme la carte');
 

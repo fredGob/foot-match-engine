@@ -388,6 +388,8 @@
   const clubOf = T => T ? T.nom || T.id || '' : '';
   const buffers = {};
 
+  // l'adversaire : consignes neutres, dans le système habituel de son club (4-4-2 pour les autres équipes)
+  function oppTac() { const t = blank(), F = squad[1] && squad[1].formation; if (F && E.FORMATIONS.some(f => f.id === F)) t.formation = F; return t; }
   function blank() { const t = {}; for (const c of TAC) t[c.key] = 0; return t; }
   const mmss = t => String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(Math.floor(t % 60)).padStart(2, '0');
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -824,7 +826,7 @@
       if (tab === 'stats') drawStats(ts);
       else {
       const stopped = !!rec.D[Math.min(Math.floor(cur / DT), rec.n - 1)];
-      R.drawMatch(ctx, W, H, view, show(cur), { intents: !coach() && $('intents').checked, labels: !coach() && $('labels').checked, hideMind: coach(), big: PHONE ? 1.4 : 1, selected, clock: { time: mmss(cur), score: $('goals').textContent, teams: PHONE ? view.teams.map(t => short(t.club || t.name)) : null, dead: stopped && cur > 0 && cur < end } });
+      R.drawMatch(ctx, W, H, view, show(cur), { intents: !coach() && $('intents').checked, labels: !coach() && $('labels').checked, hideMind: coach(), big: PHONE ? 1.4 : 1, selected, clock: { time: mmss(cur), score: $('goals').textContent, teams: PHONE ? view.teams.map((t, k) => squad[k] && squad[k].court || short(t.club || t.name)) : null, dead: stopped && cur > 0 && cur < end } });
       }
       if (ts >= nextHud) { hud(); nextHud = ts + 150; }
     }
@@ -895,7 +897,7 @@
   if (start) {
     squad = [start.team, start.opp];
     const t = blank(); for (const c of TAC) if ([-1, 0, 1].includes(start.tac[c.key])) t[c.key] = start.tac[c.key];
-    t.formation = start.formation; tac0 = [t, blank()];
+    t.formation = start.formation; tac0 = [t, oppTac()];
     $('teamLink').href = 'equipe.html#reprendre'; $('teamLink').textContent = '← Retour à la page équipe';
   }
   // cadre Équipes : seulement les noms, on ne change pas d'équipe ici
@@ -1110,7 +1112,7 @@
     mode = md; document.body.classList.toggle('coach', coach());
     document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
     showSquads();
-    if (coach()) { tac0[1] = blank(); simulate(false); }      // Coach It : l'adversaire joue avec des consignes neutres
+    if (coach()) { tac0[1] = oppTac(); simulate(false); }      // Coach It : l'adversaire joue avec des consignes neutres, dans son système
     tv.base = null; if (tab === 'tac') { tv.look = null; tv.msg = ''; tvLoad(); tvDraw(); }
     nextHud = 0;
   }
@@ -1225,7 +1227,7 @@
 
   // téléphone : mode Coach It, et la colonne de droite reçoit le score, la barre de temps, les commandes, la fiche du joueur et le fil du match
   if (PHONE) {
-    document.body.classList.add('phone', 'coach'); mode = 'coach'; tac0[1] = blank(); showSquads();
+    document.body.classList.add('phone', 'coach'); mode = 'coach'; tac0[1] = oppTac(); showSquads();
     const P = $('ppanel'), box = (cls, ...els) => { const d = document.createElement('div'); d.className = cls; d.append(...els); return d; }, head = t => { const h = document.createElement('h3'); h.textContent = t; return h; };
     const speeds = document.querySelector('[data-speed]').parentNode; speeds.className = 'pspeed';
     const close = document.createElement('button'); close.id = 'pclose'; close.textContent = 'Masquer ›';

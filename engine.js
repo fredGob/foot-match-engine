@@ -371,7 +371,8 @@ function createMatch(opts) {
     T.subs = 0; T.auto = !!(opts.autoSubs && opts.autoSubs[t]);
     m.teams.push(T);
   }
-  for (let t = 0; t < 2; t++) setFormation(m, t, (opts.formations && opts.formations[t]) || '442');
+  // formation : celle demandée, sinon le système habituel de l'équipe du fichier (clubs de Ligue 1), sinon 4-4-2
+  for (let t = 0; t < 2; t++) { const T = opts.teams && opts.teams[t], own = T && T.formation && FORMATIONS.some(f => f.id === T.formation) ? T.formation : null; setFormation(m, t, (opts.formations && opts.formations[t]) || own || '442'); }
   if (opts.tactics) for (let t = 0; t < 2; t++) setTactics(m, t, opts.tactics[t]);
   m.ball = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, px: 0, py: 0, pz: 0, dip: 0, owner: null, lastTouch: null };
   setRestart(m, 'kickoff', 0, 0, 0, 2);

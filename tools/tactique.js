@@ -54,7 +54,7 @@ const url = 'file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURICo
   check(/Entre :/.test(draft) && /→/.test(draft) && /remplacements 1 \/ 5/.test(await page.textContent('#tvSubs')), 'un remplacement et un changement de place en préparation', draft.replace(/\s+/g, ' '));
   await page.screenshot({ path: path.join(DOCS, 'tactique.png') }); console.log('        capture : docs/tactique.png');
   await page.click('#tvApply'); await ready(); await page.waitForTimeout(300);
-  check(/fait au prochain arrêt de jeu/.test(await page.textContent('#tvPending')) && /En attente du prochain arrêt de jeu : composition/.test(await page.textContent('#tvPending')), 'validé à 05:00 : en attente du prochain arrêt de jeu', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
+  check(/fait au prochain arrêt de jeu/.test(await page.textContent('#tvPending')), 'validé à 05:00 : fait au prochain arrêt de jeu (en attente, ou déjà fait si le jeu est arrêté)', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
   await page.click('#tabMatch'); await seek(1199); await page.waitForTimeout(400);
   const log = await page.textContent('#log'), m1 = /(\d\d:\d\d)Remplacement des Bleus : ([^(]+) remplace/.exec(log), m2 = /(\d\d:\d\d)Changement de place des Bleus/.exec(log);
   check(m1 && m2 && m1[1] >= '05:00' && m1[1] === m2[1], 'remplacement et changement de place faits ensemble, au premier arrêt de jeu après 05:00', m1 ? m1[1] + ' ' + m1[2] : log.slice(0, 200));

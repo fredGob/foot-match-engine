@@ -39,7 +39,7 @@ console.log('match.html écrit (' + Math.round(html.length / 1024) + ' ko, ' + t
     const one = (j, k) => { const o = { id: T.id + '-' + k, nom: j.nom, poste: j.poste_naturel || NAT[j.poste], notes: j.notes, fc: j.fc, source: j.source };
       if (!J.CLES[o.poste]) throw new Error('equipes.json, ' + T.nom + ', ' + j.nom + ' : poste naturel inconnu « ' + o.poste + ' »');
       o.note = J.noteGlobale(o); o.prix = J.prix(o.note); return o; };
-    return { id: T.id, nom: T.nom, championnat: T.championnat, classement: T.classement, description: T.description,
+    return { id: T.id, nom: T.nom, championnat: T.championnat, classement: T.classement, description: T.description, formation: T.formation || '442',
       titulaires: T.joueurs.map((j, k) => Object.assign(one(j, k), { place: j.poste })), remplacants: (T.remplacants || []).map((j, k) => one(j, 11 + k)) };
   });
   // adversaires possibles pour « Passer au match » : l'équipe standard, puis toutes les équipes de equipes.json (niveaux, puis clubs)
