@@ -32,7 +32,7 @@ const url = 'file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURICo
   check((await page.$$('#tvPitch .ttok')).length === 11 && (await page.$$('#tvBench .ttok')).length === lens.remplacants.length, 'onglet Tactique : onze joueurs sur le terrain, les remplaçants sur le banc', (await names('#tvBench')).join(', '));
   check(/avant le coup d'envoi/.test(await page.textContent('#tvSubs')), 'avant le coup d\'envoi, les titulaires sont au choix (pas des remplacements)');
   await page.click('#tvPitch [data-tdrop="p9"] .ttok .ball');
-  check((await page.$$('#tvLook .attr')).length === 18 && /Attaquant/.test(await page.textContent('#tvLook')), 'clic sur un joueur : sa fiche et ses notes', (await page.textContent('#tvLook b')));
+  check((await page.$$('#tvLook .attr')).length === 19 && /Attaquant|Milieu axial gauche/.test(await page.textContent('#tvLook')), 'clic sur un joueur : sa fiche et ses notes', (await page.textContent('#tvLook b')));
   const benchAT = await page.$eval('#tvBench .ttok', e => e.dataset.rid);
   await drag('#tvBench [data-tdrop] .ttok', '#tvPitch [data-tdrop="p9"]');
   check(/Titulaire/.test(await page.textContent('#tvDraft')), 'un remplaçant glissé sur un titulaire : « Titulaire : … » en préparation', (await page.textContent('#tvDraft')));

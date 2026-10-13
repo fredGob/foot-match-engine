@@ -21,7 +21,7 @@
 //
 // La conversion, en deux temps :
 // 1. Des six valeurs du profil aux vingt notes, sur l'échelle 1 à 99 : formules de DETAIL ci-dessous
-//    (vitesse ← vitesse, passe ← passe, tacle ← défense, finition ← tir, jeu de tête ← physique et défense ou tir, etc., avec un petit
+//    (vitesse ← vitesse, passe ← passe, tacle ← défense, finition et frappe de loin ← tir, jeu de tête ← physique et défense ou tir, etc., avec un petit
 //    ajustement selon le poste : un milieu axial a plus d'endurance qu'un avant-centre, un défenseur central moins de vision).
 // 2. De l'échelle 1 à 99 à nos notes sur 20, une seule formule pour tous : note = (valeur + DECALAGE) / PENTE, arrondie, entre 1 et 20.
 //    Elle est réglée pour que le PSG soit un peu au-dessus de l'équipe Élite et le dixième (Lorient) au niveau de l'équipe Moyen.
@@ -53,7 +53,7 @@ function DETAIL(pos, O, c) {
   if (f === 'G') {
     const [DIV, HAN, KIC, REF, SPD, POS] = c;
     return { vitesse: 0.5 * SPD + 0.5 * O - 5, acceleration: 0.5 * SPD + 0.5 * O - 5, endurance: O - 20, passe: KIC - 6, vision: KIC - 4, prise_de_balle: KIC - 8,
-      dribble: 40, finition: 40, tacle: 40, placement: POS, anticipation: POS + 2, lucidite: O, sang_froid: O + 2, volume_de_course: O - 25,
+      dribble: 40, finition: 40, frappe_de_loin: 40, tacle: 40, placement: POS, anticipation: POS + 2, lucidite: O, sang_froid: O + 2, volume_de_course: O - 25,
       agressivite: O - 15, gout_du_risque: O - 20, jeu_de_tete: O - 15, appels: 40, reflexes: (REF + DIV) / 2, mains: HAN };
   }
   const [P, S, A, D, F, H] = c;
@@ -67,6 +67,7 @@ function DETAIL(pos, O, c) {
     prise_de_balle: 0.7 * D + 0.3 * A + 2,
     dribble: D - (f === 'DC' ? 4 : 0),
     finition: S + adj(f, { BU: 3, MC: -3, MDEF: -5, LAT: -6, DC: -6 }),
+    frappe_de_loin: S + adj(f, { MOF: 2, MC: 1, BU: -4, MDEF: -3, LAT: -6, DC: -8 }),
     tacle: F,
     placement: def ? 0.7 * F + 0.3 * O : f === 'MC' ? 0.5 * F + 0.5 * O - 3 : 0.4 * F + 0.6 * O - 6,
     anticipation: Math.max(0.5 * F + 0.5 * O, O - (f === 'BU' ? 1 : 3)),
@@ -165,7 +166,7 @@ const CLUBS = [
 const NUM = { G: 1, AG: 3, DCG: 4, DCD: 5, AD: 2, MG: 7, MCG: 6, MCD: 8, MD: 10, ATG: 11, ATD: 9 };
 const NAT_OF = { GK: 'G', LB: 'AG', RB: 'AD', CB: 'DC', CDM: 'MC', CM: 'MC', CAM: 'MC', LM: 'MG', LW: 'MG', RM: 'MD', RW: 'MD', ST: 'AT' };      // poste naturel d'après le poste réel du joueur
 const NATUREL = { G: 'G', AG: 'AG', DCG: 'DC', DCD: 'DC', AD: 'AD', MG: 'MG', MCG: 'MC', MCD: 'MC', MD: 'MD', ATG: 'AT', ATD: 'AT' };
-const KEYS = ['vitesse', 'acceleration', 'endurance', 'passe', 'vision', 'prise_de_balle', 'dribble', 'finition', 'tacle', 'placement', 'anticipation', 'lucidite', 'sang_froid',
+const KEYS = ['vitesse', 'acceleration', 'endurance', 'passe', 'vision', 'prise_de_balle', 'dribble', 'finition', 'frappe_de_loin', 'tacle', 'placement', 'anticipation', 'lucidite', 'sang_froid',
   'volume_de_course', 'agressivite', 'gout_du_risque', 'jeu_de_tete', 'appels', 'reflexes', 'mains'];
 
 function notesOf(pos, O, profil) {

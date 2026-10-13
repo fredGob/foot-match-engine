@@ -11,7 +11,7 @@ const GROUPS = [
   ['physique', ['vitesse', 'acceleration', 'endurance', 'volume_de_course']],
   ['passe et vision', ['passe', 'vision']],
   ['prise de balle et dribble', ['prise_de_balle', 'dribble']],
-  ['finition, appels, tête', ['finition', 'appels', 'jeu_de_tete']],
+  ['finition, frappe de loin, appels, tête', ['finition', 'frappe_de_loin', 'appels', 'jeu_de_tete']],
   ['défense (tacle, placement, anticipation, agressivité)', ['tacle', 'placement', 'anticipation', 'agressivite']],
   ['mental (lucidité, sang-froid, goût du risque)', ['lucidite', 'sang_froid', 'gout_du_risque']],
   ['gardien (réflexes, mains)', ['reflexes', 'mains']],

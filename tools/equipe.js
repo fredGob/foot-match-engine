@@ -67,7 +67,7 @@ function choisir(D) {
   await shot('equipe-achat.png');
   await page.click('#base tr.p[data-id="' + star.id + '"] td:nth-child(2)');
   const nAttrs = await page.$$eval('#sheet .attr', a => a.length);
-  check(await page.isVisible('#sheet') && nAttrs === 20, 'clic sur un joueur : sa fiche avec ses 20 notes', nAttrs + ' notes');
+  check(await page.isVisible('#sheet') && nAttrs === 21, 'clic sur un joueur : sa fiche avec ses 21 notes', nAttrs + ' notes');
   await shot('equipe-fiche.png');
   await page.keyboard.press('Escape');
 
@@ -95,7 +95,7 @@ function choisir(D) {
   const p1 = await page.evaluate('S.lineup[1]'), p4 = await page.evaluate('S.lineup[4]');
   await page.click('[data-drop="p1"] .tok .ball');
   const look1 = await page.$$eval('#look .attr', a => a.map(x => x.textContent));
-  check(look1.length === 20 && (await page.textContent('#look')).includes(await page.evaluate('byId[S.lineup[1]].nom')) && /Arrière gauche/.test(await page.textContent('#look')), 'clic sur un joueur : ses vingt notes et sa place dans le cadre « Joueur »', (await page.textContent('#look .who')) + ' · ' + look1.slice(0, 4).join(', ') + '…');
+  check(look1.length === 21 && (await page.textContent('#look')).includes(await page.evaluate('byId[S.lineup[1]].nom')) && /Arrière gauche/.test(await page.textContent('#look')), 'clic sur un joueur : ses vingt notes et sa place dans le cadre « Joueur »', (await page.textContent('#look .who')) + ' · ' + look1.slice(0, 4).join(', ') + '…');
   await page.click('[data-drop="p4"] .tok .ball');
   check(await page.evaluate('S.lineup[1]') === p1 && await page.evaluate('S.lineup[4]') === p4 && (await page.textContent('#look .who')) === await page.evaluate('byId[S.lineup[4]].nom'), 'clic sur un second joueur : sa fiche remplace la première, aucun échange');
   await page.click('#compo tr[data-look="' + p1 + '"]');
@@ -237,7 +237,7 @@ function choisir(D) {
   await pp.screenshot({ path: path.join(DOCS, 'equipe-telephone.png') }); console.log('        capture : docs/equipe-telephone.png');
   const q1 = await pp.evaluate('S.lineup[2]'), q2 = await pp.evaluate('S.lineup[3]');
   await pp.tap('[data-drop="p2"] .tok .ball');
-  check((await pp.$$('#look .attr')).length === 20, 'au doigt : toucher un joueur montre ses notes');
+  check((await pp.$$('#look .attr')).length === 21, 'au doigt : toucher un joueur montre ses notes');
   await pp.tap('#swapBtn'); await pp.tap('[data-drop="p3"] .tok .ball');
   check(await pp.evaluate('S.lineup[2]') === q2 && await pp.evaluate('S.lineup[3]') === q1, 'au doigt : « Échanger ce joueur » puis toucher l\'autre les échange');
 

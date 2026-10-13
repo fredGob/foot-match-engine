@@ -29,7 +29,7 @@ const CLES = {
   MC: ['passe', 'vision', 'lucidite', 'prise_de_balle', 'endurance', 'anticipation'],
   AT: ['finition', 'appels', 'sang_froid', 'prise_de_balle', 'vitesse', 'anticipation'],
 };
-const INUTILES_G = ['dribble', 'finition', 'appels', 'gout_du_risque', 'tacle'];
+const INUTILES_G = ['dribble', 'finition', 'frappe_de_loin', 'appels', 'gout_du_risque', 'tacle'];
 function noteGlobale(j) {
   let s = 0, w = 0;
   for (const [k, v] of Object.entries(j.notes)) {

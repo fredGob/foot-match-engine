@@ -227,7 +227,7 @@ const CARRY = 1, CARRY_Q = 0.85;   // conduire sous pression dans son camp (l'ef
 const SAFE_BACK = 0.3;          // … et la passe courte en retrait gagne 30 % de ce qu'a perdu la conduite
 // Les 20 qualités d'un joueur : nom dans le moteur, nom dans le fichier des équipes (equipes.json), nom affiché.
 const QUALITIES = [['pace', 'vitesse', 'Vitesse'], ['accel', 'acceleration', 'Accélération'], ['stamina', 'endurance', 'Endurance'], ['passing', 'passe', 'Passe'], ['vision', 'vision', 'Vision du jeu'],
-  ['firstTouch', 'prise_de_balle', 'Prise de balle'], ['dribbling', 'dribble', 'Dribble'], ['finishing', 'finition', 'Finition'], ['tackling', 'tacle', 'Tacle'], ['positioning', 'placement', 'Placement'],
+  ['firstTouch', 'prise_de_balle', 'Prise de balle'], ['dribbling', 'dribble', 'Dribble'], ['finishing', 'finition', 'Finition'], ['longShots', 'frappe_de_loin', 'Frappe de loin'], ['tackling', 'tacle', 'Tacle'], ['positioning', 'placement', 'Placement'],
   ['anticipation', 'anticipation', 'Anticipation'], ['decisions', 'lucidite', 'Lucidité'], ['composure', 'sang_froid', 'Sang-froid'], ['workRate', 'volume_de_course', 'Volume de course'], ['aggression', 'agressivite', 'Agressivité'],
   ['flair', 'gout_du_risque', 'Goût du risque'], ['heading', 'jeu_de_tete', 'Jeu de tête'], ['offBall', 'appels', 'Appels de balle'], ['reflexes', 'reflexes', 'Réflexes'], ['handling', 'mains', 'Jeu de mains']];
 // Les 11 places du 4-4-2, telles qu'on les écrit dans le fichier des équipes.
@@ -248,7 +248,7 @@ function readTeam(def) {
 function readNotes(who, notes) {
   const a = {}; notes = notes || {};
   for (const q of QUALITIES) {
-    const v = notes[q[1]];
+    const v = notes[q[1]] == null && q[1] === 'frappe_de_loin' ? notes.finition : notes[q[1]];      // ancien fichier sans « frappe de loin » : on prend la finition
     if (typeof v !== 'number' || !(v >= 1 && v <= 20)) throw new Error(who + ' : la note « ' + q[1] + ' » doit être un nombre de 1 à 20');
     a[q[0]] = v / 20;
   }
@@ -271,7 +271,7 @@ function makePlayer(m, T, i, name, own) {
     return newPlayer(m, T, i, name, a);
   }
   const base = () => clamp(0.6 + 0.13 * g(), 0.25, 0.97);
-  const a = { pace: base(), accel: base(), stamina: base(), passing: base(), vision: base(), firstTouch: base(), dribbling: base(), finishing: base(), tackling: base(), positioning: base(), anticipation: base(), decisions: base(), composure: base(), workRate: base(), aggression: base(), flair: base(), heading: base(), offBall: base(), reflexes: 0.3, handling: 0.3 };
+  const a = { pace: base(), accel: base(), stamina: base(), passing: base(), vision: base(), firstTouch: base(), dribbling: base(), finishing: base(), longShots: base(), tackling: base(), positioning: base(), anticipation: base(), decisions: base(), composure: base(), workRate: base(), aggression: base(), flair: base(), heading: base(), offBall: base(), reflexes: 0.3, handling: 0.3 };
   const add = (k, v) => { a[k] = clamp(a[k] + v, 0.2, 0.98); };
   if (s.role === 'GK') { a.reflexes = clamp(0.68 + 0.1 * g(), 0.4, 0.97); a.handling = clamp(0.66 + 0.1 * g(), 0.4, 0.97); add('pace', -0.15); add('dribbling', -0.2); add('finishing', -0.3); }
   if (s.role === 'DEF') { add('tackling', 0.12); add('positioning', 0.1); add('heading', 0.1); add('finishing', -0.2); add('dribbling', -0.08); }
@@ -963,10 +963,13 @@ function intentBias(T, p, o, pr, waited) {
 }
 const isCross = (T, p) => Math.abs(p.y) > 16 && p.x * T.dir > 25;
 
+// qualité de frappe selon la distance au but : la finition jusqu'à 16 m, la frappe de loin à partir de 24 m, un mélange entre les deux
+const strike = (a, D) => lerp(a.finishing, a.longShots, clamp((D - 16) / 8, 0, 1));
 function shotXg(m, p, pr) {
   const T = m.teams[p.team], O = m.teams[1 - p.team], gx = P.HL * T.dir;
-  let xg = baseXg(T, p.x, p.y) * (1 - 0.6 * pr) * (0.58 + 0.4 * p.a.finishing);
-  const D = hyp(gx - p.x, p.y) || 1, ux = (gx - p.x) / D, uy = -p.y / D;
+  const D = hyp(gx - p.x, p.y) || 1;
+  let xg = baseXg(T, p.x, p.y) * (1 - 0.6 * pr) * (0.58 + 0.4 * strike(p.a, D));
+  const ux = (gx - p.x) / D, uy = -p.y / D;
   for (const o of O.players) { if (o.role === 'GK') continue; const rx = o.x - p.x, ry = o.y - p.y, s = rx * ux + ry * uy; if (s > 0.5 && s < Math.min(D, 12) && Math.abs(rx * uy - ry * ux) < 0.9) xg *= 0.65; }
   return clamp(xg, 0.003, 0.95);
 }
@@ -1122,7 +1125,7 @@ function executePlan(m, p) {
     const gx = P.HL * d, gk = m.teams[1 - p.team].players[0];
     let side = gk.y > 0 ? -1 : 1; if (rng() < 0.25) side = -side;                    // vise le côté ouvert, le plus souvent
     const aimY = side * (sp === 'penalty' ? 2.28 + 0.85 * rng() : 0.5 + (P.GOAL_HW - 1.0) * Math.pow(rng(), 0.7)), aimZ = 0.2 + 1.9 * Math.pow(rng(), 1.3);      // penalty : on vise près du poteau
-    const D = hyp(gx - p.x, aimY - p.y), v = 21 + 8 * (0.4 + 0.6 * a.finishing), tf = D / (v * 0.93);
+    const D = hyp(gx - p.x, aimY - p.y), sk = strike(a, sp === 'penalty' ? 11 : hyp(gx - p.x, p.y)), v = 21 + 8 * (0.4 + 0.6 * sk), tf = D / (v * 0.93);
     const still = sp === 'penalty' ? 0.42 : sp ? 0.55 : 1;                     // ballon arrêté : le geste est plus précis
     const far = sp ? 1 : 1 + 0.35 * clamp((D - 4) / 6, 0, 1) + 0.3 * clamp((D - 7) / 11, 0, 1);                  // dans le jeu : précis de près, bien moins de loin
     let masked = false;
@@ -1133,8 +1136,8 @@ function executePlan(m, p) {
       for (const id in m.wall.spots) { const q = m.wall.spots[id], rx = q[0] - p.x, ry = q[1] - p.y; if (Math.abs(rx * uy - ry * ux) < 0.9) dW = Math.max(dW, rx * ux + ry * uy); }
       if (dW > 0) { const fk = freeKickSolve(D, dW, Math.max(aimZ, 0.9)); vh = fk.v * Math.cos(fk.e); vz = fk.v * Math.sin(fk.e); masked = true; }
     }
-    ang += (0.075 + 0.12 * (1 - a.finishing)) * (1 + 0.7 * pr) * (1 + D / 60) * still * far * g();      // dans le jeu, une frappe est bien moins précise que sur ballon arrêté
-    vz += v * (0.075 + 0.10 * (1 - a.finishing)) * (1 + 0.5 * pr) * still * far * g();
+    ang += (0.075 + 0.12 * (1 - sk)) * (1 + 0.7 * pr) * (1 + D / 60) * still * far * g();      // dans le jeu, une frappe est bien moins précise que sur ballon arrêté
+    vz += v * (0.075 + 0.10 * (1 - sk)) * (1 + 0.5 * pr) * still * far * g();
     if (vz < 0) vz = 0;
     m.shot = { by: p, team: p.team, xg: pl.xg, t0: m.t, done: false, masked, sp, d0: sp ? 99 : hyp(gx - p.x, p.y) };
     const d0 = m.shot.d0; T.stats.shots++; T.stats.xg += sp === 'penalty' ? 0.76 : pl.xg * 1.1 * (d0 <= 11 ? 1.85 : d0 >= 14 ? 0.58 : lerp(1.85, 0.58, (d0 - 11) / 3));      // statistique recalée sur les buts réellement marqués (le tireur sous-estime ses chances de près et les surestime de loin)
