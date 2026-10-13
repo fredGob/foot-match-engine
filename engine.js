@@ -215,6 +215,13 @@ const AMORTI_FREE = 2.5;   // sans adversaire à moins de 2,5 m, un ballon aéri
 const AIR_DUEL = 0.35, AIR_HOME = 0.12, AIR_CROWD = 0.75;   // centre dans sa surface : le défenseur va au duel s'il arrive au plus 0,35 s après l'attaquant, et gagne la tête 12 points plus souvent ; le passeur le sait, et compte chaque autre défenseur près du point de chute (×0,75)
 const CROSS_BLOCK = 0.55;     // centre contré : chance maximale qu'un adversaire collé devant le centreur touche le ballon
 const CROSS_MARK = 1;      // centre possible : marquage serré dans la surface
+const CALM_SHOT = 0.35;     // sang-froid (rien à 14) : écart du tir, en face-à-face en entier, sinon selon la pression ; à 18, 35 % d'écart en moins, à 10, 35 % en plus
+const CALM_PASS = 0.35;     // sang-froid : ce que la pression ajoute à l'écart d'une passe, 35 % de moins à 18, 35 % de plus à 10
+const PLACE_DEPTH = 0.8;    // placement (rien à 14) : un défenseur bien placé marque 0,8 m plus côté but à 18 (0,8 m moins à 10) et suit mieux les appels
+const PLACE_GAP = 0.3;      // placement au-dessus de 14 : en défense, il referme le trou avec le partenaire le plus proche (au-delà de 12 m)
+const RUN_WAIT = 0.3;       // appels au-dessus de 14 : il part au bon moment, quand le porteur est libre de donner (pression sous 0,4 à 18 au lieu de 0,7)
+const RUN_EARLY = 3;
+const RUN_SOON = 0.7;       // appels sous 14 : un receveur lancé, à moins de 5 m de la ligne, part trop tôt et se fait prendre hors-jeu (7 fois sur 10 à 10)        // appels sous 14 : il traîne jusqu'à 3 m en position de hors-jeu (à 10)
 const AXIS_D = 35;         // à moins de 35 m du but, un défenseur ferme l'axe ballon-but s'il est ouvert
 const READ = 1.2;          // lecture de la passe : allonge la portée de 18 % à 17, la réduit de 36 % à 8
 const LUCID = 2;           // lucidité : prudence face à une passe risquée (+30 % à 17, −60 % à 8)
@@ -592,7 +599,7 @@ function oppDist(O, x, y) { let dmin = 99; for (const o of O.players) { const dd
 function think(m, p) {
   const base = p.role === 'GK' ? 0.16 : (0.36 - 0.14 * p.a.decisions) * (1 + 0.6 * (1 - p.stam));      // fatigué, on réagit moins vite
   p.nextThink = m.t + base * (0.75 + 0.5 * m.rng());
-  const sd = 1.6 * (1.3 - p.a.positioning);                 // petit écart personnel à la position théorique
+  const sd = 1.6 * (1.3 - p.a.positioning) * (1 + 0.8 * clamp((LEVEL - p.a.positioning) / 0.2, 0, 1));      // écart personnel à la position théorique (sous 14, il dérive bien plus)
   p.driftX = p.driftX * 0.9 + m.gauss() * sd * 0.44; p.driftY = p.driftY * 0.9 + m.gauss() * sd * 0.44;
   if (p.stunUntil > m.t) return;
   const w = m.wall;
@@ -725,13 +732,21 @@ function thinkDefend(m, p, noPress) {
     const crossing = th.x * d < -P.HL + 30 && Math.abs(th.y) > 13 && inOwnBox(T, best.x, best.y) && p.role !== 'FWD';
     if (crossing) tight = Math.max(tight, CROSS_MARK);
     if (kHunt && hyp(best.x - th.x, best.y - th.y) < 20) { tight = Math.max(tight, 0.45 + 0.25 * kHunt); hunting = true; }      // « harceler » : on colle les solutions de passe proches
-    const md = 1.2 + 2.5 * (1 - tight);
+    const pq = clamp((p.a.positioning - LEVEL) / 0.2, -1, 1);
+    const md = Math.max(0.3, 1.2 + 2.5 * (1 - tight) + PLACE_DEPTH * pq);      // bien placé : côté but, il protège sa profondeur
     const ob = hyp(b.x - best.x, b.y - best.y) || 1;
     const mx = best.x + (gx - best.x) / og * md + (b.x - best.x) / ob * 0.8, my = best.y + (0 - best.y) / og * md + (b.y - best.y) / ob * 0.8;
     let w = clamp((1 - bd / zoneR) * 1.4, 0, 1) * tight, lx = 0, ly = 0;
-    if (best.intent.type === 'run' && p.role === 'DEF') { w = Math.max(w, 0.9); lx = best.vx * 0.5; ly = best.vy * 0.5; }      // il anticipe la course
+    if (best.intent.type === 'run' && p.role === 'DEF') { w = Math.max(w, 0.9); lx = best.vx * (0.5 + 0.25 * pq); ly = best.vy * (0.5 + 0.25 * pq); }      // il anticipe la course (mieux s'il est bien orienté)
     tx = lerp(ax, mx + lx, w); ty = lerp(ay, my + ly, w);
     if (w > 0.3) label = (lx || ly ? 'Suit l\'appel du n°' : 'Marque le n°') + best.num;
+  }
+  // placement au-dessus de 14 : jamais trop loin d'un partenaire ; il referme le trou avec le plus proche de sa ligne
+  const gq = PLACE_GAP * clamp((p.a.positioning - LEVEL) / 0.2, 0, 1);
+  if (gq > 0 && p.role !== 'FWD') {
+    let nb = null, nd = 99;
+    for (const q of T.players) { if (q === p || q.role !== p.role) continue; const dd = hyp(q.x - tx, q.y - ty); if (dd < nd) { nd = dd; nb = q; } }
+    if (nb && nd > 12) { const k = gq * (nd - 12) / nd; tx += (nb.x - tx) * k; ty += (nb.y - ty) * k; if (label === 'Garde sa zone') label = 'Se rapproche du n°' + nb.num; }
   }
   let urg = 0.35, calm = false;
   if (hyp(th.x - p.x, th.y - p.y) < 25) urg = 0.6;
@@ -766,7 +781,7 @@ function thinkSupport(m, p) {
   const kp = T.tac.passing, long = Math.max(0, kp), short = Math.max(0, -kp), runs = 1 + 0.9 * long - 0.4 * short, gap = 1 - 0.4 * long + 0.3 * short;
   // appel en profondeur
   if ((p.role === 'FWD' || (p.role === 'MID' && p.side !== 0)) && carrier && !carrier.setPiece && dB < 38 + 14 * long && th.x * d > -15 - 18 * long && m.t > p.nextRunAt
-      && T.offLine < P.HL - 14 && pressure(m, carrier) < 0.7 && m.rng() < (0.08 + 0.22 * p.a.offBall) * runs) {
+      && T.offLine < P.HL - 14 && pressure(m, carrier) < 0.7 - RUN_WAIT * clamp((p.a.offBall - LEVEL) / 0.2, 0, 1) && m.rng() < (0.08 + 0.22 * p.a.offBall) * runs) {
     const tx = Math.min(T.offLine + 14, 46) * d, ty = clamp(p.y * 0.55 + 4 * m.gauss(), -26, 26);
     setIntent(m, p, 'run', 'Appel en profondeur', tx, ty, 1);
     it.until = m.t + 2.2; p.nextRunAt = m.t + 6 * gap + 6 * m.rng() * gap;
@@ -779,7 +794,7 @@ function thinkSupport(m, p) {
     for (const r of rings) for (let k = 0; k < (r ? 8 : 1); k++) {
       const qx = ax + r * Math.cos(k * Math.PI / 4), qy = ay + r * Math.sin(k * Math.PI / 4);
       if (Math.abs(qx) > 51.5 || Math.abs(qy) > 33) continue;
-      const rx = qx * d; if (rx > T.offLine - 0.6) continue;
+      const rx = qx * d; if (rx > T.offLine - 0.6 + RUN_EARLY * clamp((LEVEL - p.a.offBall) / 0.2, 0, 1)) continue;      // un mauvais appel traîne hors-jeu
       const dq = hyp(qx - th.x, qy - th.y);
       let s = 0.8 * clamp(oppDist(O, qx, qy) / 9, 0, 1);                         // de l'espace
       s += clamp(laneOpen(O, th.x, th.y, qx, qy) / 3, -1, 1);                    // une ligne de passe ouverte
@@ -1113,7 +1128,7 @@ function executePlan(m, p) {
     if (pl.feet) { const D0 = hyp(to.x - p.x, to.y - p.y); v0 = Math.min(v0 * 1.15, groundSpeedFor(D0, 8.5 + 0.04 * D0)); const lead = Math.min(groundTime(v0, D0), 0.7) * 0.6; qx = to.x + to.vx * lead; qy = to.y + to.vy * lead; }
     const off = Math.abs(angDiff(Math.atan2(qy - p.y, qx - p.x), p.face));
     const skill = Math.exp(PASS_GAP * (LEVEL - a.passing));      // l'écart grandit vite quand la note baisse
-    const sig = (0.016 + 0.032 * (1 - a.passing)) * skill * (1 + 1.2 * pr) * (1 + 0.3 * off) * (pl.lofted ? 1.6 : 1) * (pl.firstTime ? 1.4 : 1);
+    const sig = (0.016 + 0.032 * (1 - a.passing)) * skill * (1 + 1.2 * pr * clamp(1 - CALM_PASS * (a.composure - LEVEL) / 0.2, 0.5, 1.5)) * (1 + 0.3 * off) * (pl.lofted ? 1.6 : 1) * (pl.firstTime ? 1.4 : 1);
     const eA = sig * g(), eV = 0.05 * skill * g();
     ang = Math.atan2(qy - p.y, qx - p.x) + eA;
     const v = v0 * (1 + eV);                                     // un mauvais passeur dose mal : trop molle ou trop appuyée
@@ -1136,10 +1151,14 @@ function executePlan(m, p) {
       for (const id in m.wall.spots) { const q = m.wall.spots[id], rx = q[0] - p.x, ry = q[1] - p.y; if (Math.abs(rx * uy - ry * ux) < 0.9) dW = Math.max(dW, rx * ux + ry * uy); }
       if (dW > 0) { const fk = freeKickSolve(D, dW, Math.max(aimZ, 0.9)); vh = fk.v * Math.cos(fk.e); vz = fk.v * Math.sin(fk.e); masked = true; }
     }
-    ang += (0.075 + 0.12 * (1 - sk)) * (1 + 0.7 * pr) * (1 + D / 60) * still * far * g();      // dans le jeu, une frappe est bien moins précise que sur ballon arrêté
-    vz += v * (0.075 + 0.10 * (1 - sk)) * (1 + 0.5 * pr) * still * far * g();
+    // sang-froid : face-à-face (personne entre lui et le but, peu pressé), ou selon la pression ressentie
+    const Ox = m.teams[1 - p.team].players, ux = (gx - p.x) / (D || 1), uy = (aimY - p.y) / (D || 1);
+    const face = !sp && D < 20 && pr < 0.4 && !Ox.some(o => o.role !== 'GK' && (o.x - p.x) * ux + (o.y - p.y) * uy > 0.5 && Math.abs((o.x - p.x) * uy - (o.y - p.y) * ux) < 1.5);
+    const calm = sp === 'penalty' || face ? 1 : sp ? 0 : pr, ck = clamp(1 - CALM_SHOT * calm * (a.composure - LEVEL) / 0.2, 0.5, 1.6);
+    ang += ck * (0.075 + 0.12 * (1 - sk)) * (1 + 0.7 * pr) * (1 + D / 60) * still * far * g();      // dans le jeu, une frappe est bien moins précise que sur ballon arrêté
+    vz += ck * v * (0.075 + 0.10 * (1 - sk)) * (1 + 0.5 * pr) * still * far * g();
     if (vz < 0) vz = 0;
-    m.shot = { by: p, team: p.team, xg: pl.xg, t0: m.t, done: false, masked, sp, d0: sp ? 99 : hyp(gx - p.x, p.y) };
+    m.shot = { by: p, team: p.team, xg: pl.xg, t0: m.t, done: false, masked, sp, face, d0: sp ? 99 : hyp(gx - p.x, p.y) };
     const d0 = m.shot.d0; T.stats.shots++; T.stats.xg += sp === 'penalty' ? 0.76 : pl.xg * 1.1 * (d0 <= 11 ? 1.85 : d0 >= 14 ? 0.58 : lerp(1.85, 0.58, (d0 - 11) / 3));      // statistique recalée sur les buts réellement marqués (le tireur sous-estime ses chances de près et les surestime de loin)
   } else {
     const v = 24 + 4 * rng(), e = 38 * Math.PI / 180; ang = pl.ang; vh = v * Math.cos(e); vz = v * Math.sin(e);
@@ -1150,7 +1169,12 @@ function executePlan(m, p) {
   b.vx = Math.cos(ang) * vh; b.vy = Math.sin(ang) * vh; b.vz = vz; b.lastTouch = p;
   p.noControlUntil = m.t + 0.45; p.setPiece = null; p.hands = false; p.protectedUntil = 0;
   const offs = [];
-  if (pl.kind === 'pass' && sp !== 'throwin' && sp !== 'goalkick' && sp !== 'corner') for (const q of T.players) if (q !== p && q.x * d > T.offLine + 0.3) offs.push(q.id);
+  if (pl.kind === 'pass' && sp !== 'throwin' && sp !== 'goalkick' && sp !== 'corner') for (const q of T.players) {
+    if (q === p) continue;
+    if (q.x * d > T.offLine + 0.3) { offs.push(q.id); continue; }
+    // appels sous 14 : le receveur lancé part trop tôt ; au départ du ballon, il a déjà franchi la ligne
+    if (q === to && q.intent.type === 'run' && q.vx * d > 3 && q.x * d > T.offLine - 5 && q.a.offBall < LEVEL && rng() < RUN_SOON * clamp((LEVEL - q.a.offBall) / 0.2, 0, 1)) { offs.push(q.id); cnt(m, 'appel.tot'); }
+  }
   m.pass = { from: p, to, kind: pl.kind, lofted: !!pl.lofted, t0: m.t, offs, type: pl.lofted ? 'air' : pl.feet ? 'pieds' : 'course', aimX: pl.kind === 'pass' ? pl.qx * d : null, lat: pl.lat || 0, dose: pl.dose || 0, pOk: pl.pOk };
   if (pl.kind === 'pass') cnt(m, 'passe.' + m.pass.type); else cnt(m, pl.kind);
   if (m.corner && sp === 'corner') m.corner.until = m.t + 3;
