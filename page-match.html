@@ -388,8 +388,11 @@
   const clubOf = T => T ? T.nom || T.id || '' : '';
   const buffers = {};
 
-  // l'adversaire : consignes neutres, dans le système habituel de son club (4-4-2 pour les autres équipes)
-  function oppTac() { const t = blank(), F = squad[1] && squad[1].formation; if (F && E.FORMATIONS.some(f => f.id === F)) t.formation = F; return t; }
+  function oppTac() {      // l'adversaire joue dans son système et avec le style de son entraîneur (clubs), sinon au neutre en 4-4-2
+    const t = blank(), O = squad[1] || {}, F = O.formation; if (F && E.FORMATIONS.some(f => f.id === F)) t.formation = F;
+    if (O.consignes) for (const c of TAC) if (O.consignes[c.key] != null) t[c.key] = Math.max(-1, Math.min(1, Math.round(+O.consignes[c.key] || 0)));
+    return t;
+  }
   function blank() { const t = {}; for (const c of TAC) t[c.key] = 0; return t; }
   const mmss = t => String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(Math.floor(t % 60)).padStart(2, '0');
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -983,7 +986,7 @@
       + TAC.map(c => '<tr><td class="k" title="' + esc(c.help) + '">' + esc(c.label) + '</td><td><select data-tv-key="' + c.key + '" aria-label="' + esc(c.label) + ' des ' + who + '"' + (tv.tac[c.key] ? ' class="set"' : '') + '>' + [-1, 0, 1].map(v => opt(c, v)).join('') + '</select></td></tr>').join('');
     $('tvNeutral').disabled = !TAC.some(c => tv.tac[c.key]);
     $('tacHint').textContent = coach() && !pending ? 'Ce que vous validez s\'applique au prochain arrêt de jeu après le direct (' + mmss(live) + '), même si vous revoyez une action plus ancienne.'
-      : pending ? (coach() ? 'Avant le coup d\'envoi : réglez votre équipe. L\'adversaire joue avec des consignes neutres.' : 'Avant le coup d\'envoi : ce que vous validez vaut dès le début du match.')
+      : pending ? (coach() ? 'Avant le coup d\'envoi : réglez votre équipe. L\'adversaire joue ' + (squad[1] && squad[1].consignes ? 'avec le style de son entraîneur.' : 'avec des consignes neutres.') : 'Avant le coup d\'envoi : ce que vous validez vaut dès le début du match.')
       : tv.base.tick <= 0 ? 'Au coup d\'envoi : un changement vaut pour tout le match.' : 'Ce que vous validez s\'applique au prochain arrêt de jeu après ' + mmss(cur) + ' et réécrit la suite du match.';
     $('tvSubs').textContent = pending ? '· avant le coup d\'envoi : titulaires au choix' : '· remplacements ' + subsUsed() + ' / ' + E.MAX_SUBS;
     // ce qui est en préparation
@@ -1112,7 +1115,7 @@
     mode = md; document.body.classList.toggle('coach', coach());
     document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
     showSquads();
-    if (coach()) { tac0[1] = oppTac(); simulate(false); }      // Coach It : l'adversaire joue avec des consignes neutres, dans son système
+    if (coach()) { tac0[1] = oppTac(); simulate(false); }      // Coach It : l'adversaire joue dans son système, avec le style de son entraîneur (club) ou au neutre
     tv.base = null; if (tab === 'tac') { tv.look = null; tv.msg = ''; tvLoad(); tvDraw(); }
     nextHud = 0;
   }

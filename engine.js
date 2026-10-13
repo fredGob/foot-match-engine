@@ -135,6 +135,10 @@ const FORMATIONS = [
       F('MID', -1, -24, -30, 2, 28, 'Piston gauche'), F('DEF', 0, -10, -16, 0, 0, 'Défenseur central gauche'), F('DEF', 0, 10, 16, 0, 0, 'Défenseur central droit'), F('MID', 1, 24, 30, 2, 28, 'Piston droit'),
       F('MID', 0, -10, -13, 11, 22, 'Milieu gauche'), F('DEF', 0, 0, 0, 0, 0, 'Défenseur central'), F('MID', 0, 0, 0, 9, 18, 'Milieu axial'),
       F('MID', 0, 10, 13, 11, 22, 'Milieu droit'), null, null] },
+  { id: '3421', name: '3-4-2-1', slots: [null,
+      F('MID', -1, -24, -30, 2, 28, 'Piston gauche'), F('DEF', 0, -10, -16, 0, 0, 'Défenseur central gauche'), F('DEF', 0, 10, 16, 0, 0, 'Défenseur central droit'), F('MID', 1, 24, 30, 2, 28, 'Piston droit'),
+      F('MID', 0, -10, -13, 15, 31, 'Milieu offensif gauche'), F('DEF', 0, 0, 0, 0, 0, 'Défenseur central'), F('MID', 0, 5, 7, 8, 16, 'Milieu axial droit'),
+      F('MID', 0, 10, 13, 15, 31, 'Milieu offensif droit'), F('MID', 0, -5, -7, 8, 16, 'Milieu axial gauche'), F('FWD', 0, 0, 0, 23, 39, 'Avant-centre')] },
   { id: '532', name: '5-3-2', slots: [null,
       F('DEF', -1, -22, -29, 1, 20, 'Piston gauche'), F('DEF', 0, -10, -16, 0, 0, 'Défenseur central gauche'), F('DEF', 0, 10, 16, 0, 0, 'Défenseur central droit'), F('DEF', 1, 22, 29, 1, 20, 'Piston droit'),
       F('MID', 0, -11, -14, 10, 20, 'Milieu gauche'), F('DEF', 0, 0, 0, 0, 0, 'Défenseur central'), F('MID', 0, 0, 0, 9, 18, 'Milieu axial'),
@@ -373,6 +377,8 @@ function createMatch(opts) {
   }
   // formation : celle demandée, sinon le système habituel de l'équipe du fichier (clubs de Ligue 1), sinon 4-4-2
   for (let t = 0; t < 2; t++) { const T = opts.teams && opts.teams[t], own = T && T.formation && FORMATIONS.some(f => f.id === T.formation) ? T.formation : null; setFormation(m, t, (opts.formations && opts.formations[t]) || own || '442'); }
+  // consignes : celles de l'équipe du fichier (style de l'entraîneur d'un club), puis celles demandées, qui l'emportent
+  for (let t = 0; t < 2; t++) { const T = opts.teams && opts.teams[t]; if (T && T.consignes) setTactics(m, t, T.consignes); }
   if (opts.tactics) for (let t = 0; t < 2; t++) setTactics(m, t, opts.tactics[t]);
   m.ball = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, px: 0, py: 0, pz: 0, dip: 0, owner: null, lastTouch: null };
   setRestart(m, 'kickoff', 0, 0, 0, 2);

@@ -392,10 +392,10 @@ function drawClubs() {
 function pickClub(id) {
   const C = CLUBS.find(x => x.id === id); if (!C) return;
   const F = D.formations.find(f => f.id === C.formation) || D.formations[0], pls = F.places;
-  Object.assign(S, { club: C.id, nom: C.nom, formation: F.id, tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0 },
+  Object.assign(S, { club: C.id, nom: C.nom, formation: F.id, tac: Object.assign({ passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0 }, C.consignes),
     squad: C.titulaires.concat(C.remplacants).map(j => j.id), lineup: pls.map(pl => (C.titulaires.find(j => j.place === pl.code) || {}).id || null), bench: C.remplacants.map(j => j.id) });
   if (S.lineup.some(x => !x)) ranger();
-  show('vTac'); say('Effectif de ' + C.nom + ' en place, dans son système habituel (' + F.name + '). Changez la formation, faites glisser les joueurs, réglez les consignes.');
+  show('vTac'); say('Effectif de ' + C.nom + ' en place, dans son système habituel (' + F.name + ') et avec le style de son entraîneur. Changez la formation, faites glisser les joueurs, réglez les consignes.');
 }
 document.addEventListener('click', e => { const b = e.target.closest('[data-club]'); if (b) pickClub(b.dataset.club); });
 
