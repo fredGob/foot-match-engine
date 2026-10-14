@@ -310,14 +310,19 @@
   // résultat rendu par match.html (enregistré dans le navigateur au coup de sifflet final, tirs au but compris)
   function readResult() {
     let r = null; try { r = JSON.parse(localStorage.getItem(RES) || 'null'); } catch (e) {}
+    // match lancé puis abandonné sans retour (navigateur fermé en plein match) : défaite par forfait, une minute après le dernier signe de vie
+    try {
+      const run = JSON.parse(localStorage.getItem('coupe-en-cours') || 'null'), p = myPair();
+      if (!r && run && p && run.id === p.id && !p.res && Date.now() - run.t > 60000) { r = { id: p.id, score: [0, 3], tab: null, winner: 1, scorers: [], forfait: true }; localStorage.removeItem('coupe-en-cours'); }
+    } catch (e) {}
     if (!r || !G) return;
     const p = myPair();
     if (p && p.id === r.id && !p.res) {
-      p.res = { score: r.score, tab: r.tab, winner: r.winner, scorers: r.scorers || [] };
+      p.res = { score: r.score, tab: r.tab, winner: r.winner, scorers: r.scorers || [], forfait: !!r.forfait };
       if (r.winner !== 0) G.out = round().name; else if (G.rounds.length === ROUNDS.length) G.champion = true;
       save();
     }
-    try { localStorage.removeItem(RES); } catch (e) {}
+    try { localStorage.removeItem(RES); const run = JSON.parse(localStorage.getItem('coupe-en-cours') || 'null'); if (run && run.id === r.id) localStorage.removeItem('coupe-en-cours'); } catch (e) {}
   }
 
   // ---------- affichage ----------
@@ -326,7 +331,7 @@
     const r = p.res, A = teamOf(p.a), B = teamOf(p.b);
     const cls = k => r ? (r.winner === k ? 'w' : 'l') : '';
     const sub = T => T === G.me ? 'vous' : divOf(T);
-    const mid = r ? r.score[0] + ' – ' + r.score[1] + (r.tab ? '<small>t.a.b. ' + r.tab[0] + '–' + r.tab[1] + '</small>' : '') : (plain ? 'contre' : '…');
+    const mid = r ? r.score[0] + ' – ' + r.score[1] + (r.tab ? '<small>t.a.b. ' + r.tab[0] + '–' + r.tab[1] + '</small>' : r.forfait ? '<small>forfait</small>' : '') : (plain ? 'contre' : '…');
     return '<span class="a ' + cls(0) + '">' + esc(A.nom) + ' <span class="div">' + esc(sub(A)) + '</span></span><span class="s">' + mid + '</span><span class="b ' + cls(1) + '">' + esc(B.nom) + ' <span class="div">' + esc(sub(B)) + '</span>' + (exploit(p) ? '<span class="tag">exploit</span>' : '') + '</span>';
   }
   function show() {
@@ -343,12 +348,12 @@
     if (p) {
       const B = teamOf(p.b), r = p.res;
       h += '<div class="match"><div class="side">' + esc(G.me.nom) + '<small>' + (G.me.club ? 'Ligue 1' : 'votre équipe') + '</small></div>'
-        + '<div class="vs">' + (r ? r.score[0] + ' – ' + r.score[1] + (r.tab ? '<small>tirs au but ' + r.tab[0] + '–' + r.tab[1] + '</small>' : '') : 'contre<small>' + esc(R.name) + '</small>') + '</div>'
+        + '<div class="vs">' + (r ? r.score[0] + ' – ' + r.score[1] + (r.tab ? '<small>tirs au but ' + r.tab[0] + '–' + r.tab[1] + '</small>' : r.forfait ? '<small>forfait</small>' : '') : 'contre<small>' + esc(R.name) + '</small>') + '</div>'
         + '<div class="side r">' + esc(B.nom) + '<small>' + esc(divOf(B)) + ' · note ' + avg(hard(B)).toFixed(1).replace('.', ',') + '</small></div></div>';
-      if (!r) h += '<div class="go"><a class="btn main" href="' + matchLink(p) + '">Jouer le match →</a><span class="muted small">Mode Coach It, 90 minutes. En cas d\'égalité : tirs au but.</span></div>';
+      if (!r) h += '<div class="go"><a class="btn main" href="' + matchLink(p) + '">Jouer le match →</a><span class="muted small">Mode Coach It, 90 minutes. En cas d\'égalité : tirs au but. Une fois le coup d\'envoi donné, quitter le match = défaite par forfait.</span></div>';
       else if (G.champion) h += '<div class="verdict champ">🏆 Vous remportez la Coupe en carton !</div><div class="go"><button class="btn main" id="toEnd">Voir mon parcours en image →</button></div>';
       else if (r.winner === 0) h += '<div class="verdict win">Qualifié pour le tour suivant !</div>';
-      else h += '<div class="verdict lose">Éliminé en ' + esc(R.name.toLowerCase()) + '. La coupe continue sans vous.</div><div class="go"><button class="btn main" id="toEnd">Voir mon parcours en image →</button><button class="btn" id="again">Nouvelle coupe</button></div>';
+      else h += '<div class="verdict lose">' + (r.forfait ? 'Match abandonné : défaite par forfait. ' : '') + 'Éliminé en ' + esc(R.name.toLowerCase()) + '. La coupe continue sans vous.</div><div class="go"><button class="btn main" id="toEnd">Voir mon parcours en image →</button><button class="btn" id="again">Nouvelle coupe</button></div>';
       const others = R.pairs.filter(q => q !== p), left = others.filter(q => !q.res).length;
       if (r && r.winner === 0 && !G.champion) h += '<div class="go"><button class="btn main" id="nextRound"' + (left ? ' disabled' : '') + '>Tirage du tour suivant : ' + esc(ROUNDS[k + 1].toLowerCase()) + ' →</button>' + (left ? '<span class="muted small">En attente des autres résultats (' + left + ')…</span>' : '') + '</div>';
     }
@@ -419,7 +424,7 @@
       g.fillStyle = '#93a0af'; g.font = f(600, 14); g.fillText(R.name, 68, y + 16);
       g.fillStyle = '#e8edf2'; g.font = f(700, 22); g.fillText('contre ' + nameOf(q.b), 68, y + 42);
       g.textAlign = 'right'; g.font = f(800, 30); g.fillText(r.score[0] + ' – ' + r.score[1], 730, y + 38);
-      if (r.tab) { g.font = f(600, 13); g.fillStyle = '#ffe45c'; g.fillText('t.a.b. ' + r.tab[0] + '–' + r.tab[1], 730, y + 12); }
+      if (r.tab || r.forfait) { g.font = f(600, 13); g.fillStyle = '#ffe45c'; g.fillText(r.tab ? 't.a.b. ' + r.tab[0] + '–' + r.tab[1] : 'forfait', 730, y + 12); }
       g.textAlign = 'left'; y += 70;
     }
     // buteurs de l'équipe et meilleur buteur de la coupe

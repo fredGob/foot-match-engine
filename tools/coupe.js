@@ -100,10 +100,20 @@ const COUPE = 'file://' + path.join(ROOT, 'coupe.html');
   check(await page3.isVisible('#vCup') && /8e de finale/.test(await page3.textContent('#roundTitle')), 'la partie reprend au même tour');
   await page3.close();
 
-  console.log('Élimination et image du parcours');
-  await page.evaluate(() => { const g = JSON.parse(localStorage.getItem('coupe-partie')); const p = g.rounds[1].pairs.find(q => q.a === 'moi'); localStorage.setItem('coupe-resultat', JSON.stringify({ id: p.id, score: [1, 1], tab: [3, 4], winner: 1, scorers: [{ team: 0, name: 'Buteur Test', og: false, min: "33'" }] })); });
+  console.log('Abandon = défaite (match lancé puis quitté)');
+  const href2 = await page.getAttribute('a.btn.main[href^="match.html#partie="]', 'href');
+  const page4 = await ctx.newPage(); page4.on('pageerror', e => errors.push(String(e)));
+  await page4.goto('file://' + path.join(ROOT, href2)); await page4.waitForTimeout(400);
+  await page4.reload(); await page4.waitForTimeout(400);
+  check(await page4.isHidden('#forfait'), 'page rechargée avant le coup d\'envoi : pas de forfait (on peut régler sa tactique)');
+  await page4.click('#kick'); await page4.waitForTimeout(3500);
+  await page4.reload(); await page4.waitForTimeout(500);
+  check(await page4.isVisible('#forfait') && await page4.isHidden('#kick'), 'match lancé puis page rechargée : « défaite par forfait », plus de coup d\'envoi');
+  await page4.close();
   await page.reload(); await page.waitForTimeout(500);
-  check(/Éliminé en 8e de finale/.test(await page.textContent('#myBox')), 'défaite aux tirs au but : éliminé en 8e de finale');
+  check(/forfait/.test(await page.textContent('#myBox')) && /Éliminé en 8e de finale/.test(await page.textContent('#myBox')), 'la coupe compte le forfait : éliminé en 8e de finale', (await page.textContent('#myBox')).slice(0, 120));
+
+  console.log('Image du parcours');
   await page.click('#toEnd'); await page.waitForTimeout(400);
   check(await page.isVisible('#card'), 'image du parcours');
   await page.screenshot({ path: path.join(DOCS, 'coupe-fin.png') });

@@ -139,9 +139,6 @@ function choisir(D) {
   check(okEngine, 'le moteur lit l\'équipe exportée, chacun à sa place', detail);
 
   console.log('Reprise après rechargement');
-  await page.goto(home);
-  check(await page.isVisible('#mine') && /Les Essais/.test(await page.textContent('#mine')) && (await page.$$('#mine svg circle[fill="#2f6fdf"]')).length === 11 && /4-3-3/.test(await page.textContent('#mine')), 'l\'accueil montre « Mon équipe » : nom, formation, onze titulaires sur le terrain', (await page.textContent('#mine .facts')).replace(/\s+/g, ' '));
-  await page.screenshot({ path: path.join(DOCS, 'accueil.png'), fullPage: true }); console.log('        capture : docs/accueil.png');
   await page.goto(home); check(await page.isVisible('#none'), 'une équipe construite n\'apparaît plus sur l\'accueil (construction au carton)');
   await page.goto(url + '#reprendre'); await page.waitForTimeout(200);
   check(await page.isVisible('#pitch') && JSON.stringify(await page.evaluate('S.lineup')) === JSON.stringify(saved.lineup) && await page.evaluate('S.formation') === '433', 'équipe reprise : même formation, mêmes places');
@@ -185,13 +182,16 @@ function choisir(D) {
     det2 = det2 || 'match de 2 minutes joué contre le PSG de equipes.json, ' + m.teams[0].score + '-' + m.teams[1].score + ' ; ' + m.teams[0].players.slice(5, 11).map(p => p.name + ' : ' + p.poste).join(', ');
   } catch (e) { ok2 = false; det2 = e.message; }
   check(ok2, 'le moteur lit l\'équipe exportée, chacun à sa place', det2);
-  await page.goto(home); await page.click('#editMine'); await page.waitForURL(/#reprendre/);
+  await page.goto(home);
+  check(await page.isVisible('#mine') && /Paris Saint-Qatar/.test(await page.textContent('#mine')) && (await page.$$('#mine svg circle[fill="#2f6fdf"]')).length === 11 && /4-2-3-1/.test(await page.textContent('#mine')), 'l\'accueil montre « Mon club » : nom, formation, onze titulaires sur le terrain', (await page.textContent('#mine .facts')).replace(/\s+/g, ' '));
+  await page.screenshot({ path: path.join(DOCS, 'accueil.png'), fullPage: true }); console.log('        capture : docs/accueil.png');
+  await page.click('#editMine'); await page.waitForURL(/#reprendre/);
   check(await page.isVisible('#pitch') && await page.evaluate('S.club') === 'psg' && JSON.stringify(await page.evaluate('S.lineup')) === JSON.stringify(saved2.lineup), 'club repris après rechargement : même formation, mêmes places');
   await page.click('#back');
   check(await page.isVisible('#clubs'), '« Changer de club » ramène à la liste des clubs');
-  await page.goto(url + '#carton'); await page.waitForTimeout(200);
+  await page.goto(url + '#carton'); await page.reload(); await page.waitForTimeout(300);
   check(await page.evaluate('S.squad.length') === 0 && await page.evaluate('S.club') === null, 'construction d\'équipe (adresse cachée) après un club : effectif vide, budget entier');
-  await page.goto(url + '#construire'); await page.waitForTimeout(200);
+  await page.goto(url + '#construire'); await page.reload(); await page.waitForTimeout(300);
   check(await page.isVisible('#clubs'), 'l\'ancienne adresse « #construire » mène au choix du club');
 
   console.log('Passer au match');

@@ -384,7 +384,7 @@ const moyenne = L => L.reduce((s, j) => s + j.note, 0) / L.length;
 function drawClubs() {
   $('clubs').innerHTML = CLUBS.map(C => {
     const best = C.titulaires.slice().sort((a, b) => b.note - a.note).slice(0, 3).map(j => esc(j.nom) + ' ' + fmt(j.note)).join(' · ');
-    return '<button class="club" data-club="' + esc(C.id) + '" title="' + esc(C.description || '') + '"><div class="top"><span class="rk">' + C.classement + (C.classement === 1 ? 'er' : 'e') + '</span><b>' + esc(C.nom) +
+    return '<button class="club" data-club="' + esc(C.id) + '" title="' + esc(C.description || '') + '"><div class="top"><span class="rk">' + (C.classement ? C.classement + (C.classement === 1 ? 'er' : 'e') : 'promu') + '</span><b>' + esc(C.nom) +
       '</b><span class="avg">' + fmt(moyenne(C.titulaires)) + '</span></div><div class="stars">' + best + '</div><div class="stars">' + (C.titulaires.length + C.remplacants.length) + ' joueurs dont ' + C.remplacants.length + ' remplaçants</div></button>';
   }).join('');
 }

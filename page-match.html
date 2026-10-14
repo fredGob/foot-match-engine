@@ -596,7 +596,7 @@
     }
     const over = !pending && cur >= end - 1e-6 && !scrub;
     if (over) { $('endText').textContent = view.teams[0].name + ' ' + s0 + ' – ' + s1 + ' ' + view.teams[1].name; if (cardOf !== rec) { cardOf = rec; drawCard(); } }
-    if (over && CUP && (!job || job.done) && cupOf !== rec) { cupOf = rec; saveCup(s0, s1); if (rec.shootout) showShootout(rec.shootout); }
+    if (over && CUP && !forfeited && (!job || job.done) && cupOf !== rec) { cupOf = rec; saveCup(s0, s1); if (rec.shootout) showShootout(rec.shootout); }
     $('end').hidden = !over || tab !== 'match';
     tvSync();
     $('play').textContent = pending ? (PHONE ? '▶ Lancer' : 'Lancer le match') : playing ? (PHONE ? '⏸ Pause' : 'Pause') : (PHONE ? '▶ Lecture' : 'Lecture');
@@ -605,12 +605,17 @@
   }
 
   // ---------- coupe : résultat rendu à coupe.html, séance de tirs au but montrée tir par tir ----------
-  let cupOf = null, tabTimer = 0;
+  let cupOf = null, tabTimer = 0, beat = 0, forfeited = false;
+  // abandon = défaite (choix de Frédéric) : un match de coupe lancé puis quitté, ou rechargé, est perdu par forfait (0-3)
+  function forfeit() {
+    forfeited = true;
+    try { localStorage.setItem('coupe-resultat', JSON.stringify({ id: CUP.id, score: [0, 3], tab: null, winner: 1, scorers: [], forfait: true })); localStorage.setItem('coupe-en-cours', JSON.stringify({ id: CUP.id, t: Date.now(), forfait: true })); } catch (e) {}      // la marque reste : la page rechargée annonce le forfait
+  }
   function saveCup(s0, s1) {
     const sc = [];
     for (const e of rec.events) if (e.kind === 'goal') { const og = /contre son camp de (.+) \(\d+-\d+\)$/.exec(e.text), g = og || /! (.+) \(\d+-\d+\)$/.exec(e.text); sc.push({ team: e.team, name: g ? g[1] : '?', og: !!og, min: minute(e.t) }); }
     const sh = rec.shootout, winner = s0 > s1 ? 0 : s1 > s0 ? 1 : sh ? sh.winner : 0;
-    try { localStorage.setItem('coupe-resultat', JSON.stringify({ id: CUP.id, score: [s0, s1], tab: sh ? sh.score : null, winner, scorers: sc })); } catch (e) {}
+    try { localStorage.setItem('coupe-resultat', JSON.stringify({ id: CUP.id, score: [s0, s1], tab: sh ? sh.score : null, winner, scorers: sc })); localStorage.removeItem('coupe-en-cours'); } catch (e) {}
   }
   function showShootout(sh) {
     const T = view.teams, box = $('tab'), shown = [0, 0];
@@ -852,6 +857,7 @@
 
   function frame(ts) {
     const dt = Math.min(0.1, (ts - last) / 1000 || 0); last = ts;
+    if (CUP && !pending && !cupOf && !forfeited && ts - beat > 3000) { beat = ts; try { localStorage.setItem('coupe-en-cours', JSON.stringify({ id: CUP.id, t: Date.now() })); } catch (e) {} }      // coupe : « match en cours » (abandon = défaite)
     if (job && !job.done && !pending && !series) {      // calcul en arrière-plan, quelques millisecondes par image
       const J = job; advance(J, target(J), PHONE ? 6 : 10);
       if (J.done || performance.now() - J.hlAt > 600) refresh(J);
@@ -914,7 +920,7 @@
     const d = document.documentElement;
     try { const p = d.requestFullscreen && !document.fullscreenElement && d.requestFullscreen({ navigationUI: 'hide' }); if (p) p.then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')).catch(() => {}); } catch (e) {}
   }
-  function launch() { if (!pending) return; if (PHONE) fullscreen(); pending = false; lockMode(); cur = 0; live = 0; marked = -1; playing = true; if (tab === 'tac') setTab('match'); rebuild(0); }
+  function launch() { if (!pending || forfeited) return; if (PHONE) fullscreen(); pending = false; lockMode(); cur = 0; live = 0; marked = -1; playing = true; if (tab === 'tac') setTab('match'); rebuild(0); }
   // plusieurs consignes d'un coup (tactique prédéfinie) : un seul recalcul
   function setTactics(team, obj, preset) {
     if (!rec) return;
@@ -1157,6 +1163,7 @@
   const randomSeed = () => 1 + Math.floor(Math.random() * 99999);
   $('new').onclick = () => newMatch(randomSeed());
   $('again').onclick = () => { if (CUP) location.href = 'coupe.html'; else newMatch(randomSeed()); };
+  $('teamLink').addEventListener('click', e => { if (CUP && !pending && !cupOf && !forfeited && !confirm('Quitter ce match de coupe avant la fin ? Ce sera une défaite par forfait (0-3).')) e.preventDefault(); });
   $('load').onclick = () => newMatch(Math.max(1, Math.floor(+$('seed').value) || 1));
   $('duration').onchange = () => { duration = +$('duration').value; newMatch(seed); };
   const time = $('time');
@@ -1299,6 +1306,20 @@
     try { if (localStorage.getItem('menuFerme')) document.body.classList.add('pclosed'); } catch (e) {}
   }
   newMatch(CUP ? CUP.seed : randomSeed());
+  if (CUP) {
+    let run = null; try { run = JSON.parse(localStorage.getItem('coupe-en-cours') || 'null'); } catch (e) {}
+    if (run && run.id === CUP.id) {      // match déjà lancé puis quitté (page rechargée) : défaite par forfait
+      forfeit();
+      const msg = document.createElement('div'); msg.id = 'forfait';
+      msg.innerHTML = '<b>Match abandonné : défaite par forfait (0-3).</b><br>Dans la Coupe en carton, un match lancé doit être joué jusqu\'au bout.';
+      $('pre').prepend(msg); $('kick').style.display = 'none'; $('preTac').style.display = 'none';
+      const back = document.createElement('button'); back.className = 'main'; back.textContent = 'Retour à la coupe →'; back.onclick = () => { location.href = 'coupe.html'; };
+      $('kick').parentNode.append(back);
+    }
+    // quitter un match lancé : le navigateur demande confirmation ; s'il est quitté pour de bon, c'est une défaite par forfait
+    window.addEventListener('beforeunload', e => { if (!pending && !cupOf && !forfeited) { e.preventDefault(); e.returnValue = ''; } });
+    window.addEventListener('pagehide', () => { if (!pending && !cupOf && !forfeited) forfeit(); });
+  }
   resize();
   requestAnimationFrame(frame);
 })();
