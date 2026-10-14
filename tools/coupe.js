@@ -20,7 +20,7 @@ const COUPE = 'file://' + path.join(ROOT, 'coupe.html');
   await page.goto(COUPE); await page.evaluate(() => localStorage.clear()); await page.reload(); await page.waitForTimeout(300);
   check(await page.isVisible('#vStart'), 'sans partie enregistrée : l\'écran de départ');
   const picks = await page.$$('#teamPick .pick');
-  check(picks.length === 10, 'dix clubs de Ligue 1 au choix (pas d\'équipe construite enregistrée)', picks.length + ' choix');
+  check(picks.length === 18, 'les 18 clubs de Ligue 1 au choix', picks.length + ' choix');
   check(await page.isDisabled('#startBtn'), '« Lancer la coupe » grisé tant qu\'aucune équipe n\'est choisie');
   await page.click('#teamPick [data-k="lens"]'); await page.click('#diffPick [data-d="difficile"]');
   await page.screenshot({ path: path.join(DOCS, 'coupe-depart.png') });
@@ -32,6 +32,9 @@ const COUPE = 'file://' + path.join(ROOT, 'coupe.html');
   check(G && G.teams.length === 32 && new Set(G.teams).size === 32, '32 équipes, chacune une fois', G && G.teams.length + ' équipes');
   check(G.rounds[0].pairs.length === 16 && G.rounds[0].pairs.filter(p => p.a === 'moi').length === 1 && !G.rounds[0].pairs.some(p => p.b === 'moi'), '16 matchs, le vôtre une fois, votre équipe à domicile (les Bleus)');
   check(!G.teams.includes('lens') && G.me.club === 'lens', 'votre club n\'apparaît pas deux fois');
+  const D0 = await page.evaluate(() => window.CoupeData), divs = {};
+  for (const id of G.teams) { const T = D0.petits.find(x => x.id === id); if (T) divs[T.division] = (divs[T.division] || 0) + 1; }
+  check(G.teams.filter(id => D0.clubs.some(C => C.id === id)).length === 17 && divs['Ligue 2'] === 4 && divs['National'] === 4 && divs['National 2'] === 3 && divs['Régional'] === 3, 'les 17 autres clubs de Ligue 1 et 14 petits poucets tirés au sort (4 L2, 4 National, 3 N2, 3 régionaux)', JSON.stringify(divs));
   check(await page.isVisible('a.btn.main[href^="match.html#partie="]'), 'bouton « Jouer le match »');
 
   console.log('Les autres matchs (simulés par le moteur, en arrière-plan)');

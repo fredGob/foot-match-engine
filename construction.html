@@ -165,7 +165,7 @@
   <!-- choix d'un club de Ligue 1 (clubs de equipes.json) -->
   <section id="vClubs" hidden>
     <div class="card">
-      <h2>Les dix premiers de Ligue 1 2025-26, effectifs d'octobre 2026</h2>
+      <h2>Les 18 clubs de Ligue 1 2026-27, effectifs d'octobre 2026</h2>
       <p class="hint" style="margin-top:0">Joueurs présents au club en octobre 2026, dans le système de jeu habituel du club. La note à droite est la note globale moyenne des onze titulaires. Pas d'achat ici : on prend l'effectif du club tel quel.</p>
       <div class="clubs" id="clubs"></div>
     </div>
@@ -462,7 +462,10 @@ function drawTac() {
     D.tactics.map(c => '<span class="k" title="' + esc(c.help) + '">' + c.label + '</span><select data-tac="' + c.key + '" class="' + (S.tac[c.key] ? 'set' : '') + '">' + c.options.map((o, k) => '<option value="' + (k - 1) + '"' + (S.tac[c.key] === k - 1 ? ' selected' : '') + '>' + o + '</option>').join('') + '</select>').join('');
   $('nom').value = S.nom;
   drawLook();
-  $('adv').innerHTML = [...new Set(D.adversaires.map(a => a.groupe))].map(g => '<optgroup label="' + esc(g) + '">' + D.adversaires.filter(a => a.groupe === g).map(a => '<option value="' + esc(a.id) + '"' + (a.id === S.adv ? ' selected' : '') + '>' + esc(a.nom) + '</option>').join('') + '</optgroup>').join('');
+  // adversaire : un autre club de Ligue 1 (n° 111 : plus d'équipe standard ni de niveaux dans le jeu)
+  const advs = D.adversaires.filter(a => a.id !== S.club);
+  if (!advs.some(a => a.id === S.adv)) S.adv = (advs[0] || {}).id || '';
+  $('adv').innerHTML = [...new Set(advs.map(a => a.groupe))].map(g => '<optgroup label="' + esc(g) + '">' + advs.filter(a => a.groupe === g).map(a => '<option value="' + esc(a.id) + '"' + (a.id === S.adv ? ' selected' : '') + '>' + esc(a.nom) + '</option>').join('') + '</optgroup>').join('');
 }
 // cadre « Joueur » : les vingt notes du joueur cliqué, sa place et s'il y est hors poste
 function drawLook() {
@@ -604,8 +607,9 @@ $('play').onclick = () => { save(); location.href = lienMatch(); };
 {
   const h = location.hash;
   if (/reprendre/.test(h) && resume()) {}
+  else if (/carton/.test(h)) show('vBuy');      // construction d'équipe mise au carton (n° 111) : seulement par cette adresse, pour les essais
   else if (/clubs/.test(h)) show('vClubs');
-  else if (/construire/.test(h)) show('vBuy');
+  else if (/construire/.test(h)) show('vClubs');      // construction d'équipe mise au carton (n° 111) : le code reste, on n'y mène plus
   else location.replace('index.html');
 }
 </script>

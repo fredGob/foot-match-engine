@@ -42,8 +42,9 @@ console.log('match.html écrit (' + Math.round(html.length / 1024) + ' ko, ' + t
     return { id: T.id, nom: T.nom, championnat: T.championnat, classement: T.classement, description: T.description, formation: T.formation || '442', consignes: T.consignes || null,
       titulaires: T.joueurs.map((j, k) => Object.assign(one(j, k), { place: j.poste })), remplacants: (T.remplacants || []).map((j, k) => one(j, 11 + k)) };
   });
-  // adversaires possibles pour « Passer au match » : l'équipe standard, puis toutes les équipes de equipes.json (niveaux, puis clubs)
-  const adversaires = [{ id: '', nom: 'Standard (tous à 14)', groupe: 'Niveaux' }].concat(teams.equipes.map(T => ({ id: T.id, nom: T.nom, groupe: T.championnat || 'Niveaux' })));
+  // adversaires possibles pour « Passer au match »
+  // n° 111 : seulement les clubs de Ligue 1 (l'équipe standard et les quatre niveaux ne servent plus qu'aux outils de mesure)
+  const adversaires = teams.equipes.filter(T => T.championnat).map(T => ({ id: T.id, nom: T.nom, groupe: T.championnat }));
   const data = { budget: base.budget, joueurs: base.joueurs, clubs, adversaires, cles: J.CLES, formations, presets: E.PRESETS,
     tactics: E.TACTICS.map(c => ({ key: c.key, label: c.label, options: c.options, help: c.help })), qualities: E.QUALITIES.map(q => [q[1], q[2]]) };
   let page = read('construction.html');

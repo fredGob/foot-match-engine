@@ -28,18 +28,18 @@ function choisir(D) {
   page.on('pageerror', e => errors.push(String(e)));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   const url = 'file://' + path.join(ROOT, 'equipe.html'), home = 'file://' + path.join(ROOT, 'index.html');
-  await page.goto(url + '#construire');
+  await page.goto(url + '#carton');
   const D = await page.evaluate('D');
   await page.goto(home);
   const shot = async name => { await page.screenshot({ path: path.join(DOCS, name) }); console.log('        capture : docs/' + name); };
 
   console.log('Accueil');
-  check(await page.isVisible('#goBuild') && await page.isVisible('#goClubs') && await page.isVisible('#goQuick') && await page.isVisible('#none'), 'accueil (index.html) : trois grands choix « Créer mon équipe », « Choisir un club de Ligue 1 », « Match rapide » ; pas encore d\'équipe enregistrée');
-  check((await page.getAttribute('#goQuick', 'href')) === 'match.html', '« Match rapide » mène à match.html');
+  check(await page.isVisible('#goQuick') && await page.isVisible('#goCup') && !(await page.$('#goBuild')) && await page.isVisible('#none'), 'accueil (index.html) : deux modes, « Match rapide » et « La Coupe en carton » (construction d\'équipe au carton) ; pas encore de club enregistré');
+  check((await page.getAttribute('#goQuick', 'href')) === 'equipe.html#clubs' && (await page.getAttribute('#goCup', 'href')) === 'coupe.html', '« Match rapide » mène au choix du club, la coupe à coupe.html');
   await shot('equipe-accueil.png');
 
   console.log('Achats');
-  await page.click('#goBuild'); await page.waitForURL(/equipe\.html#construire/);
+  await page.goto(url + '#carton'); await page.waitForTimeout(200);      // construction d'équipe au carton : seulement par l'adresse cachée
   check(await page.isDisabled('#validate'), 'au départ, « Valider mon équipe » est bloqué', await page.textContent('#why'));
   const liste = choisir(D), cout = liste.reduce((s, j) => s + j.prix, 0);
   console.log('        effectif choisi : ' + liste.length + ' joueurs, ' + cout.toFixed(1) + ' M€ (budget ' + D.budget + ' M€), note moyenne ' + (liste.reduce((s, j) => s + j.note, 0) / 16).toFixed(1));
@@ -142,13 +142,14 @@ function choisir(D) {
   await page.goto(home);
   check(await page.isVisible('#mine') && /Les Essais/.test(await page.textContent('#mine')) && (await page.$$('#mine svg circle[fill="#2f6fdf"]')).length === 11 && /4-3-3/.test(await page.textContent('#mine')), 'l\'accueil montre « Mon équipe » : nom, formation, onze titulaires sur le terrain', (await page.textContent('#mine .facts')).replace(/\s+/g, ' '));
   await page.screenshot({ path: path.join(DOCS, 'accueil.png'), fullPage: true }); console.log('        capture : docs/accueil.png');
-  await page.click('#editMine'); await page.waitForURL(/equipe\.html#reprendre/);
+  await page.goto(home); check(await page.isVisible('#none'), 'une équipe construite n\'apparaît plus sur l\'accueil (construction au carton)');
+  await page.goto(url + '#reprendre'); await page.waitForTimeout(200);
   check(await page.isVisible('#pitch') && JSON.stringify(await page.evaluate('S.lineup')) === JSON.stringify(saved.lineup) && await page.evaluate('S.formation') === '433', 'équipe reprise : même formation, mêmes places');
 
   console.log('Prendre une équipe de Ligue 1');
-  await page.click('#home'); await page.click('#goClubs'); await page.waitForURL(/#clubs/);
+  await page.click('#home'); await page.click('#goQuick'); await page.waitForURL(/#clubs/);
   const clubs = EQ.equipes.filter(T => T.championnat);
-  check(await page.isVisible('#clubs') && (await page.$$('#clubs .club')).length === clubs.length && clubs.length === 10, 'liste des dix clubs', (await page.$$eval('#clubs .club b', b => b.map(x => x.textContent))).join(', '));
+  check(await page.isVisible('#clubs') && (await page.$$('#clubs .club')).length === clubs.length && clubs.length === 18, 'liste des 18 clubs', (await page.$$eval('#clubs .club b', b => b.map(x => x.textContent))).join(', '));
   await shot('equipe-ligue1.png');
   await page.click('#clubs .club[data-club="psg"]');
   const PSG = clubs.find(T => T.id === 'psg');
@@ -188,14 +189,16 @@ function choisir(D) {
   check(await page.isVisible('#pitch') && await page.evaluate('S.club') === 'psg' && JSON.stringify(await page.evaluate('S.lineup')) === JSON.stringify(saved2.lineup), 'club repris après rechargement : même formation, mêmes places');
   await page.click('#back');
   check(await page.isVisible('#clubs'), '« Changer de club » ramène à la liste des clubs');
-  await page.click('#home'); await page.click('#goBuild'); await page.waitForURL(/#construire/);
-  check(await page.evaluate('S.squad.length') === 0 && await page.evaluate('S.club') === null, '« Construire mon équipe » après un club : effectif vide, budget entier');
+  await page.goto(url + '#carton'); await page.waitForTimeout(200);
+  check(await page.evaluate('S.squad.length') === 0 && await page.evaluate('S.club') === null, 'construction d\'équipe (adresse cachée) après un club : effectif vide, budget entier');
+  await page.goto(url + '#construire'); await page.waitForTimeout(200);
+  check(await page.isVisible('#clubs'), 'l\'ancienne adresse « #construire » mène au choix du club');
 
   console.log('Passer au match');
-  await page.click('#home'); await page.click('#goClubs'); await page.waitForURL(/#clubs/); await page.click('#clubs .club[data-club="lens"]');
+  await page.click('#home'); await page.click('#goQuick'); await page.waitForURL(/#clubs/); await page.click('#clubs .club[data-club="lens"]');
   await page.click('#forms button[data-form="352"]'); await page.selectOption('#preset', 'contre');
   const advs = await page.$$eval('#adv optgroup', g => g.map(x => x.label + ' : ' + x.children.length));
-  check(advs.length === 2 && advs[0] === 'Niveaux : 5' && advs[1] === 'Ligue 1 2026-27 : 10', 'choix de l\'adversaire : Standard, quatre niveaux, dix clubs', advs.join(' | '));
+  check(advs.length === 1 && advs[0] === 'Ligue 1 2026-27 : 17' && await page.inputValue('#adv') !== 'lens', 'choix de l\'adversaire : les 17 autres clubs de Ligue 1', advs.join(' | '));
   await page.selectOption('#adv', 'marseille');
   const tacLens = await page.evaluate('Object.assign({}, S.tac)'), lineLens = await page.evaluate('S.lineup.map(id => byId[id].nom)');
   await Promise.all([page.waitForURL(/match\.html#partie=/), page.click('#play')]);
@@ -221,14 +224,14 @@ function choisir(D) {
   const pp = await phone.newPage();
   pp.on('pageerror', e => errors.push(String(e)));
   await pp.goto(home);
-  await pp.evaluate(s => localStorage.setItem('construction-equipe', JSON.stringify(s)), saved);
+  await pp.evaluate(s => localStorage.setItem('construction-equipe', JSON.stringify(s)), saved2);
   await pp.reload();
   const noScroll = async () => pp.evaluate('document.documentElement.scrollWidth <= window.innerWidth');
   check(await noScroll(), 'accueil : pas de défilement de côté');
-  await pp.click('#goBuild'); await pp.waitForURL(/#construire/);
+  await pp.goto('file://' + path.join(ROOT, 'equipe.html') + '#carton'); await pp.waitForTimeout(200);
   check(await noScroll(), 'achats : pas de défilement de côté');
   await pp.screenshot({ path: path.join(DOCS, 'equipe-telephone-achat.png') }); console.log('        capture : docs/equipe-telephone-achat.png');
-  await pp.click('#home'); await pp.click('#goClubs'); await pp.waitForURL(/#clubs/);
+  await pp.click('#home'); await pp.click('#goQuick'); await pp.waitForURL(/#clubs/);
   check(await noScroll(), 'liste des clubs : pas de défilement de côté');
   await pp.click('#home'); await pp.screenshot({ path: path.join(DOCS, 'accueil-telephone.png'), fullPage: true }); console.log('        capture : docs/accueil-telephone.png');
   check(await noScroll(), 'accueil avec « Mon équipe » : pas de défilement de côté');

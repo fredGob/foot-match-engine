@@ -104,7 +104,7 @@
   <!-- départ -->
   <section id="vStart">
     <div class="hero"><div class="cup">🏆</div><h1>La Coupe en carton</h1>
-      <p>32 équipes, des clubs de Ligue 1 aux petits poucets du dimanche. Un tirage au sort à chaque tour, pas de match retour, et des tirs au but s'il le faut. Cinq victoires pour soulever la coupe.</p></div>
+      <p>32 équipes : les 18 clubs de Ligue 1 et 14 petits poucets tirés au sort, de la Ligue 2 aux amateurs du dimanche. Un tirage au sort à chaque tour, pas de match retour, et des tirs au but s'il le faut. Cinq victoires pour soulever la coupe.</p></div>
     <h2>1. Votre équipe</h2>
     <div class="teams" id="teamPick"></div>
     <div class="muted small" id="noMine" style="margin-top: 8px">Pour jouer avec une équipe construite : <a href="equipe.html#construire">créez-la</a>, puis « Enregistrer l'équipe ».</div>
@@ -183,9 +183,9 @@
   }
   function drawStart() {
     const M = mine(), opts = [];
-    if (M) opts.push({ key: 'moi', T: M, sub: (M.fromClub ? 'Votre ' + ALL[M.fromClub].nom + ', placé par vous' : 'Votre équipe construite') + ' · note ' + avg(M).toFixed(1).replace('.', ','), cls: 'mine' });
-    for (const C of D.clubs) opts.push({ key: C.id, T: C, sub: 'Ligue 1 · note ' + avg(C).toFixed(1).replace('.', ',') });
-    $('noMine').hidden = !!M;
+    if (M && M.fromClub) opts.push({ key: 'moi', T: M, sub: (M.fromClub ? 'Votre ' + ALL[M.fromClub].nom + ', placé par vous' : 'Votre équipe construite') + ' · note ' + avg(M).toFixed(1).replace('.', ','), cls: 'mine' });
+    for (const C of D.clubs.slice().sort((a, b) => a.nom.localeCompare(b.nom))) opts.push({ key: C.id, T: C, sub: 'Ligue 1 · note ' + avg(C).toFixed(1).replace('.', ',') });
+    $('noMine').hidden = true;      // construction d'équipe mise au carton (n° 111) : seul un club placé dans la page équipe est proposé
     $('teamPick').innerHTML = opts.map(o => '<button class="pick ' + (o.cls || '') + (pickTeam === o.key ? ' on' : '') + '" data-k="' + esc(o.key) + '"><b>' + esc(o.T.nom) + '</b><small>' + esc(o.sub) + '</small></button>').join('');
     $('teamPick').querySelectorAll('[data-k]').forEach(b => b.onclick = () => { pickTeam = b.dataset.k; drawStart(); });
     $('diffPick').innerHTML = Object.entries(DIFF).map(([k, d]) => '<button class="pick' + (pickDiff === k ? ' on' : '') + '" data-d="' + k + '"><b>' + d.label + '</b><small>' + d.help + '</small></button>').join('');
@@ -196,9 +196,13 @@
     const M = mine(), me = pickTeam === 'moi' ? M : JSON.parse(JSON.stringify(ALL[pickTeam]));
     if (!me) return;
     const clubId = pickTeam === 'moi' ? M.fromClub : pickTeam;      // un club de Ligue 1 (choisi ici, ou placé dans la page équipe) ne joue pas deux fois
-    // 32 équipes : la vôtre, les clubs de Ligue 1 (sauf le vôtre), les clubs inventés ; avec une équipe construite, un club régional de moins (tiré au sort)
-    let field = D.clubs.map(C => C.id).filter(id => id !== clubId).concat(D.petits.map(T => T.id));
-    if (field.length > 31) { const reg = shuffle(D.petits.filter(T => T.division === 'Régional').map(T => T.id)); field = field.filter(id => !reg.slice(0, field.length - 31).includes(id)); }
+    // 32 équipes : la vôtre, les clubs de Ligue 1 (sauf le vôtre) et des petits poucets tirés au sort à chaque coupe, division par division
+    // (4 de Ligue 2, 4 de National, 3 de National 2, 3 régionaux pour 18 clubs de Ligue 1), jusqu'à 31 adversaires
+    let field = D.clubs.map(C => C.id).filter(id => id !== clubId);
+    const QUOTA = [['Ligue 2', 4], ['National', 4], ['National 2', 3], ['Régional', 3]];
+    for (const [div, n] of QUOTA) field = field.concat(shuffle(D.petits.filter(T => T.division === div).map(T => T.id)).slice(0, n));
+    for (const T of shuffle(D.petits.slice())) if (field.length < 31 && !field.includes(T.id)) field.push(T.id);
+    field = field.slice(0, 31);
     G = { v: 1, started: new Date().toISOString(), diff: pickDiff, me: Object.assign({}, me, { id: 'moi', club: clubId || null }), teams: ['moi'].concat(field), rounds: [], out: null, champion: false, results: {} };
     save(); show(); startDraw();
   };

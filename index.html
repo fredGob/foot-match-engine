@@ -24,14 +24,16 @@
   .hero p { margin: 0; max-width: 620px; color: #c6d3c9; font-size: 17px; }
 
   /* les trois choix */
-  .choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: -34px; position: relative; }
+  .choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: -34px; position: relative; }
   .choice { display: flex; flex-direction: column; border-radius: 18px; overflow: hidden; background: var(--panel); border: 1px solid var(--line); text-decoration: none; color: var(--text); transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
   .choice:hover, .choice:focus-visible { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45); outline: none; }
   .choice .art { height: 150px; display: flex; align-items: center; justify-content: center; }
   .choice .art svg { height: 120px; width: auto; max-width: 92%; }
   .choice.build .art { background: radial-gradient(circle at 30% 20%, #2b5bb0, #172c55); }
-  .choice.club .art { background: radial-gradient(circle at 70% 20%, #8a6a14, #3b2c08); }
-  .choice.quick .art { background: radial-gradient(circle at 50% 10%, #2f8a49, #123d20); }
+  .choice.club .art { background: radial-gradient(circle at 50% 10%, #2f8a49, #123d20); }
+  .choice.cup .art { background: radial-gradient(circle at 50% 20%, #8a6a14, #2a2210); }
+  .choice .trophy { font-size: 96px; line-height: 1; filter: drop-shadow(0 6px 14px rgba(0,0,0,.5)); }
+  .choice .state { color: var(--accent); font-weight: 650; }
   .choice .body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
   .choice h2 { margin: 0; font-size: 22px; font-weight: 750; }
   .choice p { margin: 0; color: var(--muted); }
@@ -76,14 +78,6 @@
   }
   @media (max-width: 520px) { .xi { columns: 1; } }
 
-  /* la Coupe en carton */
-  .cupcard { display: grid; grid-template-columns: 170px minmax(0, 1fr) auto; gap: 20px; align-items: center; margin-top: 18px; padding: 18px 22px; border-radius: 18px; background: linear-gradient(120deg, #4a3a0e 0%, #2a2210 45%, #161d25 100%); border: 1px solid #6b5418; color: var(--text); text-decoration: none; transition: transform .15s, box-shadow .15s; }
-  .cupcard:hover, .cupcard:focus-visible { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45); outline: none; }
-  .cupcard .trophy { font-size: 92px; line-height: 1; text-align: center; filter: drop-shadow(0 6px 14px rgba(0,0,0,.5)); }
-  .cupcard h2 { margin: 0 0 4px; font-size: 26px; font-weight: 800; }
-  .cupcard p { margin: 0; color: #d8cfa8; }
-  .cupcard .state { margin-top: 8px; color: var(--accent); font-weight: 650; }
-  @media (max-width: 760px) { .cupcard { grid-template-columns: 1fr; text-align: center; } .cupcard .trophy { font-size: 64px; } }
 </style>
 </head>
 <body>
@@ -111,51 +105,31 @@
   </header>
 
   <nav class="choices" aria-label="Commencer">
-    <a class="choice club" href="equipe.html#clubs" id="goClubs">
+    <a class="choice club" href="equipe.html#clubs" id="goQuick">
       <div class="art"><svg viewBox="0 0 200 130" aria-hidden="true">
         <rect x="70" y="58" width="60" height="62" rx="4" fill="#ffe45c"/><rect x="18" y="80" width="52" height="40" rx="4" fill="#d9dee4"/><rect x="130" y="92" width="52" height="28" rx="4" fill="#c98b4a"/>
         <g font-family="system-ui" font-weight="800" text-anchor="middle"><text x="100" y="100" font-size="26" fill="#3b2c08">1</text><text x="44" y="108" font-size="20" fill="#3d4650">2</text><text x="156" y="113" font-size="17" fill="#4a2c0c">3</text></g>
         <path d="M84 14 h32 v14 a16 16 0 0 1 -32 0 z" fill="#ffe45c"/><path d="M84 18 h-8 a8 8 0 0 0 8 12 M116 18 h8 a8 8 0 0 1 -8 12" fill="none" stroke="#ffe45c" stroke-width="3"/><rect x="96" y="43" width="8" height="8" fill="#ffe45c"/><rect x="88" y="50" width="24" height="5" rx="1" fill="#ffe45c"/>
       </svg></div>
-      <div class="body"><h2>Choisir un club de Ligue 1</h2><p>Les dix cadors du championnat, sous des noms à peine déguisés, avec leurs joueurs d'aujourd'hui et leur système de jeu.</p>
+      <div class="body"><h2>Match rapide</h2><p>Choisissez votre club parmi les 18 de Ligue 1 (sous des noms à peine déguisés), votre adversaire, votre tactique… et coup d'envoi.</p>
         <div class="chips"><span>Paris Saint-Qatar</span><span>Olympique de Marsupilami</span><span>RC Lentilles</span><span>Racing Choucroute</span><span>…</span></div>
-        <span class="go">Voir les clubs →</span></div>
+        <span class="go">Choisir mon club →</span></div>
     </a>
-    <a class="choice build" href="equipe.html#construire" id="goBuild">
-      <div class="art"><svg viewBox="0 0 200 130" aria-hidden="true">
-        <rect x="18" y="8" width="164" height="114" rx="8" fill="#2c6b36" stroke="rgba(255,255,255,.8)" stroke-width="2"/>
-        <line x1="18" y1="65" x2="182" y2="65" stroke="rgba(255,255,255,.6)" stroke-width="1.5"/><circle cx="100" cy="65" r="16" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="1.5"/>
-        <g fill="#2f6fdf" stroke="#fff" stroke-width="2"><circle cx="100" cy="112" r="7"/><circle cx="45" cy="92" r="7"/><circle cx="80" cy="96" r="7"/><circle cx="120" cy="96" r="7"/><circle cx="155" cy="92" r="7"/><circle cx="60" cy="62" r="7"/><circle cx="100" cy="70" r="7"/><circle cx="140" cy="62" r="7"/><circle cx="80" cy="32" r="7"/><circle cx="120" cy="32" r="7"/></g>
-        <g fill="none" stroke="#ffe45c" stroke-width="2.5" stroke-dasharray="5 4"><circle cx="45" cy="34" r="8"/></g>
-        <circle cx="170" cy="22" r="19" fill="#ffe45c"/><text x="170" y="27" font-family="system-ui" font-size="10.5" font-weight="800" text-anchor="middle" fill="#3b2c08">27 M€</text>
-      </svg></div>
-      <div class="body"><h2>Créer mon équipe</h2><p>Un budget de 27 M€ et 120 joueurs : achetez seize joueurs, choisissez la formation, placez-les et réglez vos consignes.</p><span class="go">Construire →</span></div>
-    </a>
-    <a class="choice quick" href="match.html" id="goQuick">
-      <div class="art"><svg viewBox="0 0 200 130" aria-hidden="true">
-        <circle cx="78" cy="68" r="42" fill="#fff"/>
-        <g fill="#1b1f24"><path d="M78 50 l15 11 -6 18 h-18 l-6 -18 z"/><path d="M40 60 l10 -4 7 13 -6 12 -9 -1 a42 42 0 0 1 -2 -20 z"/><path d="M116 60 l-10 -4 -7 13 6 12 9 -1 a42 42 0 0 0 2 -20 z"/><path d="M60 102 l6 -11 h24 l6 11 a42 42 0 0 1 -36 0 z"/><path d="M66 30 l12 7 12 -7 a42 42 0 0 0 -24 0 z"/></g>
-        <rect x="118" y="24" width="68" height="30" rx="6" fill="#0e1216" stroke="#ffe45c" stroke-width="2"/><text x="152" y="45" font-family="system-ui" font-size="17" font-weight="800" text-anchor="middle" fill="#ffe45c">90:00</text>
-        <path d="M128 88 h40 a12 12 0 0 1 0 24 h-30 a10 10 0 0 1 -10 -10 z" fill="#c9d3de"/><circle cx="168" cy="100" r="5" fill="#0e1216"/><path d="M126 92 l-12 -8" stroke="#c9d3de" stroke-width="4" stroke-linecap="round"/>
-      </svg></div>
-      <div class="body"><h2>Match rapide</h2><p>Deux équipes égales, tous les joueurs à 14 sur 20 : seules vos consignes font la différence.</p><span class="go">Jouer →</span></div>
+    <a class="choice cup" href="coupe.html" id="goCup">
+      <div class="art"><div class="trophy" aria-hidden="true">🏆</div></div>
+      <div class="body"><h2>La Coupe en carton</h2><p>32 équipes, des cadors de Ligue 1 aux petits poucets du dimanche. Tirage au sort à chaque tour, élimination directe, tirs au but : cinq victoires pour soulever la coupe.</p>
+        <div class="state" id="cupState"></div><span class="go" id="cupGo">Jouer la coupe →</span></div>
     </a>
   </nav>
 
-  <a class="cupcard" href="coupe.html" id="goCup">
-    <div class="trophy" aria-hidden="true">🏆</div>
-    <div><h2>La Coupe en carton</h2><p>32 équipes, des cadors de Ligue 1 aux petits poucets du dimanche. Tirage au sort à chaque tour, élimination directe, tirs au but : cinq victoires pour soulever la coupe.</p>
-      <div class="state" id="cupState"></div></div>
-    <span class="btn main" id="cupGo">Jouer la coupe →</span>
-  </a>
 
-  <h3 class="title">Mon équipe</h3>
+  <h3 class="title">Mon club</h3>
   <section id="mine" class="mine" hidden></section>
-  <div id="none" class="empty">Aucune équipe enregistrée pour l'instant. Créez votre équipe ou prenez un club : elle apparaîtra ici, prête à jouer.</div>
+  <div id="none" class="empty">Aucun club enregistré pour l'instant. Choisissez votre club dans « Match rapide » et enregistrez-le : il apparaîtra ici, prêt à jouer.</div>
 
   <h3 class="title">Comment ça marche</h3>
   <div class="steps">
-    <div class="step"><span class="n">1</span><div><b>L'équipe</b><span>Construite avec un budget, ou un club de Ligue 1.</span></div></div>
+    <div class="step"><span class="n">1</span><div><b>Le club</b><span>Un des 18 clubs de Ligue 1, avec ses joueurs d'aujourd'hui.</span></div></div>
     <div class="step"><span class="n">2</span><div><b>La tactique</b><span>Formation, placement des joueurs, six consignes.</span></div></div>
     <div class="step"><span class="n">3</span><div><b>Le match</b><span>Vous suivez le match et changez la tactique ou les joueurs au prochain arrêt de jeu.</span></div></div>
     <div class="step"><span class="n">4</span><div><b>La coupe</b><span>Enchaînez les tours jusqu'à la finale. La partie est gardée dans le navigateur.</span></div></div>
@@ -179,7 +153,7 @@
   const fmt = x => String(x).replace('.', ',');
   let s = null;
   try { s = JSON.parse(localStorage.getItem('construction-equipe') || 'null'); } catch (e) { s = null; }      // enregistrée par equipe.html
-  if (!s) return;
+  if (!s || !s.club) return;      // une équipe construite avec le budget n'est plus proposée (construction d'équipe mise au carton, n° 111)
   $('none').hidden = true; $('mine').hidden = false;
   const A = s.apercu;
   if (!A) {      // équipe enregistrée par une ancienne version de la page : pas d'aperçu
@@ -204,7 +178,7 @@
     + '<div class="who">' + esc(A.nom) + '</div><div class="sub">' + (A.club ? 'Effectif de ' + esc(A.club) : 'Équipe construite avec le budget') + '</div>'
     + '<div class="facts"><div class="fact"><small>Formation</small><b>' + esc(A.formation) + '</b></div><div class="fact"><small>Note moyenne</small><b>' + fmt(A.moyenne) + '</b></div><div class="fact"><small>Remplaçants</small><b>' + A.remplacants + '</b></div><div class="fact"><small>Adversaire</small><b>' + esc(A.adversaire) + '</b></div></div>'
     + '<ul class="xi">' + A.titulaires.map(t => '<li><span>' + esc(t.place) + '</span><b>' + esc(t.nom) + '</b>' + (t.hors ? '<span class="off">hors poste</span>' : '<span>' + fmt(t.note) + '</span>') + '</li>').join('') + '</ul>'
-    + '<div class="btns"><a class="btn main" id="playMine" href="' + esc(A.lien) + '">Jouer le match →</a><a class="btn" id="editMine" href="equipe.html#reprendre">Modifier l\'équipe</a></div></div>';
+    + '<div class="btns"><a class="btn main" id="playMine" href="' + esc(A.lien) + '">Jouer le match →</a><a class="btn" id="editMine" href="equipe.html#reprendre">Modifier la tactique</a></div></div>';
 })();
 </script>
 </body>

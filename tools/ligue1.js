@@ -1,6 +1,7 @@
 // Fabrique les dix équipes de Ligue 1 de equipes.json : les dix premiers du championnat 2025-26, avec leur effectif d'octobre 2026
 // (après le mercato d'été 2026), leur système et le style de leur entraîneur.
 // Usage : node tools/ligue1.js            → n'écrit rien, affiche seulement les moyennes
+//         node tools/ligue1.js ajouter    → ajoute à equipes.json les clubs qui n'y sont pas encore, sans toucher aux autres
 //         node tools/ligue1.js reecrire   → réécrit ces dix équipes dans equipes.json (les quatre équipes de niveau ne bougent pas)
 // Attention : « reecrire » efface les retouches faites à la main sur ces dix équipes dans equipes.json.
 // Depuis le n° 106, les notes se retouchent à la main dans equipes.json : ce fichier n'est plus la référence.
@@ -213,6 +214,15 @@ if (require.main === module) {
   const old = JSON.parse(fs.readFileSync(FILE, 'utf8'));
   console.log('Moyenne des vingt notes des titulaires (réflexes et mains compris), puis moyenne des cinq meilleures notes de chaque titulaire :');
   for (const T of old.equipes.filter(T => !T.championnat).concat(teams)) console.log('  ' + pad(T.nom, 12) + avg(T).toFixed(2).padStart(6) + strong(T).toFixed(2).padStart(8) + (T.championnat ? '   (' + T.joueurs.filter(j => j.source === 'supposé').length + ' titulaires supposés)' : ''));
+  if (process.argv[2] === 'ajouter') {      // n'ajoute que les clubs absents de equipes.json, sans toucher au reste du fichier (les retouches à la main restent)
+    const src = fs.readFileSync(FILE, 'utf8'), have = new Set(old.equipes.map(T => T.id)), add = teams.filter(T => !have.has(T.id));
+    const at = src.lastIndexOf('\n  ]\n}');
+    if (at < 0) throw new Error('fin de la liste des équipes introuvable dans equipes.json');
+    const txt = src.slice(0, at) + (add.length ? ',\n' + add.map(teamText).join(',\n') : '') + src.slice(at);
+    JSON.parse(txt);
+    fs.writeFileSync(FILE, txt);
+    console.log('equipes.json : ' + add.length + ' club(s) ajouté(s) (' + add.map(T => T.nom).join(', ') + '), rien d\'autre ne change.');
+  }
   if (process.argv[2] === 'reecrire') {
     const keep = old.equipes.filter(T => !T.championnat);      // les équipes de niveau (et toute équipe ajoutée à la main) restent telles quelles
     const src = fs.readFileSync(FILE, 'utf8');

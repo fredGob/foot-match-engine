@@ -1,4 +1,5 @@
-// Fabrique coupe.json : les 22 clubs inventés de la Coupe en carton (Ligue 2, National, N2-N3, régional), qui complètent les 10 clubs de Ligue 1.
+// Fabrique coupe.json : les 20 clubs inventés de la Coupe en carton (Ligue 2, National, N2-N3, régional) ; à chaque coupe, 14 sont tirés au sort
+// pour compléter les 18 clubs de Ligue 1. (n° 111 : AJ Chablis et Le Mans 24 Heures retirés, Auxerre et Le Mans étant en Ligue 1.)
 // Usage : node tools/petits.js            → n'écrit rien, affiche les clubs et leur moyenne
 //         node tools/petits.js reecrire   → réécrit coupe.json (efface les retouches faites à la main)
 // Même graine : exactement les mêmes joueurs.
@@ -17,10 +18,8 @@ const CLUBS = [
   ['nantes', 'FC Nantes-Berlingot', 'FCN', 'L2', '4231', { passing: -1 }],
   ['bordeaux', 'Girondins Canelé', 'GIR', 'L2', '442', { width: 1 }],
   ['reims', 'Stade de Reims-Bulles', 'SDR', 'L2', '433', { passing: -1, line: 1 }],
-  ['auxerre', 'AJ Chablis', 'AJC', 'L2', '442', { tempo: 1 }],
   ['caen', 'SM Calvados', 'SMC', 'L2', '4231', { passing: 1, press: 1 }],
   ['red-star', 'Red Star Puces', 'RSP', 'NAT', '433', { width: 1, tempo: 1 }],
-  ['le-mans', 'Le Mans 24 Heures', 'LMH', 'NAT', '442', { tempo: 1, passing: 1 }],
   ['nancy', 'AS Nancy-Bergamote', 'ASN', 'NAT', '4231', {}],
   ['dijon', 'Dijon Moutarde FC', 'DMF', 'NAT', '442', { press: 1 }],
   ['concarneau', 'US Concarneau-Crêpe', 'USC', 'NAT', '532', { line: -1, passing: 1 }],
@@ -78,7 +77,7 @@ const line = j => '{ ' + (j.poste ? '"poste": ' + (JSON.stringify(j.poste) + ','
   (j.poste_naturel ? ' "poste_naturel": ' + JSON.stringify(j.poste_naturel) + ',' : '') + ' "notes": { ' + Object.entries(j.notes).map(([k, v]) => JSON.stringify(k) + ': ' + String(v).padStart(2)).join(', ') + ' } }';
 function texte(clubs) {
   const aide = [
-    "Clubs inventés de la Coupe en carton : ils complètent les 10 clubs de Ligue 1 de equipes.json pour faire 32 équipes. Fabriqués par « node tools/petits.js reecrire », puis modifiables à la main.",
+    "Clubs inventés de la Coupe en carton : à chaque coupe, 14 d'entre eux sont tirés au sort pour compléter les 18 clubs de Ligue 1 de equipes.json (32 équipes). Fabriqués par « node tools/petits.js reecrire », puis modifiables à la main.",
     "Mêmes postes et mêmes notes que equipes.json (de 1 à 20). « division » ne sert qu'à l'affichage ; « formation » et « consignes » : le système et le style de l'entraîneur.",
     "Après une modification : node build.js pour que coupe.html et match.html prennent les nouvelles notes.",
   ];
