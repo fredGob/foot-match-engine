@@ -36,10 +36,10 @@ console.log('match.html écrit (' + Math.round(html.length / 1024) + ' ko, ' + t
   // Poste naturel : « poste_naturel » du fichier, sinon déduit de la place du 4-4-2 (DCG → DC…) ; note globale et prix : mêmes formules que la base.
   const NAT = { G: 'G', AG: 'AG', DCG: 'DC', DCD: 'DC', AD: 'AD', MG: 'MG', MCG: 'MC', MCD: 'MC', MD: 'MD', ATG: 'AT', ATD: 'AT' };
   const clubs = teams.equipes.filter(T => T.championnat).map(T => {
-    const one = (j, k) => { const o = { id: T.id + '-' + k, nom: j.nom, poste: j.poste_naturel || NAT[j.poste], notes: j.notes, fc: j.fc, source: j.source };
+    const one = (j, k) => { const o = { id: T.id + '-' + k, nom: j.nom, poste: j.poste_naturel || NAT[j.poste], notes: j.notes, source: j.source };
       if (!J.CLES[o.poste]) throw new Error('equipes.json, ' + T.nom + ', ' + j.nom + ' : poste naturel inconnu « ' + o.poste + ' »');
       o.note = J.noteGlobale(o); o.prix = J.prix(o.note); return o; };
-    return { id: T.id, nom: T.nom, championnat: T.championnat, classement: T.classement, description: T.description,
+    return { id: T.id, nom: T.nom, championnat: T.championnat, classement: T.classement, description: T.description, formation: T.formation || '442', consignes: T.consignes || null,
       titulaires: T.joueurs.map((j, k) => Object.assign(one(j, k), { place: j.poste })), remplacants: (T.remplacants || []).map((j, k) => one(j, 11 + k)) };
   });
   // adversaires possibles pour « Passer au match » : l'équipe standard, puis toutes les équipes de equipes.json (niveaux, puis clubs)

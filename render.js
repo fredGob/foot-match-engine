@@ -67,10 +67,10 @@ function drawMatch(ctx, W, H, m, alpha, opts) {
     }
   }
 
-  // joueurs
-  const r = 1.05 * s;
+  // joueurs (opts.big : plus gros, pour un petit écran)
+  const big = opts.big || 1, r = 1.05 * s * big;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = '600 ' + Math.max(7, Math.round(1.15 * s)) + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
+  ctx.font = '600 ' + Math.max(7, Math.round(1.15 * s * big)) + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
   for (const q of pos) {
     const p = q.p, x = X(q.x), y = Y(q.y);
     ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(x + 0.15 * s, y + 0.25 * s, r, r * 0.9, 0, 0, 2 * Math.PI); ctx.fill();
@@ -110,13 +110,13 @@ function drawMatch(ctx, W, H, m, alpha, opts) {
   }
 
   // ballon : ombre au sol, ballon décalé et grossi quand il est en l'air
-  const br = (0.42 + 0.05 * Math.min(bz, 8)) * s;
+  const br = (0.42 + 0.05 * Math.min(bz, 8)) * s * Math.sqrt(big);
   ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(X(bx) + 0.1 * s, Y(by) + 0.12 * s, 0.42 * s, 0.34 * s, 0, 0, 2 * Math.PI); ctx.fill();
   ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1b1b1b'; ctx.lineWidth = Math.max(1, 0.1 * s);
   ctx.beginPath(); ctx.arc(X(bx), Y(by) - bz * 0.45 * s, br, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
   // chrono façon télé, dans la marge au-dessus du terrain : temps de jeu, score, arrêt de jeu
   if (opts.clock) {
-    const c = opts.clock, txt = c.time + (c.score ? '   ' + c.score : '') + (c.dead ? '   Arrêt de jeu' : '');
+    const c = opts.clock, sc = c.score ? (c.teams ? c.teams[0] + '  ' + c.score + '  ' + c.teams[1] : c.score) : '', txt = c.time + (sc ? '   ' + sc : '') + (c.dead ? '   Arrêt de jeu' : '');      // c.teams : noms courts des équipes (téléphone)
     ctx.font = '700 ' + Math.max(12, Math.round(1.6 * s)) + 'px system-ui, -apple-system, "Segoe UI", sans-serif';
     const tw = ctx.measureText(txt).width + 16, th = Math.max(18, Math.min(2.4 * s, MY * s - 4)), lx = X(-HL), ly = Y(-HW) - (MY * s + th) / 2;
     ctx.fillStyle = 'rgba(12,16,20,0.85)'; ctx.fillRect(lx, ly, tw, th);
@@ -198,5 +198,93 @@ function drawNetwork(ctx, W, H, nodes, edges, color, hover) {
 }
 const nodeAt = (W, H, nodes, px, py) => { const v = view(W, H); let best = -1, bd = 1e9; nodes.forEach((q, i) => { const d = Math.hypot(v.ox + q.x * v.s - px, v.oy + q.y * v.s - py), r = (0.9 + 1.1 * q.size) * v.s + 4; if (d < r && d < bd) { bd = d; best = i; } }); return best; };
 
-return { drawMatch, drawPitch, toWorld, HEAT, heatCell, drawHeat, drawNetwork, nodeAt, view, setMakeCanvas: f => { makeCanvas = f; heatCanvas = null; } };
+// Carte de fin de match (1200 × 675, à agrandir par ctx.scale) : score et buteurs, courbe de domination, chiffres clés, homme du match.
+// d = { title, sub, teams: [{ name, sub, color, score, scorers: [{ name, mins: ["23'"], og }] }],
+//       momentum: [valeurs de -1 (Rouges) à 1 (Bleus)], ticks: [{ at (0…1), label }], half (0…1 ou null), goals: [{ at, team, label }],
+//       stats: [{ label, a, b, va, vb }], motm: { name, team, color, rating, line } ou null }
+const CW = 1200, CH = 675, FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+function drawSummary(ctx, d) {
+  const f = (w, px) => w + ' ' + px + 'px ' + FONT;
+  const round = (x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
+  const fit = (txt, w) => { let t = txt; while (t.length > 3 && ctx.measureText(t).width > w) t = t.slice(0, -2) + '…'; return t; };
+  // fond : bandes de pelouse à peine visibles sous un voile sombre, liseré aux couleurs des deux équipes
+  ctx.fillStyle = '#10161c'; ctx.fillRect(0, 0, CW, CH);
+  for (let i = 0; i < 12; i++) { ctx.fillStyle = i % 2 ? 'rgba(60,140,71,0.07)' : 'rgba(66,149,77,0.03)'; ctx.fillRect(i * CW / 12, 0, CW / 12 + 1, CH); }
+  const top = ctx.createLinearGradient(0, 0, CW, 0); top.addColorStop(0, d.teams[0].color); top.addColorStop(0.5, '#ffe45c'); top.addColorStop(1, d.teams[1].color);
+  ctx.fillStyle = top; ctx.fillRect(0, 0, CW, 6);
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#ffe45c'; ctx.font = f(700, 15); ctx.textAlign = 'left'; ctx.fillText(d.title.toUpperCase().split('').join(String.fromCharCode(8202)), 40, 44);
+  ctx.fillStyle = '#93a0af'; ctx.font = f(500, 15); ctx.textAlign = 'right'; ctx.fillText(d.sub, CW - 40, 44);
+
+  // score et buteurs
+  ctx.textAlign = 'center'; ctx.fillStyle = '#e8edf2'; ctx.font = f(800, 92);
+  ctx.fillText(d.teams[0].score + ' – ' + d.teams[1].score, CW / 2, 150);
+  d.teams.forEach((T, k) => {
+    const x = k ? 780 : 420, al = k ? 'left' : 'right', sx = k ? 1 : -1;
+    ctx.textAlign = al;
+    ctx.fillStyle = T.color; ctx.beginPath(); ctx.arc(x + sx * 8, 98, 8, 0, 2 * Math.PI); ctx.fill();
+    ctx.fillStyle = '#e8edf2'; ctx.font = f(750, 34); ctx.fillText(fit(T.name, 300), x + sx * 24, 110);
+    ctx.fillStyle = '#93a0af'; ctx.font = f(500, 15); ctx.fillText(T.sub, x + sx * 24, 134);
+    ctx.font = f(500, 16);
+    const lines = T.scorers.slice(0, 3);
+    lines.forEach((g, i) => {
+      const y = 166 + 22 * i, txt = g.name + (g.og ? ' (c.s.c.)' : '') + '  ' + g.mins.join(', ');
+      ctx.fillStyle = '#c9d3dd'; ctx.fillText(fit(txt, 290), x + sx * 24, y);
+      ctx.fillStyle = '#e8edf2'; ctx.beginPath(); ctx.arc(x + sx * 11, y - 5, 4.5, 0, 2 * Math.PI); ctx.fill();
+    });
+    if (T.scorers.length > 3) { ctx.fillStyle = '#93a0af'; ctx.fillText('…', x + sx * 24, 166 + 66); }
+  });
+
+  // courbe de domination : une barre par moment du match, bleue vers le haut, rouge vers le bas
+  const gx = 40, gw = CW - 80, mid = 318, amp = 56, M = d.momentum, bw = gw / M.length;
+  ctx.textAlign = 'left'; ctx.fillStyle = '#93a0af'; ctx.font = f(700, 13); ctx.fillText('DOMINATION', gx, 236);
+  ctx.font = f(500, 13); ctx.fillStyle = d.teams[0].color; ctx.textAlign = 'right'; ctx.fillText('▲ ' + d.teams[0].name, CW - 40 - 140, 236);
+  ctx.fillStyle = d.teams[1].color; ctx.fillText('▼ ' + d.teams[1].name, CW - 40, 236);
+  round(gx - 10, mid - amp - 14, gw + 20, 2 * amp + 28, 10); ctx.fillStyle = 'rgba(26,32,40,0.75)'; ctx.fill();
+  if (d.half != null) { ctx.strokeStyle = 'rgba(147,160,175,0.35)'; ctx.setLineDash([4, 5]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(gx + d.half * gw, mid - amp - 8); ctx.lineTo(gx + d.half * gw, mid + amp + 8); ctx.stroke(); ctx.setLineDash([]); }
+  M.forEach((v, i) => {
+    const h = Math.max(1, Math.abs(v) * amp), x = gx + i * bw + 1;
+    ctx.fillStyle = v >= 0 ? d.teams[0].color : d.teams[1].color; ctx.globalAlpha = 0.35 + 0.65 * Math.min(1, Math.abs(v) * 1.4);
+    ctx.fillRect(x, v >= 0 ? mid - h : mid, Math.max(1, bw - 2), h);
+  });
+  ctx.globalAlpha = 1; ctx.fillStyle = 'rgba(232,237,242,0.35)'; ctx.fillRect(gx, mid - 0.5, gw, 1);
+  for (const g of d.goals) {                                         // les buts, posés au bout de la courbe
+    const x = gx + g.at * gw, y = g.team ? mid + amp + 2 : mid - amp - 2;
+    ctx.fillStyle = '#e8edf2'; ctx.beginPath(); ctx.arc(x, y, 7, 0, 2 * Math.PI); ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = d.teams[g.team].color; ctx.stroke();
+  }
+  ctx.fillStyle = '#93a0af'; ctx.font = f(500, 12); ctx.textAlign = 'center';
+  for (const t of d.ticks) ctx.fillText(t.label, gx + t.at * gw, mid + amp + 32);
+
+  // chiffres clés : valeur des Bleus, barre partagée, valeur des Rouges
+  const sx0 = 40, sw = 640, sy = 466, rh = 28;
+  ctx.textAlign = 'left'; ctx.fillStyle = '#93a0af'; ctx.font = f(700, 13); ctx.fillText('LE MATCH EN CHIFFRES', sx0, sy - 12);
+  d.stats.forEach((r, i) => {
+    const y = sy + 12 + i * rh, tot = (r.va || 0) + (r.vb || 0), part = tot > 0 ? r.va / tot : 0.5, bx = sx0 + 90, bwid = sw - 180;
+    ctx.font = f(700, 16); ctx.textAlign = 'left'; ctx.fillStyle = '#e8edf2'; ctx.fillText(r.a, sx0, y + 5);
+    ctx.textAlign = 'right'; ctx.fillText(r.b, sx0 + sw, y + 5);
+    ctx.font = f(500, 13); ctx.textAlign = 'center'; ctx.fillStyle = '#c9d3dd'; ctx.fillText(r.label, sx0 + sw / 2, y - 3);
+    ctx.fillStyle = d.teams[0].color; ctx.fillRect(bx, y + 3, bwid * part - 1, 5);
+    ctx.fillStyle = d.teams[1].color; ctx.fillRect(bx + bwid * part + 1, y + 3, bwid * (1 - part) - 1, 5);
+  });
+
+  // homme du match
+  const mx = 720, my = 444, mw = CW - 40 - mx, mh = 200;
+  round(mx, my, mw, mh, 14); ctx.fillStyle = '#1a2028'; ctx.fill(); ctx.strokeStyle = 'rgba(255,228,92,0.35)'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.textAlign = 'left'; ctx.fillStyle = '#ffe45c'; ctx.font = f(700, 13); ctx.fillText('★  HOMME DU MATCH', mx + 22, my + 34);
+  if (d.motm) {
+    const P = d.motm;
+    ctx.fillStyle = '#e8edf2'; ctx.font = f(750, 30); ctx.fillText(fit(P.name, mw - 140), mx + 22, my + 82);
+    ctx.fillStyle = P.color; ctx.beginPath(); ctx.arc(mx + 28, my + 106, 6, 0, 2 * Math.PI); ctx.fill();
+    ctx.fillStyle = '#93a0af'; ctx.font = f(500, 15); ctx.fillText(fit(P.team, mw - 160), mx + 42, my + 111);
+    ctx.fillStyle = '#c9d3dd'; ctx.font = f(500, 15);
+    P.line.slice(0, 3).forEach((t, i) => ctx.fillText(fit(t, mw - 44), mx + 22, my + 146 + 22 * i));
+    const cx = mx + mw - 58, cy = my + 78;                              // la note, dans un rond
+    ctx.beginPath(); ctx.arc(cx, cy, 36, 0, 2 * Math.PI); ctx.fillStyle = '#ffe45c'; ctx.fill();
+    ctx.fillStyle = '#11151a'; ctx.textAlign = 'center'; ctx.font = f(800, 26); ctx.fillText(P.rating, cx, cy + 9);
+    ctx.font = f(600, 11); ctx.fillStyle = '#93a0af'; ctx.fillText('note sur 10', cx, cy + 54);
+  } else { ctx.fillStyle = '#93a0af'; ctx.font = f(500, 15); ctx.fillText('Pas assez de jeu pour désigner un joueur.', mx + 22, my + 80); }
+}
+
+return { drawSummary, SUMMARY: { W: CW, H: CH }, drawMatch, drawPitch, toWorld, HEAT, heatCell, drawHeat, drawNetwork, nodeAt, view, setMakeCanvas: f => { makeCanvas = f; heatCanvas = null; } };
 });

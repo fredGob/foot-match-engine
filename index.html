@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Moteur de match</title>
+<title>L'entraîneur en carton</title>
 <!-- Page d'accueil (racine du site) : trois choix (créer son équipe, prendre un club de Ligue 1, match rapide) et, si une équipe
      a été enregistrée dans la page équipe (equipe.html), la carte « Mon équipe » avec ses titulaires, « Jouer » et « Modifier ».
      Page autonome, sans données : l'aperçu de l'équipe est lu dans le navigateur (enregistré par equipe.html). -->
@@ -96,32 +96,31 @@
       </g>
     </svg>
     <div class="in">
-      <span class="kicker">⚽ Jeu d'entraîneur</span>
-      <h1>Moteur de match</h1>
-      <p>Un match de 90 minutes où chaque joueur réfléchit par lui-même. Vous gagnez par vos choix : l'équipe, la formation, les consignes, les remplacements.</p>
+      <h1>L'entraîneur en carton</h1>
+      <p>Le tableau noir, c'est vous. Les jambes, c'est eux. Composez votre onze, criez vos consignes depuis le bord du terrain… et assumez le résultat en conférence de presse.</p>
     </div>
   </header>
 
   <nav class="choices" aria-label="Commencer">
-    <a class="choice build" href="equipe.html#construire" id="goBuild">
-      <div class="art"><svg viewBox="0 0 200 130" aria-hidden="true">
-        <rect x="18" y="8" width="164" height="114" rx="8" fill="#2c6b36" stroke="rgba(255,255,255,.8)" stroke-width="2"/>
-        <line x1="18" y1="65" x2="182" y2="65" stroke="rgba(255,255,255,.6)" stroke-width="1.5"/><circle cx="100" cy="65" r="16" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="1.5"/>
-        <g fill="#2f6fdf" stroke="#fff" stroke-width="2"><circle cx="100" cy="112" r="7"/><circle cx="45" cy="92" r="7"/><circle cx="80" cy="96" r="7"/><circle cx="120" cy="96" r="7"/><circle cx="155" cy="92" r="7"/><circle cx="60" cy="62" r="7"/><circle cx="100" cy="70" r="7"/><circle cx="140" cy="62" r="7"/><circle cx="80" cy="32" r="7"/><circle cx="120" cy="32" r="7"/></g>
-        <g fill="none" stroke="#ffe45c" stroke-width="2.5" stroke-dasharray="5 4"><circle cx="45" cy="34" r="8"/></g>
-        <circle cx="170" cy="22" r="19" fill="#ffe45c"/><text x="170" y="27" font-family="system-ui" font-size="10.5" font-weight="800" text-anchor="middle" fill="#3b2c08">29 M€</text>
-      </svg></div>
-      <div class="body"><h2>Créer mon équipe</h2><p>Un budget de 29 M€ et 120 joueurs : achetez seize joueurs, choisissez la formation, placez-les et réglez vos consignes.</p><span class="go">Construire →</span></div>
-    </a>
     <a class="choice club" href="equipe.html#clubs" id="goClubs">
       <div class="art"><svg viewBox="0 0 200 130" aria-hidden="true">
         <rect x="70" y="58" width="60" height="62" rx="4" fill="#ffe45c"/><rect x="18" y="80" width="52" height="40" rx="4" fill="#d9dee4"/><rect x="130" y="92" width="52" height="28" rx="4" fill="#c98b4a"/>
         <g font-family="system-ui" font-weight="800" text-anchor="middle"><text x="100" y="100" font-size="26" fill="#3b2c08">1</text><text x="44" y="108" font-size="20" fill="#3d4650">2</text><text x="156" y="113" font-size="17" fill="#4a2c0c">3</text></g>
         <path d="M84 14 h32 v14 a16 16 0 0 1 -32 0 z" fill="#ffe45c"/><path d="M84 18 h-8 a8 8 0 0 0 8 12 M116 18 h8 a8 8 0 0 1 -8 12" fill="none" stroke="#ffe45c" stroke-width="3"/><rect x="96" y="43" width="8" height="8" fill="#ffe45c"/><rect x="88" y="50" width="24" height="5" rx="1" fill="#ffe45c"/>
       </svg></div>
-      <div class="body"><h2>Choisir un club de Ligue 1</h2><p>Les dix premiers de la saison 2025-26, avec leurs joueurs d'aujourd'hui (octobre 2026) et les notes d'EA Sports FC 27.</p>
-        <div class="chips"><span>Paris SG</span><span>Lens</span><span>Lille</span><span>Lyon</span><span>Marseille</span><span>Rennes</span><span>Monaco</span><span>…</span></div>
+      <div class="body"><h2>Choisir un club de Ligue 1</h2><p>Les dix cadors du championnat, sous des noms à peine déguisés, avec leurs joueurs d'aujourd'hui et leur système de jeu.</p>
+        <div class="chips"><span>Paris Saint-Qatar</span><span>Olympique de Marsupilami</span><span>RC Lentilles</span><span>Racing Choucroute</span><span>…</span></div>
         <span class="go">Voir les clubs →</span></div>
+    </a>
+    <a class="choice build" href="equipe.html#construire" id="goBuild">
+      <div class="art"><svg viewBox="0 0 200 130" aria-hidden="true">
+        <rect x="18" y="8" width="164" height="114" rx="8" fill="#2c6b36" stroke="rgba(255,255,255,.8)" stroke-width="2"/>
+        <line x1="18" y1="65" x2="182" y2="65" stroke="rgba(255,255,255,.6)" stroke-width="1.5"/><circle cx="100" cy="65" r="16" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="1.5"/>
+        <g fill="#2f6fdf" stroke="#fff" stroke-width="2"><circle cx="100" cy="112" r="7"/><circle cx="45" cy="92" r="7"/><circle cx="80" cy="96" r="7"/><circle cx="120" cy="96" r="7"/><circle cx="155" cy="92" r="7"/><circle cx="60" cy="62" r="7"/><circle cx="100" cy="70" r="7"/><circle cx="140" cy="62" r="7"/><circle cx="80" cy="32" r="7"/><circle cx="120" cy="32" r="7"/></g>
+        <g fill="none" stroke="#ffe45c" stroke-width="2.5" stroke-dasharray="5 4"><circle cx="45" cy="34" r="8"/></g>
+        <circle cx="170" cy="22" r="19" fill="#ffe45c"/><text x="170" y="27" font-family="system-ui" font-size="10.5" font-weight="800" text-anchor="middle" fill="#3b2c08">27 M€</text>
+      </svg></div>
+      <div class="body"><h2>Créer mon équipe</h2><p>Un budget de 27 M€ et 120 joueurs : achetez seize joueurs, choisissez la formation, placez-les et réglez vos consignes.</p><span class="go">Construire →</span></div>
     </a>
     <a class="choice quick" href="match.html" id="goQuick">
       <div class="art"><svg viewBox="0 0 200 130" aria-hidden="true">

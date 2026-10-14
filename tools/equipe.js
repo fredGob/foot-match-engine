@@ -67,7 +67,7 @@ function choisir(D) {
   await shot('equipe-achat.png');
   await page.click('#base tr.p[data-id="' + star.id + '"] td:nth-child(2)');
   const nAttrs = await page.$$eval('#sheet .attr', a => a.length);
-  check(await page.isVisible('#sheet') && nAttrs === 20, 'clic sur un joueur : sa fiche avec ses 20 notes', nAttrs + ' notes');
+  check(await page.isVisible('#sheet') && nAttrs === 21, 'clic sur un joueur : sa fiche avec ses 21 notes', nAttrs + ' notes');
   await shot('equipe-fiche.png');
   await page.keyboard.press('Escape');
 
@@ -95,7 +95,7 @@ function choisir(D) {
   const p1 = await page.evaluate('S.lineup[1]'), p4 = await page.evaluate('S.lineup[4]');
   await page.click('[data-drop="p1"] .tok .ball');
   const look1 = await page.$$eval('#look .attr', a => a.map(x => x.textContent));
-  check(look1.length === 20 && (await page.textContent('#look')).includes(await page.evaluate('byId[S.lineup[1]].nom')) && /Arrière gauche/.test(await page.textContent('#look')), 'clic sur un joueur : ses vingt notes et sa place dans le cadre « Joueur »', (await page.textContent('#look .who')) + ' · ' + look1.slice(0, 4).join(', ') + '…');
+  check(look1.length === 21 && (await page.textContent('#look')).includes(await page.evaluate('byId[S.lineup[1]].nom')) && /Arrière gauche/.test(await page.textContent('#look')), 'clic sur un joueur : ses vingt notes et sa place dans le cadre « Joueur »', (await page.textContent('#look .who')) + ' · ' + look1.slice(0, 4).join(', ') + '…');
   await page.click('[data-drop="p4"] .tok .ball');
   check(await page.evaluate('S.lineup[1]') === p1 && await page.evaluate('S.lineup[4]') === p4 && (await page.textContent('#look .who')) === await page.evaluate('byId[S.lineup[4]].nom'), 'clic sur un second joueur : sa fiche remplace la première, aucun échange');
   await page.click('#compo tr[data-look="' + p1 + '"]');
@@ -156,7 +156,7 @@ function choisir(D) {
   const want = order.map(c => PSG.joueurs.find(j => j.poste === c).nom);
   check(await page.isVisible('#pitch') && (await page.$$('#pitch .tok')).length === 11 && (await page.$$('#bench .tok')).length === PSG.remplacants.length,
     'PSG choisi : écran tactique, 11 titulaires sur le terrain, ' + PSG.remplacants.length + ' remplaçants sur le banc');
-  check(JSON.stringify(await page.evaluate('S.lineup.map(id => byId[id].nom)')) === JSON.stringify(want) && await page.evaluate('S.formation') === '442', 'chaque titulaire à sa place du 4-4-2 de equipes.json', want.join(', '));
+  check(JSON.stringify(await page.evaluate('S.lineup.map(id => byId[id].nom)')) === JSON.stringify(want) && await page.evaluate('S.formation') === PSG.formation, 'chaque titulaire à sa place, dans le système habituel du club (' + PSG.formation + ')', want.join(', '));
   check(/pas de budget/.test(await page.textContent('#teamInfo')) && (await page.textContent('#back')) === 'Changer de club' && /Choisir le club/.test(await page.textContent('#st1')), 'pas de budget affiché, bouton « Changer de club »', await page.textContent('#teamInfo'));
   // le remplaçant attaquant glissé sur l'attaquant mobile (place n° 9 en 4-4-2)
   const kb = await page.evaluate(`S.bench.findIndex(id => ['AT', 'MG', 'MD'].includes(byId[id].poste))`), sub = await page.evaluate('S.bench[' + kb + ']'), ac = await page.evaluate('S.lineup[9]');
@@ -172,12 +172,12 @@ function choisir(D) {
   const [dl2] = await Promise.all([page.waitForEvent('download'), page.click('#export')]);
   const tmp2 = path.join(os.tmpdir(), 'equipe-export-l1-' + process.pid + '.json'); await dl2.saveAs(tmp2);
   const T2 = JSON.parse(fs.readFileSync(tmp2, 'utf8')); fs.unlinkSync(tmp2);
-  check(dl2.suggestedFilename() === 'equipe-paris-sg.json' && T2.joueurs.length === 11 && T2.remplacants.length === PSG.remplacants.length && T2.formation === '4231', 'fichier exporté', dl2.suggestedFilename() + ' · ' + T2.description);
+  check(dl2.suggestedFilename() === 'equipe-paris-saint-qatar.json' && T2.joueurs.length === 11 && T2.remplacants.length === PSG.remplacants.length && T2.formation === '4231', 'fichier exporté', dl2.suggestedFilename() + ' · ' + T2.description);
   const all = PSG.joueurs.concat(PSG.remplacants);
   check(T2.joueurs.concat(T2.remplacants).every(j => JSON.stringify(j.notes) === JSON.stringify(all.find(x => x.nom === j.nom).notes)), 'les notes exportées sont celles de equipes.json');
   let ok2 = true, det2 = '';
   try {
-    const m = E.createMatch({ seed: 4, duration: 120, teams: [T2, PSG], formations: [T2.formation, '442'], tactics: [T2.consignes, {}] });
+    const m = E.createMatch({ seed: 4, duration: 120, teams: [T2, PSG], formations: [T2.formation, PSG.formation], tactics: [T2.consignes, {}] });
     const lineup = await page.evaluate('S.lineup.map(id => byId[id].nom)'), labels = await page.evaluate('forme().places.map(p => p.label)');
     for (let i = 0; i < 11; i++) { const p = m.teams[0].players[i]; if (p.name !== lineup[i] || (i > 0 && p.poste !== labels[i])) { ok2 = false; det2 += ' place ' + i + ' : ' + p.name + ' (' + p.poste + ')'; } }
     while (m.mode !== 'over') E.step(m);
@@ -201,9 +201,11 @@ function choisir(D) {
   await Promise.all([page.waitForURL(/match\.html#partie=/), page.click('#play')]);
   await page.waitForTimeout(800);
   const nm = [await page.textContent('#name0'), await page.textContent('#name1')];
-  check(/Lens/.test(nm[0]) && /Marseille/.test(nm[1]) && (await page.$$('#squads select')).length === 0, '« Passer au match » ouvre match.html : Lens contre Marseille, aucun choix d\'équipe dans la page', nm.join(' / '));
-  const formM = await page.inputValue('#tactics select[data-formation="0"]'), tacM = {};
-  for (const k of Object.keys(tacLens)) tacM[k] = +(await page.inputValue('#tactics select[data-team="0"][data-key="' + k + '"]'));
+  check(/Lentilles/.test(nm[0]) && /Marsupilami/.test(nm[1]) && (await page.$$('#squads select')).length === 0, '« Passer au match » ouvre match.html : RC Lentilles contre Olympique de Marsupilami, aucun choix d\'équipe dans la page', nm.join(' / '));
+  await page.click('#tabTac'); await page.waitForTimeout(200);      // formation et consignes : dans l'onglet Tactique
+  const formM = await page.getAttribute('#tvForms button.on', 'data-tv-form'), tacM = {};
+  for (const k of Object.keys(tacLens)) tacM[k] = +(await page.inputValue('#tvTac select[data-tv-key="' + k + '"]'));
+  await page.click('#tabMatch');
   check(formM === '352' && JSON.stringify(tacM) === JSON.stringify(tacLens), 'la formation (3-5-2) et la tactique « Contre-attaque » sont en place dans le match', formM + ' ' + JSON.stringify(tacM));
   await page.click('#kick'); await page.waitForFunction(() => !document.getElementById('time').disabled && document.getElementById('busy').hidden, null, { timeout: 30000 });
   const sent = JSON.parse(decodeURIComponent(/#partie=(.*)$/.exec(page.url())[1]));      // ce que la page équipe a envoyé, lu par le moteur
@@ -235,7 +237,7 @@ function choisir(D) {
   await pp.screenshot({ path: path.join(DOCS, 'equipe-telephone.png') }); console.log('        capture : docs/equipe-telephone.png');
   const q1 = await pp.evaluate('S.lineup[2]'), q2 = await pp.evaluate('S.lineup[3]');
   await pp.tap('[data-drop="p2"] .tok .ball');
-  check((await pp.$$('#look .attr')).length === 20, 'au doigt : toucher un joueur montre ses notes');
+  check((await pp.$$('#look .attr')).length === 21, 'au doigt : toucher un joueur montre ses notes');
   await pp.tap('#swapBtn'); await pp.tap('[data-drop="p3"] .tok .ball');
   check(await pp.evaluate('S.lineup[2]') === q2 && await pp.evaluate('S.lineup[3]') === q1, 'au doigt : « Échanger ce joueur » puis toucher l\'autre les échange');
 

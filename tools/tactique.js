@@ -32,7 +32,7 @@ const url = 'file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURICo
   check((await page.$$('#tvPitch .ttok')).length === 11 && (await page.$$('#tvBench .ttok')).length === lens.remplacants.length, 'onglet Tactique : onze joueurs sur le terrain, les remplaçants sur le banc', (await names('#tvBench')).join(', '));
   check(/avant le coup d'envoi/.test(await page.textContent('#tvSubs')), 'avant le coup d\'envoi, les titulaires sont au choix (pas des remplacements)');
   await page.click('#tvPitch [data-tdrop="p9"] .ttok .ball');
-  check((await page.$$('#tvLook .attr')).length === 18 && /Attaquant/.test(await page.textContent('#tvLook')), 'clic sur un joueur : sa fiche et ses notes', (await page.textContent('#tvLook b')));
+  check((await page.$$('#tvLook .attr')).length === 19 && /Attaquant|Milieu axial gauche/.test(await page.textContent('#tvLook')), 'clic sur un joueur : sa fiche et ses notes', (await page.textContent('#tvLook b')));
   const benchAT = await page.$eval('#tvBench .ttok', e => e.dataset.rid);
   await drag('#tvBench [data-tdrop] .ttok', '#tvPitch [data-tdrop="p9"]');
   check(/Titulaire/.test(await page.textContent('#tvDraft')), 'un remplaçant glissé sur un titulaire : « Titulaire : … » en préparation', (await page.textContent('#tvDraft')));
@@ -54,7 +54,7 @@ const url = 'file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURICo
   check(/Entre :/.test(draft) && /→/.test(draft) && /remplacements 1 \/ 5/.test(await page.textContent('#tvSubs')), 'un remplacement et un changement de place en préparation', draft.replace(/\s+/g, ' '));
   await page.screenshot({ path: path.join(DOCS, 'tactique.png') }); console.log('        capture : docs/tactique.png');
   await page.click('#tvApply'); await ready(); await page.waitForTimeout(300);
-  check(/fait au prochain arrêt de jeu/.test(await page.textContent('#tvPending')) && /En attente du prochain arrêt de jeu : composition/.test(await page.textContent('#tvPending')), 'validé à 05:00 : en attente du prochain arrêt de jeu', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
+  check(/fait au prochain arrêt de jeu/.test(await page.textContent('#tvPending')), 'validé à 05:00 : fait au prochain arrêt de jeu (en attente, ou déjà fait si le jeu est arrêté)', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
   await page.click('#tabMatch'); await seek(1199); await page.waitForTimeout(400);
   const log = await page.textContent('#log'), m1 = /(\d\d:\d\d)Remplacement des Bleus : ([^(]+) remplace/.exec(log), m2 = /(\d\d:\d\d)Changement de place des Bleus/.exec(log);
   check(m1 && m2 && m1[1] >= '05:00' && m1[1] === m2[1], 'remplacement et changement de place faits ensemble, au premier arrêt de jeu après 05:00', m1 ? m1[1] + ' ' + m1[2] : log.slice(0, 200));
@@ -74,15 +74,23 @@ const url = 'file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURICo
   await seek(5399); await page.waitForTimeout(400);
   const nR = ((await page.textContent('#log')).match(/Remplacement des Rouges/g) || []).length;
   check(nR >= 1 && nR <= 5, 'sur 90 minutes, l\'adversaire fait ses remplacements tout seul', nR + ' remplacements des Rouges');
+  check(await page.isDisabled('[data-mode="coach"]') && !(await page.evaluate('document.body.classList.contains("coach")')), 'match lancé : le mode est fixé (bouton grisé), le match n\'est pas perdu');
+  await page.click('#load'); await page.waitForTimeout(300);      // « Rejouer ce match » : retour à l'avant-match, le mode se choisit de nouveau
   await page.click('[data-mode="coach"]'); await page.waitForTimeout(300);
-  await page.click('#kick'); await ready(); await page.click('#play').catch(() => {}); await page.waitForTimeout(200);
+  await page.click('#kick'); await ready(); await page.waitForTimeout(1500); await page.click('#play').catch(() => {}); await page.waitForTimeout(200);
   await page.click('#tabTac'); await page.waitForTimeout(200);
   check(!(await page.isVisible('#tvTeams')), 'mode Coach It : seulement votre équipe dans l\'onglet Tactique');
   await drag('#tvBench .tdrop:not(:has(.gone)):not(:has(.leaving)) .ttok', '#tvPitch [data-tdrop="p8"]'); await page.click('#tvApply'); await ready();
-  check(/En attente du prochain arrêt de jeu/.test(await page.textContent('#tvPending')), 'mode Coach It : remplacement demandé au direct, en attente', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
+  const logOf = () => page.evaluate(() => document.getElementById('log').textContent);
+  check(/En attente du prochain arrêt de jeu/.test(await page.textContent('#tvPending')) || /Remplacement des Bleus/.test(await logOf()), 'mode Coach It : remplacement demandé au direct, en attente ou déjà fait (arrêt de jeu en cours)', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
+  await page.selectOption('#tvTac select[data-tv-key="press"]', '1');
+  check(/Pressing : harceler/.test(await page.textContent('#tvDraft')), 'une consigne changée dans l\'onglet Tactique se prépare avec le reste', (await page.textContent('#tvDraft')).replace(/\s+/g, ' '));
+  await page.click('#tvApply'); await ready();
+  check(/pressing/.test(await page.textContent('#tvPending')) || /Consigne des Bleus : pressing/.test(await logOf()), 'consigne validée : en attente du prochain arrêt de jeu, ou déjà faite', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
+  check(!(await page.$('#tactics')), 'plus de cadre « Consignes » dans la colonne de droite');
 
-  console.log('Téléphone (390 × 844)');
-  const pp = await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true })).newPage();
+  console.log('Téléphone couché (844 × 390)');
+  const pp = await (await browser.newContext({ viewport: { width: 844, height: 390 }, screen: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true })).newPage();
   pp.on('pageerror', e => errors.push(String(e)));
   await pp.goto(url); await pp.waitForTimeout(400); await pp.click('#tabTac'); await pp.waitForTimeout(200);
   check(await pp.evaluate('document.documentElement.scrollWidth <= window.innerWidth') && (await pp.$$('#tvPitch .ttok')).length === 11, 'onglet Tactique sur téléphone : pas de défilement de côté');

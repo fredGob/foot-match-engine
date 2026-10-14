@@ -39,7 +39,7 @@ Chaque équipe a six consignes à trois positions. Une consigne est une **intent
 
 - **Standard** : tous les joueurs ont 14 sur 20 partout. Deux équipes strictement égales, pour que seules les consignes fassent la différence.
 - **Élite, Élevé, Moyen, Faible** : quatre équipes de niveaux différents, avec des notes selon le poste. Elles sont dans `equipes.json`.
-- **Les dix premiers de Ligue 1 2025-26** (Paris SG, Lens, Lille, Lyon, Marseille, Rennes, Monaco, Strasbourg, Toulouse, Lorient) : onze titulaires et des remplaçants par club, avec les notes du jeu EA Sports FC 27 converties sur 20 (`node tools/ligue1.js`). On les choisit dans `equipe.html` (« Prendre une équipe de Ligue 1 », ou comme adversaire).
+- **Les dix premiers de Ligue 1 2025-26**, sous des noms rigolos (Paris Saint-Qatar, RC Lentilles, Olympique de Marsupilami…) : le onze type d'octobre 2026 dans le système habituel du club, et des remplaçants (`node tools/ligue1.js`). On les choisit dans `equipe.html` (« Prendre une équipe de Ligue 1 », ou comme adversaire).
 
 `equipes.json` se modifie à la main : une ligne par joueur, vingt notes de 1 à 20. Après une modification, `node build.js` refait `match.html`.
 

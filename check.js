@@ -18,16 +18,17 @@ function run(seed, watch, tactical, squads) {
   const teams = squads ? [Eq.list[seed % Eq.list.length], Eq.list[(seed * 7 + 3) % Eq.list.length]] : null;      // toutes les affiches reviennent, dans les deux sens
   const m = E.createMatch({ seed, duration, tactics: tactical ? [randomTactics(seed, 1), randomTactics(seed, 2)] : null, teams, autoSubs: squads ? [true, true] : null });
   const tag = seed + (squads ? ' (' + teams.map(T => T.nom).join(' contre ') + ')' : '') + (tactical ? ' (consignes ' + m.teams.map(T => E.TACTICS.map(c => T.tac[c.key]).join(',')).join(' / ') + ')' : '');
-  let lastOwner = null, lastChange = 0, deadSince = 0, changed = false, swapped = !tactical || squads, sawDead = false;
+  let lastOwner = null, lastChange = 0, deadSince = 0, changed = false, swapped = !tactical || squads, sawDead = 0, wasDead = false;
   while (m.mode !== 'over') {
     if (tactical && !changed && m.t >= duration / 2) { changed = true; E.setTactics(m, 0, randomTactics(seed, 3)); E.setTactics(m, 1, randomTactics(seed, 4)); }
     if (!swapped && changed && m.mode === 'dead') {
-      sawDead = true;
+      if (!wasDead) sawDead++;      // nombre d'arrêts de jeu depuis la demande
       const r = m.teams[0].players.map(p => p.rid), a = 1 + seed % 9, b = 1 + (seed * 5 + 2) % 9;
       if (a !== b) [r[a], r[b]] = [r[b], r[a]];
       r[1 + (seed * 3) % 10] = 11 + seed % 5;
       swapped = E.setLineup(m, 0, r);
     }
+    wasDead = m.mode === 'dead';
     E.step(m);
     if (!watch) continue;
     const b = m.ball;
@@ -44,7 +45,7 @@ function run(seed, watch, tactical, squads) {
   if (watch) for (const T of m.teams) {
     const on = T.players.map(p => p.rid);
     if (T.subs > E.MAX_SUBS || new Set(on).size !== 11 || on.some(r => T.roster[r].out) || T.players.some(p => p.name !== T.roster[p.rid].name)) bad(tag, m.t, 'effectif incohérent (' + T.name + ', ' + T.subs + ' changements)');
-    if (tactical && !squads && T.id === 0 && !swapped && sawDead) bad(tag, m.t, 'le changement des Bleus n\'a jamais été fait');
+    if (tactical && !squads && T.id === 0 && !swapped && sawDead >= 5) bad(tag, m.t, 'le changement des Bleus n\'a jamais été fait (' + sawDead + ' arrêts de jeu)');
     subsDone += T.subs;
   }
   return m;

@@ -157,7 +157,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1 id="title">Moteur de match</h1>
+    <h1 id="title">L'entraîneur en carton</h1>
     <div class="steps" id="steps"><span id="st1">1. Acheter les joueurs</span><span id="st2">2. Placer l'équipe</span></div>
     <div class="right"><a class="homebtn" id="home" href="index.html">Accueil</a></div>
   </header>
@@ -166,7 +166,7 @@
   <section id="vClubs" hidden>
     <div class="card">
       <h2>Les dix premiers de Ligue 1 2025-26, effectifs d'octobre 2026</h2>
-      <p class="hint" style="margin-top:0">Joueurs présents au club en octobre 2026 (après le mercato d'été), notes du jeu EA Sports FC 27 converties sur 20. La note à droite est la note globale moyenne des onze titulaires. Pas d'achat ici : on prend l'effectif du club tel quel.</p>
+      <p class="hint" style="margin-top:0">Joueurs présents au club en octobre 2026, dans le système de jeu habituel du club. La note à droite est la note globale moyenne des onze titulaires. Pas d'achat ici : on prend l'effectif du club tel quel.</p>
       <div class="clubs" id="clubs"></div>
     </div>
   </section>
@@ -388,14 +388,14 @@ function drawClubs() {
       '</b><span class="avg">' + fmt(moyenne(C.titulaires)) + '</span></div><div class="stars">' + best + '</div><div class="stars">' + (C.titulaires.length + C.remplacants.length) + ' joueurs dont ' + C.remplacants.length + ' remplaçants</div></button>';
   }).join('');
 }
-// choisir un club : ses onze titulaires à leur place du 4-4-2 (rang n de l'effectif = place n de la formation), les remplaçants sur le banc
+// choisir un club : ses onze titulaires à leur place, dans le système habituel du club (rang n de l'effectif = place n de la formation), les remplaçants sur le banc
 function pickClub(id) {
   const C = CLUBS.find(x => x.id === id); if (!C) return;
-  const pls = D.formations.find(f => f.id === '442').places;
-  Object.assign(S, { club: C.id, nom: C.nom, formation: '442', tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0 },
+  const F = D.formations.find(f => f.id === C.formation) || D.formations[0], pls = F.places;
+  Object.assign(S, { club: C.id, nom: C.nom, formation: F.id, tac: Object.assign({ passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0 }, C.consignes),
     squad: C.titulaires.concat(C.remplacants).map(j => j.id), lineup: pls.map(pl => (C.titulaires.find(j => j.place === pl.code) || {}).id || null), bench: C.remplacants.map(j => j.id) });
   if (S.lineup.some(x => !x)) ranger();
-  show('vTac'); say('Effectif de ' + C.nom + ' en place (4-4-2). Changez la formation, faites glisser les joueurs, réglez les consignes.');
+  show('vTac'); say('Effectif de ' + C.nom + ' en place, dans son système habituel (' + F.name + ') et avec le style de son entraîneur. Changez la formation, faites glisser les joueurs, réglez les consignes.');
 }
 document.addEventListener('click', e => { const b = e.target.closest('[data-club]'); if (b) pickClub(b.dataset.club); });
 
@@ -472,10 +472,10 @@ function drawLook() {
   $('look').className = '';
   $('look').innerHTML = '<div class="who">' + esc(j.nom) + '</div>' +
     '<div class="small muted">' + POSTES[j.poste] + (j.age ? ' · ' + j.age + ' ans' : '') + ' · ' + (pl ? 'place : ' + esc(pl.label) + (off ? ' <b style="color:var(--warn)">(hors poste)</b>' : '') : 'remplaçant') + '</div>' +
-    '<div class="row small" style="margin-top:4px"><span>Note globale <b class="note">' + fmt(j.note) + '</b></span>' + (j.fc ? '<span>FC 27 <b>' + j.fc + '</b></span>' : '') + (S.club ? '' : '<span>Prix <b>' + euros(j.prix) + '</b></span>') + '</div>' +
+    '<div class="row small" style="margin-top:4px"><span>Note globale <b class="note">' + fmt(j.note) + '</b></span>' + (S.club ? '' : '<span>Prix <b>' + euros(j.prix) + '</b></span>') + '</div>' +
     '<div class="attrs">' + attrsOf(j) + '</div>' +
     '<div class="row" style="margin:2px 0 8px">' + (UI.sel === id ? '<span class="small" style="color:var(--accent)">Touchez le joueur à échanger avec lui.</span> <button id="swapCancel">Annuler</button>' : '<button id="swapBtn">Échanger ce joueur</button>') + '</div>' +
-    '<div class="small muted">En jaune : les notes importantes pour son poste naturel.' + (j.source && j.source !== 'carte' ? ' Notes ' + (j.source === 'supposé' ? 'supposées (joueur non trouvé dans FC 27).' : 'reconstruites à partir de sa seule note générale.') : '') + '</div>';
+    '<div class="small muted">En jaune : les notes importantes pour son poste naturel.' + (j.source === 'supposé' ? ' Notes estimées.' : '') + '</div>';
 }
 $('look').addEventListener('click', e => { if (e.target.id === 'swapBtn') { UI.sel = UI.look; drawTac(); } else if (e.target.id === 'swapCancel') { UI.sel = null; drawTac(); } });
 $('compo').addEventListener('click', e => { const r = e.target.closest('[data-look]'); if (r) { UI.look = r.dataset.look; drawTac(); } });
@@ -575,7 +575,7 @@ function exportTeam() {
   const slug = nom.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'mon-equipe';
   const notes = j => { const o = {}; for (const [k] of D.qualities) o[k] = j.notes[k]; return o; };
   return {
-    id: slug, nom, description: S.club ? 'Effectif de ' + CLUBS.find(C => C.id === S.club).nom + ' (effectif d\'octobre 2026, notes EA Sports FC 27), placé dans equipe.html : ' + forme().name + '.'
+    id: slug, nom, description: S.club ? 'Effectif de ' + CLUBS.find(C => C.id === S.club).nom + ' (effectif d\'octobre 2026), placé dans equipe.html : ' + forme().name + '.'
       : 'Équipe construite dans equipe.html : ' + forme().name + ', effectif de ' + euros(depense()) + ' sur un budget de ' + D.budget + ' M€.',
     formation: S.formation, consignes: Object.assign({}, S.tac),
     joueurs: pls.map((pl, i) => { const j = byId[S.lineup[i]]; return { poste: pl.code, numero: pl.num, nom: j.nom, place: pl.label, poste_naturel: j.poste, notes: notes(j) }; }),
