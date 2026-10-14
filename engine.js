@@ -1618,6 +1618,40 @@ function step(m) {
   if (m.t >= m.duration) { m.mode = 'over'; log(m, 'end', -1, 'Fin du match : ' + m.teams[0].name + ' ' + m.teams[0].score + ' - ' + m.teams[1].score + ' ' + m.teams[1].name); }
 }
 
+// Séance de tirs au but, à partir d'une photo du match au coup de sifflet final (mêmes joueurs sur le terrain, même fatigue).
+// Chaque tir est un vrai penalty du moteur (tireur, gardien, geste, sang-froid), sans rebond : le tir est marqué, arrêté ou manqué.
+// Ordre des tireurs : les meilleurs (finition et sang-froid) d'abord, le gardien en dernier. Cinq tirs chacun, puis mort subite.
+// Renvoie { kicks: [{ team, name, num, res: 'but' | 'arrêt' | 'manqué' }], score: [a, b], winner }.
+function shootout(snap) {
+  const m = restore(snap).m;
+  m.duration = Infinity; m.events = [];
+  const order = m.teams.map(T => T.players.filter(p => p.role !== 'GK').sort((a, b) => (b.a.finishing + b.a.composure) - (a.a.finishing + a.a.composure)).concat(T.players.filter(p => p.role === 'GK')));
+  const kicks = [], score = [0, 0], n = [0, 0];
+  const kick = t => {
+    const T = m.teams[t], taker = order[t][n[t] % order[t].length], ev = m.events.length, g0 = T.score;
+    n[t]++;
+    setRestart(m, 'penalty', t, (P.HL - P.SPOT) * T.dir, 0, 6); m.restart.taker = taker;
+    let res = null;
+    for (let k = 0; k < 600 && !res; k++) {
+      step(m);
+      if (T.score > g0) res = 'but';
+      for (let j = ev; j < m.events.length && !res; j++) { const e = m.events[j]; if (e.kind === 'save') res = 'arrêt'; else if (e.kind === 'shot') res = 'manqué'; }
+      if (!res && m.mode === 'play' && !m.shot && m.ball.owner !== taker && k > 40) res = 'manqué';      // le ballon a fini ailleurs (poteau, dehors)
+    }
+    res = res || 'manqué';
+    T.score = g0;
+    if (res === 'but') score[t]++;
+    kicks.push({ team: t, name: taker.name, num: taker.num, res });
+  };
+  for (let r = 0; r < 5; r++) for (let t = 0; t < 2; t++) {
+    kick(t);
+    const left = [5 - n[0], 5 - n[1]];
+    if (score[0] + left[0] < score[1] || score[1] + left[1] < score[0]) return { kicks, score, winner: score[0] > score[1] ? 0 : 1 };
+  }
+  for (let r = 0; r < 40 && score[0] === score[1]; r++) { kick(0); kick(1); }
+  return { kicks, score, winner: score[0] > score[1] ? 0 : score[1] > score[0] ? 1 : (m.rng() < 0.5 ? 0 : 1) };
+}
+
 // restart : met en scène un arrêt de jeu (penalty, coup franc, corner…), pour les outils de mesure
-return { createMatch, step, snapshot, restore, setTactics, setFormation, setLineup, formationPlaces, MAX_SUBS, FORMATIONS, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt };
+return { createMatch, step, snapshot, restore, shootout, setTactics, setFormation, setLineup, formationPlaces, MAX_SUBS, FORMATIONS, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt };
 });

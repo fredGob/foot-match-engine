@@ -61,7 +61,7 @@
   .empty { padding: 18px; border-radius: 18px; border: 1px dashed var(--line); color: var(--muted); }
 
   /* comment ça marche */
-  .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
   .step { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); }
   .step .n { flex: none; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; background: #2a3a55; }
   .step b { display: block; }
@@ -75,6 +75,15 @@
     .hero svg.deco { opacity: 0.22; }
   }
   @media (max-width: 520px) { .xi { columns: 1; } }
+
+  /* la Coupe en carton */
+  .cupcard { display: grid; grid-template-columns: 170px minmax(0, 1fr) auto; gap: 20px; align-items: center; margin-top: 18px; padding: 18px 22px; border-radius: 18px; background: linear-gradient(120deg, #4a3a0e 0%, #2a2210 45%, #161d25 100%); border: 1px solid #6b5418; color: var(--text); text-decoration: none; transition: transform .15s, box-shadow .15s; }
+  .cupcard:hover, .cupcard:focus-visible { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45); outline: none; }
+  .cupcard .trophy { font-size: 92px; line-height: 1; text-align: center; filter: drop-shadow(0 6px 14px rgba(0,0,0,.5)); }
+  .cupcard h2 { margin: 0 0 4px; font-size: 26px; font-weight: 800; }
+  .cupcard p { margin: 0; color: #d8cfa8; }
+  .cupcard .state { margin-top: 8px; color: var(--accent); font-weight: 650; }
+  @media (max-width: 760px) { .cupcard { grid-template-columns: 1fr; text-align: center; } .cupcard .trophy { font-size: 64px; } }
 </style>
 </head>
 <body>
@@ -133,6 +142,13 @@
     </a>
   </nav>
 
+  <a class="cupcard" href="coupe.html" id="goCup">
+    <div class="trophy" aria-hidden="true">🏆</div>
+    <div><h2>La Coupe en carton</h2><p>32 équipes, des cadors de Ligue 1 aux petits poucets du dimanche. Tirage au sort à chaque tour, élimination directe, tirs au but : cinq victoires pour soulever la coupe.</p>
+      <div class="state" id="cupState"></div></div>
+    <span class="btn main" id="cupGo">Jouer la coupe →</span>
+  </a>
+
   <h3 class="title">Mon équipe</h3>
   <section id="mine" class="mine" hidden></section>
   <div id="none" class="empty">Aucune équipe enregistrée pour l'instant. Créez votre équipe ou prenez un club : elle apparaîtra ici, prête à jouer.</div>
@@ -142,12 +158,22 @@
     <div class="step"><span class="n">1</span><div><b>L'équipe</b><span>Construite avec un budget, ou un club de Ligue 1.</span></div></div>
     <div class="step"><span class="n">2</span><div><b>La tactique</b><span>Formation, placement des joueurs, six consignes.</span></div></div>
     <div class="step"><span class="n">3</span><div><b>Le match</b><span>Vous suivez le match et changez la tactique ou les joueurs au prochain arrêt de jeu.</span></div></div>
+    <div class="step"><span class="n">4</span><div><b>La coupe</b><span>Enchaînez les tours jusqu'à la finale. La partie est gardée dans le navigateur.</span></div></div>
   </div>
 </div>
 
 <script>
 'use strict';
 (function () {
+  // la Coupe en carton : une partie en cours ? (enregistrée par coupe.html)
+  try {
+    const g = JSON.parse(localStorage.getItem('coupe-partie') || 'null');
+    if (g && g.v === 1 && g.rounds && g.rounds.length) {
+      const R = g.rounds[g.rounds.length - 1];
+      document.getElementById('cupState').textContent = g.champion ? '🏆 ' + g.me.nom + ' a gagné la coupe !' : g.out ? g.me.nom + ' : éliminé en ' + g.out.toLowerCase() : 'Partie en cours avec ' + g.me.nom + ' : ' + R.name.toLowerCase();
+      document.getElementById('cupGo').textContent = g.champion || g.out ? 'Voir la coupe →' : 'Reprendre ma coupe →';
+    }
+  } catch (e) {}
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const fmt = x => String(x).replace('.', ',');

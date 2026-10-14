@@ -52,3 +52,19 @@ console.log('match.html écrit (' + Math.round(html.length / 1024) + ' ko, ' + t
   fs.writeFileSync(path.join(__dirname, 'equipe.html'), page);
   console.log('equipe.html écrit (' + Math.round(page.length / 1024) + ' ko, ' + base.joueurs.length + ' joueurs, budget ' + base.budget + ' M€, ' + clubs.length + ' clubs)');
 }
+
+// ---------- troisième page : la Coupe en carton (page-coupe.html + moteur + clubs de Ligue 1 + coupe.json → coupe.html) ----------
+{
+  let page = read('page-coupe.html');
+  const tag = '<script id="engineSrc" src="engine.js"></script>';
+  if (!page.includes(tag)) throw new Error('balise introuvable dans page-coupe.html : ' + tag);
+  page = page.replace(tag, () => '<script id="engineSrc">\n' + read('engine.js').replace(/<\/script/g, '<\\/script') + '</script>');      // le moteur sert aussi aux matchs simulés en arrière-plan
+  const coupe = JSON.parse(read('coupe.json'));
+  for (const T of coupe.equipes) E.readTeam(T);
+  const clubs = teams.equipes.filter(T => T.championnat);
+  const data = { clubs, petits: coupe.equipes };
+  if (!page.includes('/*COUPE*/null')) throw new Error('emplacement des données introuvable dans page-coupe.html');
+  page = page.replace('/*COUPE*/null', () => JSON.stringify(data).replace(/<\/script/g, '<\\/script'));
+  fs.writeFileSync(path.join(__dirname, 'coupe.html'), page);
+  console.log('coupe.html écrit (' + Math.round(page.length / 1024) + ' ko, ' + clubs.length + ' clubs de Ligue 1 et ' + coupe.equipes.length + ' clubs inventés)');
+}

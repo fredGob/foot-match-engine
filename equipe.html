@@ -555,6 +555,7 @@ function apercu() {
 function lienMatch() { const T = exportTeam(); delete T.description; return 'match.html#partie=' + encodeURIComponent(JSON.stringify({ equipe: T, adversaire: S.adv })); }
 function save() {
   const s = { squad: S.squad, lineup: S.lineup, bench: S.bench, formation: S.formation, tac: S.tac, nom: S.nom, club: S.club, adv: S.adv, quand: new Date().toISOString(), apercu: apercu() };
+  try { if (S.lineup && S.lineup.every(Boolean)) s.equipe = exportTeam(); } catch (e) {}      // l'équipe entière, pour la Coupe en carton (coupe.html)
   try { localStorage.setItem(CLE, JSON.stringify(s)); return true; } catch (e) { return false; }
 }
 $('save').onclick = () => { if (save()) say('Équipe enregistrée dans ce navigateur.'); else say('Impossible d\'enregistrer dans ce navigateur. Utilisez « Exporter ».', true); };
