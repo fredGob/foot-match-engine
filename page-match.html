@@ -261,7 +261,7 @@
       <div class="pre" id="pre" hidden><div>Choisissez le mode, réglez votre tactique (onglet Tactique), puis donnez le coup d'envoi.</div><div class="row"><button id="preTac">Régler la tactique</button><button id="kick" class="main">Lancer le match</button></div></div>
       <div class="busy" id="busy" hidden><div class="spin" aria-hidden="true"></div><span>Calcul du match…</span></div>
       <div class="tip" id="tip" hidden></div>
-      <div class="ff" id="ff" hidden>⏩ temps faible ×8</div>
+      <div class="ff" id="ff" hidden>⏩ temps faible ×10</div>
       <div class="tacview" id="tacView" hidden>
         <div class="tvpitch">
           <div class="tvhead"><button class="phoneonly" id="tvBack">← Retour au match</button><span class="group godonly" id="tvTeams"><button data-tv-team="0" class="on">Bleus</button><button data-tv-team="1">Rouges</button></span><span class="tvforms" id="tvForms"></span></div>
@@ -309,12 +309,12 @@
       <button id="play">Pause</button>
       <span class="group"><button id="back" title="Reculer de 10 secondes">−10 s</button><button id="fwd" title="Avancer de 10 secondes">+10 s</button></span>
       <span class="group">Vitesse
-        <button data-speed="1" class="on">×1</button><button data-speed="1.5">×1,5</button><button data-speed="2">×2</button>
+        <button data-speed="1">×1</button><button data-speed="1.5" class="on">×1,5</button><button data-speed="2">×2</button>
       </span>
       <label class="godonly"><input type="checkbox" id="intents"> Montrer où chaque joueur veut aller</label>
       <label class="godonly"><input type="checkbox" id="labels"> Montrer l'intention de chaque joueur</label>
       <label title="Pendant un arrêt de jeu (touche, coup franc, sortie de but…), la lecture va six fois plus vite"><input type="checkbox" id="skip" checked> Passer vite les arrêts de jeu</label>
-      <label title="Temps forts (lus à la vitesse choisie) : les actions qui finissent en tir, et les moments où une équipe a le ballon dans les 25 derniers mètres. Le reste passe à ×8."><input type="checkbox" id="hl" checked> Accélérer les temps faibles (×8)</label>
+      <label title="Temps forts (lus à la vitesse choisie) : les actions qui finissent en tir, et les moments où une équipe a le ballon dans les 25 derniers mètres. Le reste passe à ×10."><input type="checkbox" id="hl" checked> Accélérer les temps faibles (×10)</label>
       <span class="group" style="margin-left: auto">Durée
         <select id="duration"><option value="5400" selected>90 min</option><option value="2700">45 min</option><option value="1200">20 min</option><option value="600">10 min (essais)</option></select>
       </span>
@@ -371,9 +371,9 @@
   // tac0 : consignes au coup d'envoi ; changes : changements faits en cours de match ({ tick, team, key, v }).
   // pending : avant le coup d'envoi. Le terrain est en place, on règle les consignes, rien n'est encore calculé.
   let seed = 1, duration = 5400, tac0 = [blank(), blank()], changes = [], pending = true;
-  let rec = null, view = null, cur = 0, end = 5400, playing = false, scrub = false, speed = 1, last = 0;
+  let rec = null, view = null, cur = 0, end = 5400, playing = false, scrub = false, speed = 1.5, last = 0;
   let selected = -1, shown = 0, W = 0, H = 0, nextHud = 0, series = null, rate = 1;
-  const FAST = 8;      // vitesse des temps faibles
+  const FAST = 10;      // vitesse des temps faibles
   // page Statistiques : onglet, équipe, carte (chaleur ou réseau de passes), joueur de la carte de chaleur (-1 : toute l'équipe)
   // mode God : tout voir, régler les deux équipes ; mode Coach It : les Bleus seulement, sans voir la suite (live : jusqu'où le match a été joué)
   let mode = 'god', live = 0, marked = -1;
@@ -819,7 +819,7 @@
       const fc = Math.min(Math.floor(cur / DT), rec.n - 1), weak = !pending && $('hl').checked && rec.hl && !rec.hl.on[fc];
       if (playing && !pending && !scrub && !series && $('busy').hidden) {
         const dead = $('skip').checked && rec.D[fc];
-        const want = Math.max(speed * (dead ? 6 : 1), weak ? Math.max(FAST, speed) : 0);      // temps faible : ×8 (ou la vitesse choisie si elle est plus grande)
+        const want = Math.max(speed * (dead ? 6 : 1), weak ? Math.max(FAST, speed) : 0);      // temps faible : ×10 (ou la vitesse choisie si elle est plus grande)
         rate += (want - rate) * Math.min(1, dt * 5);                     // on change de vitesse en douceur
         cur = Math.min(end, cur + dt * rate); if (cur >= end) { playing = false; nextHud = 0; }
         if (job && !job.done) cur = Math.min(cur, (rec.n - 1) * DT); }      // pas plus loin que ce qui est calculé
