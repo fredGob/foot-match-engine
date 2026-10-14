@@ -28,6 +28,7 @@ Ce qu'il a dit et qu'il faut garder en tête :
 - Les passes ratées, c'est bien ; il veut aussi des **contrôles ratés**, liés à une qualité « Prise de balle » : sans pression même un joueur moyen contrôle, sous pression il peut rater, et un joueur doué s'en sort.
 - **Les tests doivent se faire avec des équipes de niveaux différents** (élite contre faible, etc.). Les équipes sont dans `equipes.json`, « notre fichier de sauvegarde d'équipe » : on y garde la trace des joueurs et on le modifie à la main si besoin.
 - À la fin d'une tâche : noter ici les avancements et les défauts qui restent à corriger sur le moteur.
+- **Le réalisme passe avant le résultat** (14 octobre 2026, après le n° 108) : ce qui compte, c'est que le jeu ait l'air vrai quand on le regarde, pas d'atteindre un pourcentage de victoires. Il regarde les matchs avant qu'on retouche les réglages.
 - Méthode convenue : les vraies statistiques servent de garde-fou, pas de moteur. On avance une situation à la fois : il décrit ce qu'il attend, j'écris un outil qui isole la situation, je trouve la cause, je corrige, je remesure tout.
 
 ## Regarder un match
