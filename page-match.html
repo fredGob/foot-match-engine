@@ -612,7 +612,7 @@
         + '<div class="muted">' + p.poste + ' · ' + T.name + (T.club ? ' (' + esc(T.club) + ')' : '') + '</div>'
         + (coach() ? '' : '<div class="doing">' + esc(p.intent.label) + (p.intent.note ? '<span class="note">' + esc(p.intent.note) + '</span>' : '') + '</div>')
         + '<div class="muted" style="margin-bottom:8px">' + (p.v * 3.6).toFixed(0) + ' km/h · fraîcheur ' + Math.round(100 * p.stam) + ' % · ' + (p.dist / 1000).toFixed(2) + ' km parcourus</div>'
-        + '<div class="attrs">' + attrsOf(p).map(k => '<div class="attr"><span>' + k[1] + '</span><b>' + Math.round(p.a[k[0]] * 100) + '</b></div>').join('') + '</div>';
+        + '<div class="attrs">' + attrsOf(p).map(k => '<div class="attr"><span>' + k[1] + '</span><b>' + Math.round(E.shown(p.a[k[0]]) * 100) + '</b></div>').join('') + '</div>';
     }
     const over = !pending && cur >= end - 1e-6 && !scrub;
     if (over) { $('endText').textContent = view.teams[0].name + ' ' + s0 + ' – ' + s1 + ' ' + view.teams[1].name; if (cardOf !== rec) { cardOf = rec; drawCard(); } }
@@ -1109,7 +1109,7 @@
       const i = tv.rids.indexOf(e.rid), pl = i >= 0 ? pls[i] : null, fr = tvFresh(e.rid), off = pl && !accepte(pl).includes(e.nat);
       $('tvLook').innerHTML = '<b>n°' + e.num + ' ' + esc(e.name) + '</b><div class="small muted">' + NAT_NAME[e.nat] + ' · ' + (pl ? esc(pl.label) + (off ? ' <span style="color:#ff9a3c">(hors poste)</span>' : '') : fr == null ? 'sorti' : 'remplaçant') + (fr == null ? '' : ' · fraîcheur ' + Math.round(100 * fr) + ' %') + '</div>'
         + (fr == null ? '' : '<div class="row" style="margin:6px 0">' + (tv.sel === e.rid ? '<span class="small" style="color:var(--accent)">Touchez le joueur à échanger.</span> <button id="tvSwapCancel">Annuler</button>' : '<button id="tvSwap">Échanger ce joueur</button>') + '</div>')
-        + '<div class="attrs">' + E.QUALITIES.filter(q => e.nat === 'G' || (q[0] !== 'reflexes' && q[0] !== 'handling')).map(q => '<div class="attr"><span>' + q[2] + '</span><b>' + Math.round(e.a[q[0]] * 100) + '</b></div>').join('') + '</div>';
+        + '<div class="attrs">' + E.QUALITIES.filter(q => e.nat === 'G' || (q[0] !== 'reflexes' && q[0] !== 'handling')).map(q => '<div class="attr"><span>' + q[2] + '</span><b>' + Math.round(E.shown(e.a[q[0]]) * 100) + '</b></div>').join('') + '</div>';
     }
   }
   // échange deux emplacements : « p3 » = place n° 3, « b14 » = remplaçant n° 14 de l'effectif

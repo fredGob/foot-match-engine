@@ -196,16 +196,52 @@ function setTactics(m, team, tac, label) {
   const T = m.teams[team]; let changed = false;
   for (const c of TACTICS) if (tac && tac[c.key] != null) {
     const v = clamp(+tac[c.key] || 0, -1, 1);
-    if (v !== T.tac[c.key] && m.tick > 0) { changed = true; if (!label) log(m, 'tactic', team, 'Consigne des ' + T.name + ' : ' + c.label.toLowerCase() + ' → ' + c.options[Math.round(v) + 1].toLowerCase()); }
-    T.tac[c.key] = v;
+    if (v !== T.order[c.key] && m.tick > 0) { changed = true; if (!label) log(m, 'tactic', team, 'Consigne des ' + T.name + ' : ' + c.label.toLowerCase() + ' → ' + c.options[Math.round(v) + 1].toLowerCase()); }
+    T.order[c.key] = v;
   }
+  applyMood(T);
   if (label && changed) log(m, 'tactic', team, 'Tactique des ' + T.name + ' : ' + label);
 }
 const tacNote = (key, v) => TACTICS.find(c => c.key === key).notes[v < 0 ? 0 : 2];
 
+// ---------- gestion du score (choix de Frédéric, 15 octobre 2026) ----------
+// Une équipe qui mène largement gère : elle ralentit, garde le ballon, recule un peu et presse moins.
+// Une équipe menée en fin de match pousse : elle accélère, joue vers l'avant, monte et presse.
+// Ce n'est pas une consigne : cela s'ajoute aux consignes de l'entraîneur (T.order), et le résultat (T.tac) est ce que l'équipe joue vraiment.
+const MOOD = 1;
+function moodOf(m, T) {
+  const O = m.teams[1 - T.id], diff = T.score - O.score, tl = m.duration > 0 && isFinite(m.duration) ? clamp(m.t / m.duration, 0, 1) : 0;
+  if (diff >= 3) return { k: 1, lead: true };
+  if (diff === 2) return { k: 0.5 + 0.5 * tl, lead: true };
+  if (diff === 1) return { k: 0.7 * clamp((tl - 0.7) / 0.3, 0, 1), lead: true };
+  if (diff === -1) return { k: clamp((tl - 0.6) / 0.4, 0, 1), lead: false };
+  if (diff <= -2) return { k: 0.4 + 0.6 * tl, lead: false };
+  return { k: 0, lead: false };
+}
+const MOOD_LEAD = { tempo: -0.8, passing: -0.6, press: -0.6, line: -0.4 }, MOOD_CHASE = { tempo: 0.6, passing: 0.6, press: 0.6, line: 0.6 };
+function applyMood(T) {
+  const k = MOOD * (T.mood || 0), d = T.moodLead ? MOOD_LEAD : MOOD_CHASE;
+  for (const c of TACTICS) T.tac[c.key] = clamp(T.order[c.key] + (d[c.key] || 0) * k, -1, 1);
+}
+function updateMood(m) {
+  if (!m.moodOn) return;
+  for (const T of m.teams) {
+    const md = moodOf(m, T), k = Math.round(md.k * 10) / 10;
+    if (k === T.mood && md.lead === T.moodLead) continue;
+    if (k && (!T.mood || md.lead !== T.moodLead)) log(m, 'mood', T.id, md.lead ? 'Les ' + T.name + ' gèrent leur avance : moins de risques, ballon gardé' : 'Les ' + T.name + ' poussent pour revenir au score');
+    T.mood = k; T.moodLead = md.lead; applyMood(T);
+    const lab = !k ? '' : md.lead ? 'Gère le score' : 'Court après le score';
+    for (const p of T.players) p.mood = lab;
+  }
+}
+
 // Dans cette version, tous les joueurs ont toutes leurs qualités au même niveau (14 sur 20) : deux équipes strictement égales,
 // pour que seules les consignes fassent la différence. Les notes individuelles tirées au hasard restent disponibles (opts.random).
 const LEVEL = 0.7;
+// Dosage des notes (choix de Frédéric, 15 octobre 2026) : le moteur ne prend qu'une part de l'écart entre une note et 70 ;
+// une note de 70 reste 70, une note de 90 compte comme 70 + NOTE_DOSE × 20. Les fiches affichent toujours la vraie note (shown).
+const NOTE_DOSE = 0.4;
+const dose = x => LEVEL + NOTE_DOSE * (x - LEVEL), shown = x => LEVEL + (x - LEVEL) / NOTE_DOSE;
 const PASS_GAP = 3.5;          // poids de la note de passe sur la précision du geste (×1 à 14, ×2,9 à 8, ×0,6 à 17)
 const BAD_LAT = 0.6, BAD_PASS = 0.25;      // passe mal ajustée : écart toléré (m), puis risque de contrôle raté
 const VISION = 2.5;        // poids de la vision : risque de ne pas voir un partenaire loin ou dans le dos
@@ -261,7 +297,7 @@ function readNotes(who, notes) {
   for (const q of QUALITIES) {
     const v = notes[q[1]] == null && q[1] === 'frappe_de_loin' ? notes.finition : notes[q[1]];      // ancien fichier sans « frappe de loin » : on prend la finition
     if (typeof v !== 'number' || !(v >= 1 && v <= 100)) throw new Error(who + ' : la note « ' + q[1] + ' » doit être un nombre de 1 à 100');
-    a[q[0]] = v / 100;
+    a[q[0]] = dose(v / 100);
   }
   for (const k in notes) if (!QUALITIES.some(q => q[1] === k)) throw new Error(who + ' : note inconnue « ' + k + ' »');
   return a;
@@ -366,7 +402,7 @@ function formationPlaces(id) {
 function createMatch(opts) {
   opts = opts || {};
   const seed = opts.seed == null ? 1 : opts.seed;
-  const m = { seed, rng: makeRng(seed), t: 0, tick: 0, duration: opts.duration || 600, mode: 'dead', players: [], teams: [], events: [], pass: null, shot: null, restart: null, corner: null, wall: null, path: [], icpt: [], icptTick: -9, poss: -1, lastTeam: -1, holder: -1, possSince: 0, playT: 0, count: {}, random: !!opts.random, halftime: opts.halftime !== false, half: false };
+  const m = { seed, rng: makeRng(seed), t: 0, tick: 0, duration: opts.duration || 600, mode: 'dead', players: [], teams: [], events: [], pass: null, shot: null, restart: null, corner: null, wall: null, path: [], icpt: [], icptTick: -9, poss: -1, lastTeam: -1, holder: -1, possSince: 0, playT: 0, count: {}, random: !!opts.random, halftime: opts.halftime !== false, half: false, moodOn: opts.mood !== false };
   addGauss(m);
   const names = NAMES.slice();
   for (let i = names.length - 1; i > 0; i--) { const j = Math.floor(m.rng() * (i + 1)); const t = names[i]; names[i] = names[j]; names[j] = t; }
@@ -374,7 +410,7 @@ function createMatch(opts) {
   const squads = [0, 1].map(t => opts.teams && opts.teams[t] ? readTeam(opts.teams[t]) : null);
   for (let t = 0; t < 2; t++) {
     const T = { id: t, name: t === 0 ? 'Bleus' : 'Rouges', club: squads[t] ? String(opts.teams[t].nom || opts.teams[t].id || '') : '', color: t === 0 ? '#2f6fdf' : '#d8423a', dir: t === 0 ? 1 : -1, score: 0, phase: 0.5, refX: 0, refY: 0, line: -30, offLine: 0, spread: 46, players: [],
-      tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0, switch: 0 },
+      tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0, switch: 0 }, order: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0, switch: 0 }, mood: 0, moodLead: false,
       stats: { possT: 0, passes: 0, passesOk: 0, shots: 0, onTarget: 0, goals: 0, xg: 0, tackles: 0, interceptions: 0, blocks: 0, fouls: 0, corners: 0, offsides: 0, saves: 0,
         // mesures du style de jeu : elles servent à voir l'effet des consignes
         miscontrols: 0, passLen: 0, passLenN: 0, longBalls: 0, through: 0, crosses: 0, ballT: 0, touches: 0, widthSum: 0, widthN: 0, lineSum: 0, lineN: 0, recov: 0, recovHigh: 0, passFollow: 0, passDefy: 0, run: 0 } };
@@ -579,7 +615,7 @@ function setIntent(m, p, type, label, tx, ty, urg) {
   it.type = type; it.label = label; it.tx = tx; it.ty = ty; it.urg = urg; it.note = null; it.hunt = false; it.cover = null; it.contain = 0; it.hard = 0;
 }
 // ce que la fiche du joueur affichera : il suit une consigne de son entraîneur, ou il s'en écarte
-function note(p, key, v, against) { p.intent.note = (against ? 'Malgré la consigne : ' : 'Consigne : ') + tacNote(key, v); }
+function note(p, key, v, against) { p.intent.note = (against ? 'Malgré la consigne : ' : p.mood && MOOD_LEAD[key] ? p.mood + ' : ' : 'Consigne : ') + tacNote(key, v); }
 // les joueurs ne réagissent pas tous au même instant : chacun a son temps de réaction
 function react(m, quick) {
   for (const p of m.players) { const r = (0.10 + 0.28 * (1 - p.a.anticipation)) * (0.6 + 0.8 * m.rng()) * (p === quick ? 0.4 : 1); if (p.nextThink > m.t + r) p.nextThink = m.t + r; }
@@ -1373,7 +1409,8 @@ function resolveTackles(m) {
     const T = m.teams[o.team], keeper = o.role === 'GK' && inOwnBox(T, o.x, o.y);
     const rx = o.x - c.x, ry = o.y - c.y, closing = (c.vx * rx + c.vy * ry) / (hyp(rx, ry) || 1);
     const lam = closing > 2.5 || (keeper && o.intent.type === 'claim') ? 5 : (o.intent.type === 'press' || keeper ? 0.6 : 0.25) * (0.6 + 0.8 * o.a.aggression) * (hyp(c.x + P.HL * T.dir, c.y) < 25 ? 2.2 : 1) * (o.intent.type === 'press' ? 1 + 0.5 * T.tac.press : 1) * (1 - 0.7 * (o.intent.contain || 0)) * (1 + 0.3 * (o.intent.hard || 0));      // « défendre la surface » : il temporise, se jette rarement
-    if (rng() > lam * DT) continue;
+    const stale = clamp((m.t - c.gotBallAt - 4) / 4, 0, 1) * (hyp(c.vx, c.vy) < 1 ? 1 : 0);      // un porteur planté sur place depuis plus de 4 s finit par être attaqué, même par un défenseur qui temporise
+    if (rng() > lam * (1 + 4 * stale) * DT) continue;
     const front = (rx * Math.cos(c.face) + ry * Math.sin(c.face)) / (hyp(rx, ry) || 1);      // 1 : de face, −1 : dans le dos
     const pWin = clamp(0.46 * (0.8 + 0.2 * o.stam) + 0.55 * (duelDef(o) - duelAtt(c)) + 0.12 * front + (m.t < c.controlReadyAt ? 0.5 * (1 - c.a.firstTouch) : 0) + (keeper ? 0.2 : 0), 0.12, 0.85);      // pendant son contrôle, il est d'autant plus vulnérable que sa prise de balle est faible
     const pFoul = (0.09 + 0.13 * o.a.aggression) * (front < -0.2 ? 1.6 : 1) * (keeper ? 0.4 : 1) * (inOwnBox(T, c.x, c.y) ? 0.1 : 1);      // dans sa surface, on se retient
@@ -1634,6 +1671,7 @@ function step(m) {
   if (b.owner) b.dip = 0;
   if (!b.owner && m.mode === 'play') predict(m);
   updateContext(m);
+  if (m.tick % 20 === 0) updateMood(m);
   if (m.mode === 'dead') { const R = m.restart; if (R && !R.autoDone) { R.autoDone = true; for (const T of m.teams) if (T.auto) autoSub(m, T); } runRestart(m); }
   if (b.owner && b.owner.plan && m.t >= b.owner.plan.at) executePlan(m, b.owner);
   for (const p of m.players) if (m.t >= p.nextThink) think(m, p);
@@ -1685,5 +1723,5 @@ function shootout(snap) {
 }
 
 // restart : met en scène un arrêt de jeu (penalty, coup franc, corner…), pour les outils de mesure
-return { createMatch, step, snapshot, restore, shootout, setTactics, setFormation, setLineup, formationPlaces, MAX_SUBS, FORMATIONS, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt };
+return { createMatch, step, snapshot, restore, shootout, setTactics, setFormation, setLineup, formationPlaces, MAX_SUBS, FORMATIONS, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt, dose, shown, NOTE_DOSE, MOOD };
 });
