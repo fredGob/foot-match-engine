@@ -67,7 +67,8 @@ const COUPE = 'file://' + path.join(ROOT, 'coupe.html');
       check(await page2.getAttribute('#teamLink', 'href') === 'coupe.html', 'lien « Retour à la coupe »');
     }
     await page2.click('#kick'); await page2.click('[data-speed="2"]');
-    await page2.waitForFunction(() => !document.getElementById('end').hidden, null, { timeout: 120000 });
+    await page2.waitForFunction(() => !document.getElementById('end').hidden || !document.getElementById('tvHalf').hidden, null, { timeout: 120000 });
+    if (await page2.isVisible('#tvHalf')) { check(true, 'arrêt à la mi-temps (vestiaire), puis « Reprendre la seconde période »'); await page2.click('#halfGo'); await page2.waitForFunction(() => !document.getElementById('end').hidden, null, { timeout: 120000 }); }
     const r = await page2.evaluate(() => JSON.parse(localStorage.getItem('coupe-resultat')));
     if (r && r.tab) { tied = r; break; }
   }

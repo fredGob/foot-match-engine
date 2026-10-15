@@ -78,7 +78,8 @@ const phone = (browser, w, h) => browser.newContext({ viewport: { width: w, heig
   await page.evaluate(() => { const r = document.getElementById('time'); r.value = 600; r.dispatchEvent(new Event('input')); r.dispatchEvent(new Event('change')); });
   // Coach It : pas au-delà du direct ; on laisse la lecture filer jusqu'au bout
   await page.tap('[data-speed="2"]');
-  await page.waitForFunction(() => !document.getElementById('end').hidden, null, { timeout: 240000 });
+  await page.waitForFunction(() => !document.getElementById('end').hidden || !document.getElementById('tvHalf').hidden, null, { timeout: 240000 });
+    if (await page.isVisible('#tvHalf')) { check(true, 'arrêt à la mi-temps (vestiaire), puis « Reprendre la seconde période »'); await page.tap('#halfGo'); await page.waitForFunction(() => !document.getElementById('end').hidden, null, { timeout: 240000 }); }
   const eb = await box('#card');
   check(eb.width > 400 && eb.y >= 0 && eb.y + eb.height <= 390, 'carte de fin de match en entier sur l\'écran', Math.round(eb.width) + ' × ' + Math.round(eb.height));
   await page.screenshot({ path: path.join(DOCS, 'telephone-fin.png') }); console.log('        capture : docs/telephone-fin.png');

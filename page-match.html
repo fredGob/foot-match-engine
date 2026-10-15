@@ -281,6 +281,10 @@
           <p class="hint">Cliquez sur un joueur pour voir ses notes. Faites glisser un remplaçant sur un joueur pour le faire entrer, ou deux joueurs pour les échanger de place (au doigt : « Échanger ce joueur » dans sa fiche, puis toucher l'autre). Rond orange « ! » : hors de son poste.</p>
         </div>
         <div class="tvside">
+          <div class="tvcard" id="tvHalf" hidden><b>Mi-temps</b>
+            <div id="halfText" class="small" style="margin-top:4px"></div>
+            <div class="row" style="margin-top:8px"><button class="main" id="halfGo">Reprendre la seconde période →</button></div>
+          </div>
           <div class="tvcard"><b>Consignes</b>
             <table class="tvtac" id="tvTac"></table>
             <div class="row" style="margin-top:6px"><button id="tvNeutral">Tout au neutre</button></div>
@@ -381,6 +385,7 @@
   // tac0 : consignes au coup d'envoi ; changes : changements faits en cours de match ({ tick, team, key, v }).
   // pending : avant le coup d'envoi. Le terrain est en place, on règle les consignes, rien n'est encore calculé.
   let seed = 1, duration = 5400, tac0 = [blank(), blank()], changes = [], pending = true;
+  let halfStop = false;      // à la mi-temps, le match s'arrête sur l'écran Tactique (« retour au vestiaire »), jusqu'à « Reprendre »
   let rec = null, view = null, cur = 0, end = 5400, playing = false, scrub = false, speed = 1.5, last = 0;
   let selected = -1, shown = 0, W = 0, H = 0, nextHud = 0, series = null, rate = 1;
   const FAST = 10;      // vitesse des temps faibles
@@ -865,10 +870,13 @@
     if (rec) {
       const fc = Math.min(Math.floor(cur / DT), rec.n - 1), weak = !pending && $('hl').checked && rec.hl && !rec.hl.on[fc];
       if (playing && !pending && !scrub && !series && $('busy').hidden) {
+        if (halfStop) halfEnd();                                       // le match a repris (« Reprendre », lecture, « Valider » au téléphone)
         const dead = $('skip').checked && rec.D[fc];
         const want = Math.max(speed * (dead ? 6 : 1), weak ? Math.max(FAST, speed) : 0);      // temps faible : ×10 (ou la vitesse choisie si elle est plus grande)
         rate += (want - rate) * Math.min(1, dt * 5);                     // on change de vitesse en douceur
+        const was = cur, h = rec.events.find(e => e.kind === 'half');
         cur = Math.min(end, cur + dt * rate); if (cur >= end) { playing = false; nextHud = 0; }
+        if (h && was < h.t && cur >= h.t && h.t >= live - 1e-6) { cur = h.t; halfTime(h); }      // première fois qu'on arrive à la mi-temps : vestiaire
         if (job && !job.done) cur = Math.min(cur, (rec.n - 1) * DT); }      // pas plus loin que ce qui est calculé
       else rate = speed;
       $('ff').hidden = !(weak && playing && tab === 'match');
@@ -882,6 +890,16 @@
     }
     requestAnimationFrame(frame);
   }
+
+  // mi-temps : pause, écran Tactique, cadre « Mi-temps » (ce qu'on valide se fait au coup d'envoi de la seconde période)
+  function halfTime(h) {
+    playing = false; halfStop = true; setTab('tac');
+    hud(); const nm = k => view.teams[k].club || view.teams[k].name;
+    $('halfText').textContent = nm(0) + ' ' + $('goals').textContent + ' ' + nm(1) + '. Retour au vestiaire : changez ce que vous voulez, validez, puis reprenez. Vos changements se font au coup d\'envoi de la seconde période.';
+    $('tvHalf').hidden = false; nextHud = 0;
+  }
+  function halfEnd() { halfStop = false; $('tvHalf').hidden = true; }
+  $('halfGo').onclick = () => { halfEnd(); setTab('match'); playing = true; };
 
   // ---------- commandes ----------
   function seek(t) {

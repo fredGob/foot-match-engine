@@ -366,7 +366,7 @@ function formationPlaces(id) {
 function createMatch(opts) {
   opts = opts || {};
   const seed = opts.seed == null ? 1 : opts.seed;
-  const m = { seed, rng: makeRng(seed), t: 0, tick: 0, duration: opts.duration || 600, mode: 'dead', players: [], teams: [], events: [], pass: null, shot: null, restart: null, corner: null, wall: null, path: [], icpt: [], icptTick: -9, poss: -1, lastTeam: -1, holder: -1, possSince: 0, playT: 0, count: {}, random: !!opts.random };
+  const m = { seed, rng: makeRng(seed), t: 0, tick: 0, duration: opts.duration || 600, mode: 'dead', players: [], teams: [], events: [], pass: null, shot: null, restart: null, corner: null, wall: null, path: [], icpt: [], icptTick: -9, poss: -1, lastTeam: -1, holder: -1, possSince: 0, playT: 0, count: {}, random: !!opts.random, halftime: opts.halftime !== false, half: false };
   addGauss(m);
   const names = NAMES.slice();
   for (let i = names.length - 1; i > 0; i--) { const j = Math.floor(m.rng() * (i + 1)); const t = names[i]; names[i] = names[j]; names[j] = t; }
@@ -905,6 +905,7 @@ function fastestOpp(m, O, qx, qy) {
   return tO;
 }
 
+const THRU_ARR = 6.5, LOFT_LEAD = 7;      // passe en profondeur : vitesse d'arrivée (m/s) ; ballon par-dessus dans l'espace : avance sur le coureur (m)
 function passOption(m, p, q, pr, sp, hands, risk) {
   const T = m.teams[p.team], O = m.teams[1 - p.team], d = T.dir, b = m.ball, a = p.a;
   const D0 = hyp(q.x - p.x, q.y - p.y), all = [];
@@ -943,14 +944,19 @@ function passOption(m, p, q, pr, sp, hands, risk) {
     const tr = timeToCover(m, q, L, qx, qy) + 0.15;
     let v0 = maxV;
     if (groundTime(maxV, D) < tr) { let lo = 6, hi = maxV; for (let i = 0; i < 12; i++) { const mid = (lo + hi) / 2; if (groundTime(mid, D) > tr) lo = mid; else hi = mid; } v0 = hi; }
-    v0 = Math.min(v0, groundSpeedFor(D, 7.5));                // pas trop appuyée : elle doit rester jouable à l'arrivée
+    // bien dosée (remarque de Frédéric : trop de passes en profondeur fuyaient les joueurs) : le ballon arrive à peu près à la vitesse
+    // du coureur et, s'il n'est pas touché, s'arrête avant la ligne de but, la ligne de touche et la sortie du gardien
+    const bx = (qx - p.x) / D, by = (qy - p.y) / D, room = Math.min(bx * d > 0 ? (P.HL - 1 - qx * d) / (bx * d) : 99, Math.abs(by) > 0.05 ? (P.HW - 1 - Math.abs(qy)) / Math.abs(by) : 99);
+    let vArr = THRU_ARR; while (vArr > 1 && rollDist(vArr, 0) > Math.max(1.5, room)) vArr -= 0.25;
+    v0 = Math.min(v0, groundSpeedFor(D, vArr));
     const tb = groundTime(v0, D), tArr = Math.max(tr, tb), tO = fastestOpp(m, O, qx, qy);
     const pOk = sigmoid((tO - tArr) / 0.3) * seenLane(p, laneProb(m, p, qx, qy, D, v0, O)) * passAcc(p, D, pr, off, false) * 0.97 * seen;
     keep({ kind: 'pass', u: score(pOk, qx, qy, 0.8 + 0.2 * clamp(tO - tArr, 0, 1), (p.x + qx) / 2, (p.y + qy) / 2, 1), to: q, qx, qy, v0, lofted: false, pOk });
   }
   // (C) en l'air
-  if (D0 > 20 && sp !== 'throwin') for (const L of [0, 10]) {
+  if (D0 > 20 && sp !== 'throwin') for (const L of [0, LOFT_LEAD]) {
     const qx = q.x + ux * L, qy = q.y + uy * L; if (Math.abs(qx) > 50.5 || Math.abs(qy) > 32.5) continue;
+    if (L && (qx * d > P.HL - P.BOX_D + 4 || Math.abs(qy) > P.HW - 5)) continue;      // dans l'espace : pas trop près du but ni de la touche, sinon le rebond file dehors ou au gardien
     const D = hyp(qx - p.x, qy - p.y); if (D < 18 || D > 62) continue;
     const lo = loftSolve(D, 28), tr = L ? timeToCover(m, q, L, qx, qy) + 0.15 : 0, tO = fastestOpp(m, O, qx, qy);
     const arrR = Math.max(tr, lo.t), arrO = Math.max(tO, lo.t);
@@ -1480,6 +1486,19 @@ function goal(m, att) {
   setRestart(m, 'kickoff', 1 - att, 0, 0, STOP.kickoff);
   m.restart.ballAt = m.t + 3;
 }
+// Mi-temps : coup de sifflet à la moitié du match, où que soit le ballon. Les joueurs reviennent du vestiaire à leur place,
+// les Rouges donnent le coup d'envoi de la seconde période. createMatch({ halftime: false }) : pas de mi-temps (anciens matchs).
+function halftime(m) {
+  m.half = true;
+  passEnd(m, 'mi-temps');
+  log(m, 'half', -1, 'Mi-temps : ' + m.teams[0].name + ' ' + m.teams[0].score + ' - ' + m.teams[1].score + ' ' + m.teams[1].name);
+  setRestart(m, 'kickoff', 1, 0, 0, 2);
+  m.restart.ballAt = m.t;
+  const b = m.ball; b.x = b.y = b.z = b.vx = b.vy = b.vz = 0; b.px = b.py = b.pz = 0; b.dip = 0; b.lastTouch = null;
+  updateContext(m);
+  for (const p of m.players) { p.x = p.px = p.ax; p.y = p.py = p.ay; p.vx = p.vy = 0; }
+  const k = m.restart.taker; k.x = k.px = -0.5 * m.teams[1].dir; k.y = k.py = 0;
+}
 function checkBounds(m) {
   const b = m.ball;
   if (b.owner && b.owner.setPiece) return;
@@ -1627,6 +1646,7 @@ function step(m) {
   }
   { const o = b.owner; if (o && o.team !== m.holder) { m.holder = o.team; m.possSince = m.t; } }      // depuis quand cette équipe a le ballon
   if (m.mode === 'play') { m.playT += DT; if (m.poss >= 0) m.teams[m.poss].stats.possT += DT; if (b.owner) cnt(m, 'temps.balle_au_pied', DT); measure(m); }
+  if (m.halftime && !m.half && m.t >= m.duration / 2 && m.t < m.duration) halftime(m);
   if (m.t >= m.duration) { m.mode = 'over'; log(m, 'end', -1, 'Fin du match : ' + m.teams[0].name + ' ' + m.teams[0].score + ' - ' + m.teams[1].score + ' ' + m.teams[1].name); }
 }
 
