@@ -54,7 +54,7 @@ const COUPE = 'file://' + path.join(ROOT, 'coupe.html');
   const opp0 = (await page.evaluate(() => { const g = JSON.parse(localStorage.getItem('coupe-partie')); const p = g.rounds[0].pairs.find(q => q.a === 'moi'); return p.b; }));
   const D = await page.evaluate(() => window.CoupeData);
   const raw = D.clubs.concat(D.petits).find(T => T.id === opp0);
-  check(P.adversaire.joueurs[3].notes.passe === Math.min(100, raw.joueurs[3].notes.passe + 5), 'difficulté « difficile » : un point de plus sur les notes de l\'adversaire');
+  check(P.adversaire.joueurs[3].notes.passe === Math.min(100, raw.joueurs[3].notes.passe + 10), 'difficulté « difficile » : 10 points de plus sur les notes de l\'adversaire');
   const page2 = await ctx.newPage(); page2.on('pageerror', e => errors.push(String(e)));
   let tied = null;
   for (const seed of [1, 2, 3, 4, 5, 6]) {

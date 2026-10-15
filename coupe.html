@@ -1884,10 +1884,11 @@ return { createMatch, step, snapshot, restore, shootout, setTactics, setFormatio
   const ROUNDS = ['16e de finale', '8e de finale', 'Quart de finale', 'Demi-finale', 'Finale'];
   const SHORT = ['16es', '8es', 'Quarts', 'Demies', 'Finale'];
   const RANK = { 'Ligue 1': 4, 'Ligue 2': 3, 'National': 2, 'National 2': 1, 'Régional': 0 };
+  const DIFF_PTS = 10;      // points (sur 100) ajoutés ou retirés aux notes des adversaires
   const DIFF = {
-    facile: { label: 'Facile', d: -1, help: 'Vos adversaires jouent avec un point de moins sur toutes leurs notes.' },
+    facile: { label: 'Facile', d: -1, help: 'Vos adversaires jouent avec 10 points de moins sur toutes leurs notes.' },
     normal: { label: 'Normal', d: 0, help: 'Chacun avec ses vraies notes.' },
-    difficile: { label: 'Difficile', d: 1, help: 'Vos adversaires jouent avec un point de plus sur toutes leurs notes. Les petits poucets mordent.' },
+    difficile: { label: 'Difficile', d: 1, help: 'Vos adversaires jouent avec 10 points de plus sur toutes leurs notes. Les petits poucets mordent.' },
   };
   const ALL = {}; for (const T of D.clubs.concat(D.petits)) ALL[T.id] = T;
   const divOf = T => T.division || T.championnat && 'Ligue 1' || '';
@@ -2025,9 +2026,9 @@ return { createMatch, step, snapshot, restore, shootout, setTactics, setFormatio
   }
 
   // ---------- votre match ----------
-  function hard(T) {      // difficulté : cinq points (sur 100) de plus ou de moins sur toutes les notes de vos adversaires (réflexes et mains d'un joueur de champ exceptés)
+  function hard(T) {      // difficulté : dix points (sur 100 ; le moteur en prend 40 %, n° 118) de plus ou de moins sur toutes les notes de vos adversaires (réflexes et mains d'un joueur de champ exceptés)
     const d = DIFF[G.diff].d; if (!d) return T;
-    const C = JSON.parse(JSON.stringify(T)), shift = (j, gk) => { for (const k of Object.keys(j.notes)) { if (!gk && (k === 'reflexes' || k === 'mains')) continue; j.notes[k] = Math.max(1, Math.min(100, j.notes[k] + 5 * d)); } };
+    const C = JSON.parse(JSON.stringify(T)), shift = (j, gk) => { for (const k of Object.keys(j.notes)) { if (!gk && (k === 'reflexes' || k === 'mains')) continue; j.notes[k] = Math.max(1, Math.min(100, j.notes[k] + DIFF_PTS * d)); } };
     for (const j of C.joueurs) shift(j, j.poste === 'G'); for (const j of C.remplacants || []) shift(j, j.poste_naturel === 'G');
     return C;
   }
