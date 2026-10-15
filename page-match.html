@@ -88,6 +88,16 @@
   .end canvas { width: min(100%, 900px); height: auto; aspect-ratio: 16 / 9; max-height: calc(100% - 56px); object-fit: contain; border-radius: 10px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); }
   .end .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
   .end[hidden], .busy[hidden], .pre[hidden] { display: none; }
+  .tab { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(10, 14, 18, 0.96); border-radius: 10px; padding: 16px; }
+  .tab[hidden], .tab [hidden], .cup .group.cuphide { display: none !important; }
+  .tab h2 { margin: 0; color: #ffe45c; font-size: 22px; letter-spacing: .08em; text-transform: uppercase; }
+  .tab .trow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .tab .tname { min-width: 150px; text-align: right; font-weight: 700; }
+  .tab .kick { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #3a4652; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; }
+  .tab .kick.but { background: #2fa860; border-color: #2fa860; }
+  .tab .kick.rate { background: #c93b34; border-color: #c93b34; }
+  .tab .tscore { font-size: 40px; font-weight: 800; }
+  .tab .who { color: var(--muted); min-height: 20px; }
   .pre { position: absolute; left: 0; right: 0; bottom: 7%; display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 16px; font-weight: 500; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
   .pre > div { padding: 4px 14px; border-radius: 6px; background: rgba(10, 14, 18, 0.78); }
   .pre button { font-size: 18px; padding: 10px 26px; }
@@ -257,11 +267,11 @@
     </div>
     <div class="stage">
       <canvas id="pitch"></canvas>
-      <div class="end" id="end" hidden><canvas id="card" width="2400" height="1350" aria-label="Résumé du match"></canvas><div id="endText" hidden></div><div class="row"><button id="saveCard" class="main">Enregistrer l'image</button><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
+      <div class="end" id="end" hidden><canvas id="card" width="2400" height="1350" aria-label="Résumé du match"></canvas><div id="endText" hidden></div><div class="tab" id="tab" hidden></div><div class="row"><button id="saveCard" class="main">Enregistrer l'image</button><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
       <div class="pre" id="pre" hidden><div>Choisissez le mode, réglez votre tactique (onglet Tactique), puis donnez le coup d'envoi.</div><div class="row"><button id="preTac">Régler la tactique</button><button id="kick" class="main">Lancer le match</button></div></div>
       <div class="busy" id="busy" hidden><div class="spin" aria-hidden="true"></div><span>Calcul du match…</span></div>
       <div class="tip" id="tip" hidden></div>
-      <div class="ff" id="ff" hidden>⏩ temps faible ×8</div>
+      <div class="ff" id="ff" hidden>⏩ temps faible ×10</div>
       <div class="tacview" id="tacView" hidden>
         <div class="tvpitch">
           <div class="tvhead"><button class="phoneonly" id="tvBack">← Retour au match</button><span class="group godonly" id="tvTeams"><button data-tv-team="0" class="on">Bleus</button><button data-tv-team="1">Rouges</button></span><span class="tvforms" id="tvForms"></span></div>
@@ -309,12 +319,12 @@
       <button id="play">Pause</button>
       <span class="group"><button id="back" title="Reculer de 10 secondes">−10 s</button><button id="fwd" title="Avancer de 10 secondes">+10 s</button></span>
       <span class="group">Vitesse
-        <button data-speed="1" class="on">×1</button><button data-speed="1.5">×1,5</button><button data-speed="2">×2</button>
+        <button data-speed="1">×1</button><button data-speed="1.5" class="on">×1,5</button><button data-speed="2">×2</button>
       </span>
       <label class="godonly"><input type="checkbox" id="intents"> Montrer où chaque joueur veut aller</label>
       <label class="godonly"><input type="checkbox" id="labels"> Montrer l'intention de chaque joueur</label>
       <label title="Pendant un arrêt de jeu (touche, coup franc, sortie de but…), la lecture va six fois plus vite"><input type="checkbox" id="skip" checked> Passer vite les arrêts de jeu</label>
-      <label title="Temps forts (lus à la vitesse choisie) : les actions qui finissent en tir, et les moments où une équipe a le ballon dans les 25 derniers mètres. Le reste passe à ×8."><input type="checkbox" id="hl" checked> Accélérer les temps faibles (×8)</label>
+      <label title="Temps forts (lus à la vitesse choisie) : les actions qui finissent en tir, et les moments où une équipe a le ballon dans les 25 derniers mètres. Le reste passe à ×10."><input type="checkbox" id="hl" checked> Accélérer les temps faibles (×10)</label>
       <span class="group" style="margin-left: auto">Durée
         <select id="duration"><option value="5400" selected>90 min</option><option value="2700">45 min</option><option value="1200">20 min</option><option value="600">10 min (essais)</option></select>
       </span>
@@ -371,9 +381,9 @@
   // tac0 : consignes au coup d'envoi ; changes : changements faits en cours de match ({ tick, team, key, v }).
   // pending : avant le coup d'envoi. Le terrain est en place, on règle les consignes, rien n'est encore calculé.
   let seed = 1, duration = 5400, tac0 = [blank(), blank()], changes = [], pending = true;
-  let rec = null, view = null, cur = 0, end = 5400, playing = false, scrub = false, speed = 1, last = 0;
+  let rec = null, view = null, cur = 0, end = 5400, playing = false, scrub = false, speed = 1.5, last = 0;
   let selected = -1, shown = 0, W = 0, H = 0, nextHud = 0, series = null, rate = 1;
-  const FAST = 8;      // vitesse des temps faibles
+  const FAST = 10;      // vitesse des temps faibles
   // page Statistiques : onglet, équipe, carte (chaleur ou réseau de passes), joueur de la carte de chaleur (-1 : toute l'équipe)
   // mode God : tout voir, régler les deux équipes ; mode Coach It : les Bleus seulement, sans voir la suite (live : jusqu'où le match a été joué)
   let mode = 'god', live = 0, marked = -1;
@@ -475,7 +485,7 @@
       J.lastQ = q;
       for (let j = open.length - 1; j >= 0; j--) if (open[j].q.ended) { const o = open.splice(j, 1)[0]; r.passes.push({ t: o.t, team: o.team, from: o.from, to: o.to, ok: o.q.how === 'ok' }); }
       if (m.lineupAt === m.tick - 1 || m.lineupAt === m.tick) { if (r.lineups[r.lineups.length - 1].f !== f) lineupSnap(J, f); else { r.lineups.pop(); lineupSnap(J, f); } }
-      if (m.mode === 'over' || f >= J.cap - 1) J.done = true;
+      if (m.mode === 'over' || f >= J.cap - 1) { J.done = true; if (CUP && m.mode === 'over' && m.teams[0].score === m.teams[1].score) r.shootout = E.shootout(E.snapshot(m)); }      // coupe : tirs au but directs
       else if (f % SNAP_EVERY === 0) J.snaps.push({ f, s: E.snapshot(m, { open: J.open, lastQ: J.lastQ }), passes: r.passes.length, lu: r.lineups.length });
       if (ms && (f & 31) === 0 && performance.now() - t0 > ms) break;
     }
@@ -486,7 +496,7 @@
   function rewind(J, tick) {
     let k = J.snaps.length - 1; while (k > 0 && J.snaps[k].f > tick) k--;
     const S = J.snaps[k], R = E.restore(S.s), r = J.r;
-    J.snaps.length = k + 1; J.m = R.m; J.open = R.extra.open; J.lastQ = R.extra.lastQ; J.f = S.f; J.done = false;
+    J.snaps.length = k + 1; r.shootout = null; J.m = R.m; J.open = R.extra.open; J.lastQ = R.extra.lastQ; J.f = S.f; J.done = false;
     r.events = J.m.events; r.passes.length = S.passes; r.lineups.length = S.lu; r.stats.length = Math.floor(S.f / 10) + 1; r.n = S.f + 1;
     for (const c of changes) if (c.at != null && c.at > S.f) c.at = undefined;
     J.due = changes.filter(c => c.tick <= S.f && c.at == null); J.ci = changes.filter(c => c.tick <= S.f).length;
@@ -586,12 +596,48 @@
     }
     const over = !pending && cur >= end - 1e-6 && !scrub;
     if (over) { $('endText').textContent = view.teams[0].name + ' ' + s0 + ' – ' + s1 + ' ' + view.teams[1].name; if (cardOf !== rec) { cardOf = rec; drawCard(); } }
+    if (over && CUP && !forfeited && (!job || job.done) && cupOf !== rec) { cupOf = rec; saveCup(s0, s1); if (rec.shootout) showShootout(rec.shootout); }
     $('end').hidden = !over || tab !== 'match';
     tvSync();
     $('play').textContent = pending ? (PHONE ? '▶ Lancer' : 'Lancer le match') : playing ? (PHONE ? '⏸ Pause' : 'Pause') : (PHONE ? '▶ Lecture' : 'Lecture');
     keepAwake(playing && !pending);
     if (PHONE) { $('miniPlay').textContent = playing && !pending ? '⏸' : '▶'; $('pmini').classList.toggle('hide', tab !== 'match' || !$('end').hidden); }
   }
+
+  // ---------- coupe : résultat rendu à coupe.html, séance de tirs au but montrée tir par tir ----------
+  let cupOf = null, tabTimer = 0, beat = 0, forfeited = false;
+  // abandon = défaite (choix de Frédéric) : un match de coupe lancé puis quitté, ou rechargé, est perdu par forfait (0-3)
+  function forfeit() {
+    forfeited = true;
+    try { localStorage.setItem('coupe-resultat', JSON.stringify({ id: CUP.id, score: [0, 3], tab: null, winner: 1, scorers: [], forfait: true })); localStorage.setItem('coupe-en-cours', JSON.stringify({ id: CUP.id, t: Date.now(), forfait: true })); } catch (e) {}      // la marque reste : la page rechargée annonce le forfait
+  }
+  function saveCup(s0, s1) {
+    const sc = [];
+    for (const e of rec.events) if (e.kind === 'goal') { const og = /contre son camp de (.+) \(\d+-\d+\)$/.exec(e.text), g = og || /! (.+) \(\d+-\d+\)$/.exec(e.text); sc.push({ team: e.team, name: g ? g[1] : '?', og: !!og, min: minute(e.t) }); }
+    const sh = rec.shootout, winner = s0 > s1 ? 0 : s1 > s0 ? 1 : sh ? sh.winner : 0;
+    try { localStorage.setItem('coupe-resultat', JSON.stringify({ id: CUP.id, score: [s0, s1], tab: sh ? sh.score : null, winner, scorers: sc })); localStorage.removeItem('coupe-en-cours'); } catch (e) {}
+  }
+  function showShootout(sh) {
+    const T = view.teams, box = $('tab'), shown = [0, 0];
+    const row = t => '<div class="trow"><span class="tname">' + esc(T[t].club || T[t].name) + '</span>' + sh.kicks.filter(k => k.team === t).map((k, i) => '<span class="kick" data-t="' + t + '" data-i="' + i + '"></span>').join('') + '</div>';
+    box.innerHTML = '<h2>Tirs au but</h2>' + row(0) + row(1) + '<div class="tscore" id="tabScore">0 – 0</div><div class="who" id="tabWho"></div><div class="row" id="tabEnd" hidden><button class="main" id="tabSee">Voir le résumé du match</button></div>';
+    box.hidden = false; clearTimeout(tabTimer);
+    let i = 0;
+    const next = () => {
+      if (i >= sh.kicks.length) {
+        $('tabWho').textContent = (T[sh.winner].club || T[sh.winner].name) + ' remporte la séance ' + Math.max(...sh.score) + ' tirs au but à ' + Math.min(...sh.score) + ' !';
+        $('tabEnd').hidden = false; $('tabSee').onclick = () => { box.hidden = true; }; return;
+      }
+      const k = sh.kicks[i++], el = box.querySelector('.kick[data-t="' + k.team + '"][data-i="' + shown[k.team]++ + '"]');
+      el.classList.add(k.res === 'but' ? 'but' : 'rate'); el.textContent = k.res === 'but' ? '✓' : '✕';
+      const sc = [0, 0]; for (const q of sh.kicks.slice(0, i)) if (q.res === 'but') sc[q.team]++;
+      $('tabScore').textContent = sc[0] + ' – ' + sc[1];
+      $('tabWho').textContent = 'n°' + k.num + ' ' + k.name + (k.res === 'but' ? ' marque' : k.res === 'arrêt' ? ' : arrêt du gardien !' : ' : à côté !');
+      tabTimer = setTimeout(next, 1100);
+    };
+    tabTimer = setTimeout(next, 700);
+  }
+  $('rewatch').addEventListener('click', () => { clearTimeout(tabTimer); $('tab').hidden = true; });
 
   // ---------- carte de fin de match : score et buteurs, domination, chiffres clés, homme du match ----------
   let cardOf = null;
@@ -663,7 +709,7 @@
         best.blocks && plural(best.blocks, 'tir contré', 'tirs contrés'), best.passes && best.ok + ' passes réussies sur ' + best.passes].filter(Boolean)
     };
     return {
-      title: 'Fin du match', sub: 'Match n°' + seed + ' · ' + Math.round(end / 60) + ' min' + (coach() ? ' · mode Coach It' : ''),
+      title: CUP ? 'Coupe en carton · ' + CUP.tour : 'Fin du match', sub: 'Match n°' + seed + ' · ' + Math.round(end / 60) + ' min' + (coach() ? ' · mode Coach It' : ''), tab: rec.shootout ? rec.shootout.score : null,
       teams: T.map((t, k) => ({ name: t.club || t.name, sub: t.club ? t.name : 'Équipe standard', color: t.color, score: score[k], scorers: scorers[k] })),
       momentum: M, ticks, half: full >= 20 ? 0.5 : null, goals, stats, motm
     };
@@ -811,6 +857,7 @@
 
   function frame(ts) {
     const dt = Math.min(0.1, (ts - last) / 1000 || 0); last = ts;
+    if (CUP && !pending && !cupOf && !forfeited && ts - beat > 3000) { beat = ts; try { localStorage.setItem('coupe-en-cours', JSON.stringify({ id: CUP.id, t: Date.now() })); } catch (e) {} }      // coupe : « match en cours » (abandon = défaite)
     if (job && !job.done && !pending && !series) {      // calcul en arrière-plan, quelques millisecondes par image
       const J = job; advance(J, target(J), PHONE ? 6 : 10);
       if (J.done || performance.now() - J.hlAt > 600) refresh(J);
@@ -819,7 +866,7 @@
       const fc = Math.min(Math.floor(cur / DT), rec.n - 1), weak = !pending && $('hl').checked && rec.hl && !rec.hl.on[fc];
       if (playing && !pending && !scrub && !series && $('busy').hidden) {
         const dead = $('skip').checked && rec.D[fc];
-        const want = Math.max(speed * (dead ? 6 : 1), weak ? Math.max(FAST, speed) : 0);      // temps faible : ×8 (ou la vitesse choisie si elle est plus grande)
+        const want = Math.max(speed * (dead ? 6 : 1), weak ? Math.max(FAST, speed) : 0);      // temps faible : ×10 (ou la vitesse choisie si elle est plus grande)
         rate += (want - rate) * Math.min(1, dt * 5);                     // on change de vitesse en douceur
         cur = Math.min(end, cur + dt * rate); if (cur >= end) { playing = false; nextHud = 0; }
         if (job && !job.done) cur = Math.min(cur, (rec.n - 1) * DT); }      // pas plus loin que ce qui est calculé
@@ -873,7 +920,7 @@
     const d = document.documentElement;
     try { const p = d.requestFullscreen && !document.fullscreenElement && d.requestFullscreen({ navigationUI: 'hide' }); if (p) p.then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')).catch(() => {}); } catch (e) {}
   }
-  function launch() { if (!pending) return; if (PHONE) fullscreen(); pending = false; lockMode(); cur = 0; live = 0; marked = -1; playing = true; if (tab === 'tac') setTab('match'); rebuild(0); }
+  function launch() { if (!pending || forfeited) return; if (PHONE) fullscreen(); pending = false; lockMode(); cur = 0; live = 0; marked = -1; playing = true; if (tab === 'tac') setTab('match'); rebuild(0); }
   // plusieurs consignes d'un coup (tactique prédéfinie) : un seul recalcul
   function setTactics(team, obj, preset) {
     if (!rec) return;
@@ -894,7 +941,9 @@
     if (h) {
       const P = JSON.parse(decodeURIComponent(h[1]));
       E.readTeam(P.equipe);                                    // équipe mal formée : message clair dans le cadre Équipes
-      start = { team: P.equipe, opp: TEAMS.find(T => T.id === P.adversaire) || null, formation: E.FORMATIONS.some(f => f.id === P.equipe.formation) ? P.equipe.formation : '442', tac: P.equipe.consignes || {} };
+      // adversaire : son identifiant dans equipes.json, ou l'équipe entière (clubs inventés de la coupe)
+      const opp = P.adversaire && typeof P.adversaire === 'object' ? (E.readTeam(P.adversaire), P.adversaire) : TEAMS.find(T => T.id === P.adversaire) || null;
+      start = { team: P.equipe, opp, formation: E.FORMATIONS.some(f => f.id === P.equipe.formation) ? P.equipe.formation : '442', tac: P.equipe.consignes || {}, coupe: P.coupe || null };
     }
   } catch (e) { startErr = e.message; }
   if (start) {
@@ -903,10 +952,21 @@
     t.formation = start.formation; tac0 = [t, oppTac()];
     $('teamLink').href = 'equipe.html#reprendre'; $('teamLink').textContent = '← Retour à la page équipe';
   }
+  // match de la Coupe en carton : mode Coach It, numéro de match fixé par la coupe (pas de « Nouveau match » ni de « Rejouer »),
+  // tirs au but en cas d'égalité, résultat rendu à la page de la coupe (coupe.html) par le navigateur
+  const CUP = start && start.coupe;
+  if (CUP) {
+    mode = 'coach'; document.body.classList.add('coach', 'cup'); tac0[1] = oppTac();
+    document.querySelectorAll('[data-mode]').forEach(b => { b.classList.toggle('on', b.dataset.mode === 'coach'); b.disabled = b.dataset.mode !== 'coach'; });
+    $('load').parentNode.classList.add('cuphide');
+    $('teamLink').href = 'coupe.html'; $('teamLink').textContent = '← Retour à la coupe';
+    $('again').textContent = 'Retour à la coupe →';
+    duration = CUP.duree || 5400; $('duration').disabled = true;      // « duree » : seulement pour les essais (tools/coupe.js)
+  }
   // cadre Équipes : seulement les noms, on ne change pas d'équipe ici
   function showSquads() {
     const line = (k, T) => '<div class="teamrow"><span class="dot" style="background: var(--' + (k ? 'red' : 'blue') + ')"></span> <span class="muted">' + (coach() ? (k ? 'Adversaire' : 'Votre équipe') : (k ? 'Rouges' : 'Bleus')) + '</span> <b>' + esc(T ? T.nom || T.id : 'Standard') + '</b></div>';
-    $('squads').innerHTML = line(0, squad[0]) + line(1, squad[1]) + (startErr ? '<div class="small" style="color: var(--red); margin-top: 6px">Équipe reçue illisible : ' + esc(startErr) + '. Match entre équipes standard.</div>' : '');
+    $('squads').innerHTML = (CUP ? '<div class="small" style="color: #ffe45c; margin-bottom: 4px">🏆 Coupe en carton · ' + esc(CUP.tour) + '</div>' : '') + line(0, squad[0]) + line(1, squad[1]) + (startErr ? '<div class="small" style="color: var(--red); margin-top: 6px">Équipe reçue illisible : ' + esc(startErr) + '. Match entre équipes standard.</div>' : '');
   }
   showSquads();
 
@@ -1101,7 +1161,9 @@
   const fresh = () => { rec = null; };                         // oublie le match en cours sans toucher aux consignes choisies
   document.querySelectorAll('[data-speed]').forEach(b => b.onclick = () => { speed = +b.dataset.speed; document.querySelectorAll('[data-speed]').forEach(x => x.classList.toggle('on', x === b)); });
   const randomSeed = () => 1 + Math.floor(Math.random() * 99999);
-  $('new').onclick = $('again').onclick = () => newMatch(randomSeed());
+  $('new').onclick = () => newMatch(randomSeed());
+  $('again').onclick = () => { if (CUP) location.href = 'coupe.html'; else newMatch(randomSeed()); };
+  $('teamLink').addEventListener('click', e => { if (CUP && !pending && !cupOf && !forfeited && !confirm('Quitter ce match de coupe avant la fin ? Ce sera une défaite par forfait (0-3).')) e.preventDefault(); });
   $('load').onclick = () => newMatch(Math.max(1, Math.floor(+$('seed').value) || 1));
   $('duration').onchange = () => { duration = +$('duration').value; newMatch(seed); };
   const time = $('time');
@@ -1111,7 +1173,7 @@
   time.addEventListener('change', release); window.addEventListener('pointerup', release);
   // le mode se choisit avant le coup d'envoi : une fois le match lancé, il est fixé (choix de Frédéric : changer de mode ne doit pas faire perdre le match)
   function setMode(md) {
-    if (md === mode || !pending) return;
+    if (md === mode || !pending || CUP) return;
     mode = md; document.body.classList.toggle('coach', coach());
     document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
     showSquads();
@@ -1120,7 +1182,7 @@
     nextHud = 0;
   }
   function lockMode() {
-    document.querySelectorAll('[data-mode]').forEach(b => { b.disabled = !pending && b.dataset.mode !== mode; });
+    document.querySelectorAll('[data-mode]').forEach(b => { b.disabled = (CUP || !pending) && b.dataset.mode !== mode; });
     $('modes').title = pending ? 'Mode God : on règle les deux équipes, on voit les intentions et toute la suite du match. Mode Coach It : on dirige les Bleus seulement, comme un vrai entraîneur, sans voir la suite. Le mode se choisit avant le coup d\'envoi.'
       : 'Le mode est fixé pour ce match. Pour en changer : « Rejouer ce match » ou « Nouveau match ».';
   }
@@ -1243,7 +1305,21 @@
     $('miniPlay').onclick = () => $('play').click(); $('miniTac').onclick = () => setTab('tac');
     try { if (localStorage.getItem('menuFerme')) document.body.classList.add('pclosed'); } catch (e) {}
   }
-  newMatch(randomSeed());
+  newMatch(CUP ? CUP.seed : randomSeed());
+  if (CUP) {
+    let run = null; try { run = JSON.parse(localStorage.getItem('coupe-en-cours') || 'null'); } catch (e) {}
+    if (run && run.id === CUP.id) {      // match déjà lancé puis quitté (page rechargée) : défaite par forfait
+      forfeit();
+      const msg = document.createElement('div'); msg.id = 'forfait';
+      msg.innerHTML = '<b>Match abandonné : défaite par forfait (0-3).</b><br>Dans la Coupe en carton, un match lancé doit être joué jusqu\'au bout.';
+      $('pre').prepend(msg); $('kick').style.display = 'none'; $('preTac').style.display = 'none';
+      const back = document.createElement('button'); back.className = 'main'; back.textContent = 'Retour à la coupe →'; back.onclick = () => { location.href = 'coupe.html'; };
+      $('kick').parentNode.append(back);
+    }
+    // quitter un match lancé : le navigateur demande confirmation ; s'il est quitté pour de bon, c'est une défaite par forfait
+    window.addEventListener('beforeunload', e => { if (!pending && !cupOf && !forfeited) { e.preventDefault(); e.returnValue = ''; } });
+    window.addEventListener('pagehide', () => { if (!pending && !cupOf && !forfeited) forfeit(); });
+  }
   resize();
   requestAnimationFrame(frame);
 })();

@@ -26,7 +26,8 @@ const secs = s => { const m = /^(\d+):(\d+)/.exec(s); return 60 * +m[1] + +m[2];
   await page.waitForFunction(() => document.body.dataset.calcul === 'fini', null, { timeout: 60000 });      // le match se calcule en arrière-plan
   const bands = (await page.$$('#hlBands i')).length;
   check(bands > 30, 'les temps forts sont dessinés sur la barre de temps', bands + ' temps forts');
-  // vitesse ×1 : en temps faible l'horloge file à ×8, en temps fort elle avance normalement
+  // vitesse ×1 : en temps faible l'horloge file à ×10, en temps fort elle avance normalement
+  await page.click('[data-speed="1"]');
   const pace = async want => {
     await page.waitForFunction(w => document.getElementById('ff').hidden === !w && !document.querySelector('.stage').classList.contains('x'), want, { timeout: 60000 });
     await page.waitForTimeout(700);
@@ -35,7 +36,7 @@ const secs = s => { const m = /^(\d+):(\d+)/.exec(s); return 60 * +m[1] + +m[2];
     return (secs(await page.textContent('#clock')) - a) / 2;
   };
   const weak = await pace(true);
-  check(weak != null && weak >= 5, 'temps faible : la lecture va environ 8 fois plus vite, et le repère « ⏩ » s\'affiche', weak + ' s de match par seconde');
+  check(weak != null && weak >= 5, 'temps faible : la lecture va environ 10 fois plus vite, et le repère « ⏩ » s\'affiche', weak + ' s de match par seconde');
   const strong = await pace(false);
   check(strong != null && strong <= 3, 'temps fort : retour à la vitesse choisie (×1)', strong + ' s de match par seconde (arrêts de jeu ×6 compris)');
   await page.uncheck('#hl'); await page.waitForTimeout(400);

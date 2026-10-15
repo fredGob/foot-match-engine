@@ -42,8 +42,9 @@ console.log('match.html écrit (' + Math.round(html.length / 1024) + ' ko, ' + t
     return { id: T.id, nom: T.nom, championnat: T.championnat, classement: T.classement, description: T.description, formation: T.formation || '442', consignes: T.consignes || null,
       titulaires: T.joueurs.map((j, k) => Object.assign(one(j, k), { place: j.poste })), remplacants: (T.remplacants || []).map((j, k) => one(j, 11 + k)) };
   });
-  // adversaires possibles pour « Passer au match » : l'équipe standard, puis toutes les équipes de equipes.json (niveaux, puis clubs)
-  const adversaires = [{ id: '', nom: 'Standard (tous à 14)', groupe: 'Niveaux' }].concat(teams.equipes.map(T => ({ id: T.id, nom: T.nom, groupe: T.championnat || 'Niveaux' })));
+  // adversaires possibles pour « Passer au match »
+  // n° 111 : seulement les clubs de Ligue 1 (l'équipe standard et les quatre niveaux ne servent plus qu'aux outils de mesure)
+  const adversaires = teams.equipes.filter(T => T.championnat).map(T => ({ id: T.id, nom: T.nom, groupe: T.championnat }));
   const data = { budget: base.budget, joueurs: base.joueurs, clubs, adversaires, cles: J.CLES, formations, presets: E.PRESETS,
     tactics: E.TACTICS.map(c => ({ key: c.key, label: c.label, options: c.options, help: c.help })), qualities: E.QUALITIES.map(q => [q[1], q[2]]) };
   let page = read('construction.html');
@@ -51,4 +52,20 @@ console.log('match.html écrit (' + Math.round(html.length / 1024) + ' ko, ' + t
   page = page.replace('/*DONNEES*/null', () => JSON.stringify(data).replace(/<\/script/g, '<\\/script'));
   fs.writeFileSync(path.join(__dirname, 'equipe.html'), page);
   console.log('equipe.html écrit (' + Math.round(page.length / 1024) + ' ko, ' + base.joueurs.length + ' joueurs, budget ' + base.budget + ' M€, ' + clubs.length + ' clubs)');
+}
+
+// ---------- troisième page : la Coupe en carton (page-coupe.html + moteur + clubs de Ligue 1 + coupe.json → coupe.html) ----------
+{
+  let page = read('page-coupe.html');
+  const tag = '<script id="engineSrc" src="engine.js"></script>';
+  if (!page.includes(tag)) throw new Error('balise introuvable dans page-coupe.html : ' + tag);
+  page = page.replace(tag, () => '<script id="engineSrc">\n' + read('engine.js').replace(/<\/script/g, '<\\/script') + '</script>');      // le moteur sert aussi aux matchs simulés en arrière-plan
+  const coupe = JSON.parse(read('coupe.json'));
+  for (const T of coupe.equipes) E.readTeam(T);
+  const clubs = teams.equipes.filter(T => T.championnat);
+  const data = { clubs, petits: coupe.equipes };
+  if (!page.includes('/*COUPE*/null')) throw new Error('emplacement des données introuvable dans page-coupe.html');
+  page = page.replace('/*COUPE*/null', () => JSON.stringify(data).replace(/<\/script/g, '<\\/script'));
+  fs.writeFileSync(path.join(__dirname, 'coupe.html'), page);
+  console.log('coupe.html écrit (' + Math.round(page.length / 1024) + ' ko, ' + clubs.length + ' clubs de Ligue 1 et ' + coupe.equipes.length + ' clubs inventés)');
 }

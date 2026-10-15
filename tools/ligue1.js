@@ -1,6 +1,7 @@
 // Fabrique les dix équipes de Ligue 1 de equipes.json : les dix premiers du championnat 2025-26, avec leur effectif d'octobre 2026
 // (après le mercato d'été 2026), leur système et le style de leur entraîneur.
 // Usage : node tools/ligue1.js            → n'écrit rien, affiche seulement les moyennes
+//         node tools/ligue1.js ajouter    → ajoute à equipes.json les clubs qui n'y sont pas encore, sans toucher aux autres
 //         node tools/ligue1.js reecrire   → réécrit ces dix équipes dans equipes.json (les quatre équipes de niveau ne bougent pas)
 // Attention : « reecrire » efface les retouches faites à la main sur ces dix équipes dans equipes.json.
 // Depuis le n° 106, les notes se retouchent à la main dans equipes.json : ce fichier n'est plus la référence.
@@ -162,6 +163,57 @@ const CLUBS = [
     ['MG', 'Makengo', 'CAM', 74, _, N], ['ATG', 'Cadiou', 'CDM', 70, _, S], ['MCD', 'Sylla', 'CM', 70, _, S],
     ['MD', 'Jensen', 'ST', 70, _, S], ['ATD', 'Koné', 'ST', 70, _, S]],
     remplacants: [['AD', 'Katseris', 'RB', 70, _, S], ['MG', 'Le Bris', 'LW', 70, _, S], ['AT', 'Baldé', 'ST', 70, _, S], ['AT', 'Bernardeau', 'ST', 66, _, S]] },
+  // n° 111 : les huit autres clubs de la Ligue 1 2026-27 (onze de la 6e journée, 10-11 octobre 2026 ; notes toutes estimées, à retoucher à la main).
+  // Codes de place selon la formation du club (voir plus haut) ; en 3-5-2 : MG / MD = milieux gauche / droit, MCD = milieu axial, ATG / ATD = attaquants.
+  { id: 'paris-fc', nom: 'Paris Fric Club', court: 'PFC', rang: 11, points: 44, formation: '4231', consignes: { passing: -1, line: 1, press: 1 }, entraineur: 'Liam Rosenior', titulaires: [
+    ['G', 'Trapp', 'GK', 78, _, S], ['AG', 'Traoré', 'LB', 70, _, S], ['DCG', 'Coppola', 'CB', 73, _, S],
+    ['DCD', 'Chergui', 'CB', 70, _, S], ['AD', 'Camara', 'RB', 69, _, S], ['MG', 'Koleosho', 'LM', 72, _, S],
+    ['MCG', 'Lopez', 'CDM', 74, _, S], ['MCD', 'Lees-Melou', 'CM', 74, _, S], ['MD', 'Pagis', 'RM', 72, _, S],
+    ['ATG', 'Kebbal', 'CAM', 76, _, S], ['ATD', 'Sinayoko', 'ST', 73, _, S]],
+    remplacants: [['AD', 'De Smet', 'RB', 72, _, S], ['DC', 'Mbemba', 'CB', 73, _, S], ['MC', 'Otavio', 'CDM', 72, _, S], ['AG', 'Sangui', 'LB', 70, _, S]] },
+  { id: 'brest', nom: 'Stade Kouign-Amann', court: 'SKA', rang: 12, points: 39, formation: '4231', consignes: { passing: 1, width: 1, press: 1 }, entraineur: 'Julien Lachuer', titulaires: [
+    ['G', 'Selvik', 'GK', 71, _, S], ['AG', 'Locko', 'LB', 73, _, S], ['DCG', 'Lloris', 'CB', 71, _, S],
+    ['DCD', 'Tousart', 'CB', 73, _, S], ['AD', 'Lala', 'RB', 72, _, S], ['MG', 'Mboup', 'LM', 69, _, S],
+    ['MCG', 'Magnetti', 'CDM', 74, _, S], ['MCD', 'Chotard', 'CM', 73, _, S], ['MD', 'Baldé', 'RM', 73, _, S],
+    ['ATG', 'Doumbia', 'CAM', 74, _, S], ['ATD', 'Ajorque', 'ST', 74, _, S]],
+    remplacants: [['G', 'Coudert', 'GK', 67, _, S], ['DC', 'Chardonnet', 'CB', 72, _, S], ['MD', 'Ebimbe', 'RM', 71, _, S], ['MC', 'Lassus', 'CM', 66, _, S]] },
+  { id: 'angers', nom: 'Angers SCOubidou', court: 'SCB', rang: 13, points: 36, formation: '433', consignes: { passing: -1, tempo: -1 }, entraineur: 'Stéphane Gilli', titulaires: [
+    ['G', 'Lopes', 'GK', 76, _, S], ['AG', 'Kalulu', 'LB', 69, _, S], ['DCG', 'Lefort', 'CB', 71, _, S],
+    ['DCD', 'Camara', 'CB', 71, _, S], ['AD', 'Louër', 'RB', 67, _, S], ['MG', 'Sbaï', 'LW', 72, _, S],
+    ['MCG', 'Belkebla', 'CDM', 72, _, S], ['MCD', 'Van den Boomen', 'CM', 73, _, S], ['MD', 'Allevinah', 'RW', 70, _, S],
+    ['ATG', 'Belkhdim', 'CM', 71, _, S], ['ATD', 'Peter', 'ST', 68, _, S]],
+    remplacants: [['G', 'Zinga', 'GK', 63, _, S], ['AD', 'Arcus', 'RB', 70, _, S], ['DC', 'Biumla', 'CB', 67, _, S], ['AG', 'Ekomié', 'LB', 68, _, S],
+      ['AT', 'El Ouazzani', 'ST', 69, _, S], ['MC', 'Mouton', 'CM', 68, _, S]] },
+  { id: 'le-havre', nom: 'Le Havre de Paix AC', court: 'HDP', rang: 14, points: 35, formation: '442', consignes: { passing: 1, line: -1, press: -1 }, entraineur: 'Didier Digard', titulaires: [      // losange 4-3-1-2 dans la réalité
+    ['G', 'Gallon', 'GK', 70, _, S], ['AG', 'Ouziad', 'LB', 66, _, S], ['DCG', 'Touba', 'CB', 71, _, S],
+    ['DCD', 'Seko', 'CB', 69, _, S], ['AD', 'M. Ndiaye', 'RB', 67, _, S], ['MG', 'Richardson', 'CM', 70, _, S],
+    ['MCG', 'Ebonog', 'CDM', 67, _, S], ['MCD', 'R. Ndiaye', 'CM', 71, _, S], ['MD', 'Nakamura', 'CAM', 71, _, S],
+    ['ATG', 'Samatta', 'ST', 70, _, S], ['ATD', 'Maja', 'ST', 72, _, S]],
+    remplacants: [['G', 'Mpasi', 'GK', 69, _, S], ['DC', 'Sangante', 'CB', 70, _, S], ['DC', 'Zagadou', 'CB', 70, _, S], ['AD', 'Jelert', 'RB', 69, _, S], ['MC', 'Quetant', 'CM', 65, _, S]] },
+  { id: 'auxerre', nom: 'AJ Chablis', court: 'AJC', rang: 15, points: 34, formation: '3421', consignes: { passing: 1, tempo: 1, line: 1, press: 1 }, entraineur: 'Will Still', titulaires: [
+    ['G', 'M. Diop', 'GK', 68, _, S], ['AG', 'Oppegård', 'LM', 71, _, S], ['DCG', 'Akpa', 'CB', 71, _, S],
+    ['MCG', 'Tuanzebe', 'CB', 73, _, S], ['DCD', 'Piedfort', 'CB', 67, _, S], ['AD', 'Sy', 'RM', 70, _, S],
+    ['ATG', 'Ahamada', 'CM', 71, _, S], ['MCD', 'Danois', 'CM', 72, _, S], ['MG', 'Faivre', 'CAM', 74, _, S],
+    ['MD', 'Namaso', 'CAM', 70, _, S], ['ATD', 'Archer', 'ST', 74, _, S]],
+    remplacants: [['DC', 'Makosso', 'CB', 70, _, S], ['DC', 'Diomandé', 'CB', 71, _, S], ['AD', 'Senaya', 'RB', 70, _, S], ['MC', 'Owusu', 'CDM', 72, _, S], ['MG', 'Labeau-Lascary', 'LW', 69, _, S]] },
+  { id: 'nice', nom: 'OGC Salade Niçoise', court: 'OSN', rang: 16, points: 32, formation: '3421', consignes: { passing: 1, line: -1 }, entraineur: 'Olivier Pantaloni', titulaires: [
+    ['G', 'Diouf', 'GK', 77, _, S], ['AG', 'Nkounkou', 'LM', 74, _, S], ['DCG', 'Mandza', 'CB', 69, _, S],
+    ['MCG', 'Ndayishimiye', 'CB', 76, _, S], ['DCD', 'Abdelmonem', 'CB', 75, _, S], ['AD', 'Clauss', 'RM', 77, _, S],
+    ['ATG', 'Coulibaly', 'CM', 72, _, S], ['MCD', 'Witsel', 'CDM', 75, _, S], ['MG', 'Amoura', 'CAM', 76, _, S],
+    ['MD', 'Hein', 'CAM', 73, _, S], ['ATD', 'Wahi', 'ST', 75, _, S]],
+    remplacants: [['G', 'Boulhendi', 'GK', 67, _, S], ['MC', 'Boudaoui', 'CM', 75, _, S], ['MG', 'Abdi', 'LM', 73, _, S], ['MC', 'S. Diop', 'CAM', 75, _, S], ['AD', 'Mendy', 'RB', 73, _, S]] },
+  { id: 'troyes', nom: 'ESTAC Andouillette', court: 'EAT', rang: null, promu: 'champion de Ligue 2', formation: '4231', consignes: { passing: 1, tempo: 1, line: -1 }, entraineur: 'Stéphane Dumont', titulaires: [
+    ['G', 'Beach', 'GK', 67, _, S], ['AG', 'Gozzi', 'LB', 67, _, S], ['DCG', 'Diaz', 'CB', 67, _, S],
+    ['DCD', 'Monfray', 'CB', 68, _, S], ['AD', 'Maronnier', 'RB', 66, _, S], ['MG', 'Diawara', 'LM', 66, _, S],
+    ['MCG', 'Diop', 'CDM', 68, _, S], ['MCD', 'Karim', 'CM', 67, _, S], ['MD', 'Mille', 'RM', 67, _, S],
+    ['ATG', 'Picard', 'CAM', 66, _, S], ['ATD', 'Le Douaron', 'ST', 71, _, S]],
+    remplacants: [['AG', 'Ouzenadji', 'LB', 65, _, S], ['AG', 'Donkor', 'LB', 65, _, S], ['AT', 'Nkada', 'ST', 66, _, S], ['MD', 'Ifnaoui', 'RW', 67, _, S]] },
+  { id: 'le-mans', nom: 'Le Mans Rillettes FC', court: 'LMR', rang: null, promu: 'promu de Ligue 2', formation: '352', consignes: { passing: 1, line: -1, width: 1 }, entraineur: 'Patrick Videira', titulaires: [      // 3-1-4-2 dans la réalité
+    ['G', 'Kocik', 'GK', 66, _, S], ['AG', 'Bretelle', 'LM', 64, _, S], ['DCG', 'Boissé', 'CB', 63, _, S],
+    ['MCG', 'Yohou', 'CB', 67, _, S], ['DCD', 'Voyer', 'CB', 65, _, S], ['AD', 'Calodat', 'RM', 65, _, S],
+    ['MG', 'Vercruysse', 'CM', 65, _, S], ['MCD', 'Lauray', 'CDM', 65, _, S], ['MD', 'Bamba', 'CM', 66, _, S],
+    ['ATG', 'Mafouta', 'ST', 67, _, S], ['ATD', 'H. Diallo', 'ST', 66, _, S]],
+    remplacants: [['DC', 'Torrente', 'CB', 64, _, S], ['DC', 'Bidounga', 'CB', 64, _, S], ['AG', 'Larouci', 'LB', 64, _, S], ['MG', 'Bourabaa', 'LW', 66, _, S], ['MD', 'Buades', 'RW', 64, _, S]] },
 ];
 const NUM = { G: 1, AG: 3, DCG: 4, DCD: 5, AD: 2, MG: 7, MCG: 6, MCD: 8, MD: 10, ATG: 11, ATD: 9 };
 const NAT_OF = { GK: 'G', LB: 'AG', RB: 'AD', CB: 'DC', CDM: 'MC', CM: 'MC', CAM: 'MC', LM: 'MG', LW: 'MG', RM: 'MD', RW: 'MD', ST: 'AT' };      // poste naturel d'après le poste réel du joueur
@@ -181,7 +233,7 @@ function build() {
     if (K.titulaires.length !== 11) throw new Error(K.nom + ' : il faut 11 titulaires');
     return {
       id: K.id, nom: K.nom,
-      description: K.rang + (K.rang === 1 ? 'er' : 'e') + ' de Ligue 1 en 2025-26 (' + K.points + ' points). Effectif d\'octobre 2026' + (K.entraineur ? ', entraîneur ' + K.entraineur : '') + '.',
+      description: (K.rang ? K.rang + (K.rang === 1 ? 'er' : 'e') + ' de Ligue 1 en 2025-26 (' + K.points + ' points)' : 'Promu en 2026 (' + K.promu + ')') + '. Effectif d\'octobre 2026' + (K.entraineur ? ', entraîneur ' + K.entraineur : '') + '.',
       championnat: 'Ligue 1 2026-27', classement: K.rang, court: K.court, formation: K.formation, consignes: Object.assign({ passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0 }, K.consignes),
       joueurs: K.titulaires.map(([poste, nom, pos, O, profil, src]) => ({ poste, numero: NUM[poste], nom, poste_naturel: NAT_OF[pos], source: src, notes: notesOf(pos, O, profil) })),
       remplacants: K.remplacants.map(([pn, nom, pos, O, profil, src], k) => ({ poste_naturel: pn, numero: 12 + k, nom, source: src, notes: notesOf(pos, O, profil) })),
@@ -213,6 +265,15 @@ if (require.main === module) {
   const old = JSON.parse(fs.readFileSync(FILE, 'utf8'));
   console.log('Moyenne des vingt notes des titulaires (réflexes et mains compris), puis moyenne des cinq meilleures notes de chaque titulaire :');
   for (const T of old.equipes.filter(T => !T.championnat).concat(teams)) console.log('  ' + pad(T.nom, 12) + avg(T).toFixed(2).padStart(6) + strong(T).toFixed(2).padStart(8) + (T.championnat ? '   (' + T.joueurs.filter(j => j.source === 'supposé').length + ' titulaires supposés)' : ''));
+  if (process.argv[2] === 'ajouter') {      // n'ajoute que les clubs absents de equipes.json, sans toucher au reste du fichier (les retouches à la main restent)
+    const src = fs.readFileSync(FILE, 'utf8'), have = new Set(old.equipes.map(T => T.id)), add = teams.filter(T => !have.has(T.id));
+    const at = src.lastIndexOf('\n  ]\n}');
+    if (at < 0) throw new Error('fin de la liste des équipes introuvable dans equipes.json');
+    const txt = src.slice(0, at) + (add.length ? ',\n' + add.map(teamText).join(',\n') : '') + src.slice(at);
+    JSON.parse(txt);
+    fs.writeFileSync(FILE, txt);
+    console.log('equipes.json : ' + add.length + ' club(s) ajouté(s) (' + add.map(T => T.nom).join(', ') + '), rien d\'autre ne change.');
+  }
   if (process.argv[2] === 'reecrire') {
     const keep = old.equipes.filter(T => !T.championnat);      // les équipes de niveau (et toute équipe ajoutée à la main) restent telles quelles
     const src = fs.readFileSync(FILE, 'utf8');

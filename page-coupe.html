@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coupe en carton · L'entraîneur en carton</title>
+<!-- La Coupe en carton : 32 équipes (votre équipe, les clubs de Ligue 1 de equipes.json, les clubs inventés de coupe.json), un tirage au sort
+     à chaque tour, des matchs à élimination directe (tirs au but directs en cas d'égalité). Vos matchs se jouent dans match.html (mode Coach It),
+     les autres sont simulés ici par le moteur, en arrière-plan. La partie est enregistrée dans le navigateur : on la reprend quand on veut.
+     Source : page-coupe.html ; « node build.js » en fait coupe.html (moteur et équipes recopiés dans la page). -->
+<style>
+  :root { color-scheme: dark; --bg: #0e1216; --panel: #161d25; --panel2: #1d2630; --line: #2b3440; --text: #e8edf2; --muted: #93a0af; --blue: #2f6fdf; --red: #d8423a; --accent: #ffe45c; --warn: #ff9a3c; --ok: #5cc98a; --gold: #f2c14e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  [hidden] { display: none !important; }
+  a { color: inherit; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 16px 48px; }
+  header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; }
+  header.top a { color: var(--muted); text-decoration: none; font-size: 14px; }
+  .hero { border-radius: 18px; padding: 26px 24px; background: linear-gradient(140deg, #3b2c08 0%, #1d1a10 55%, #161d25 100%); border: 1px solid #4a3b14; position: relative; overflow: hidden; }
+  .hero h1 { margin: 0 0 6px; font-size: clamp(28px, 5vw, 44px); line-height: 1.05; letter-spacing: -0.02em; }
+  .hero p { margin: 0; color: #d8cfa8; max-width: 640px; }
+  .hero .cup { position: absolute; right: 18px; top: 10px; font-size: 92px; opacity: 0.22; }
+  h2 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 26px 0 10px; font-weight: 650; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); font: inherit; font-weight: 650; cursor: pointer; text-decoration: none; }
+  .btn:hover { border-color: #4a5868; }
+  .btn.main { background: var(--accent); border-color: var(--accent); color: #1b1b10; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn.small { padding: 5px 12px; font-size: 13px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+
+  /* départ : choix de l'équipe et de la difficulté */
+  .teams { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+  .pick { text-align: left; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); font: inherit; cursor: pointer; }
+  .pick:hover { border-color: #4a5868; }
+  .pick.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .pick b { display: block; font-size: 16px; }
+  .pick small { color: var(--muted); }
+  .pick.mine { background: #1c2a40; }
+  .diffs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .go { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+  /* tournoi */
+  .rounds { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; }
+  .rounds span { padding: 4px 12px; border-radius: 20px; background: #26303c; color: var(--muted); font-size: 13px; font-weight: 600; }
+  .rounds span.done { background: #1f3a2a; color: var(--ok); }
+  .rounds span.cur { background: var(--accent); color: #1b1b10; }
+  .rounds span.out { background: #3a1f1f; color: #f08a84; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+  .match { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: 18px; border-radius: 14px; background: linear-gradient(120deg, #1c2a40, #161d25 60%, #3a1d1b); border: 1px solid var(--line); }
+  .match .side { font-weight: 750; font-size: 19px; }
+  .match .side small { display: block; font-weight: 500; color: var(--muted); font-size: 13px; }
+  .match .side.r { text-align: right; }
+  .match .vs { font-size: 30px; font-weight: 800; color: var(--accent); text-align: center; white-space: nowrap; }
+  .match .vs small { display: block; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .verdict { margin-top: 12px; padding: 12px 14px; border-radius: 12px; font-weight: 650; }
+  .verdict.win { background: #1f3a2a; color: var(--ok); }
+  .verdict.lose { background: #3a1f1f; color: #f08a84; }
+  .verdict.champ { background: linear-gradient(90deg, #5a4511, #3b2c08); color: var(--gold); font-size: 18px; }
+  .list { display: flex; flex-direction: column; gap: 4px; }
+  .res { display: grid; grid-template-columns: minmax(0, 1fr) 70px minmax(0, 1fr); gap: 8px; align-items: center; padding: 6px 10px; border-radius: 8px; background: var(--panel2); font-size: 14px; }
+  .res .a { text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .res .b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .res .s { text-align: center; font-weight: 750; }
+  .res .s small { display: block; font-size: 11px; color: var(--muted); font-weight: 500; line-height: 1.1; }
+  .res .w { font-weight: 750; }
+  .res .l { color: var(--muted); }
+  .res.me { background: #1c2a40; outline: 1px solid #2f4f80; }
+  .res.wait .s { color: var(--muted); font-weight: 500; }
+  .tag { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 8px; background: #5a3d10; color: var(--gold); margin-left: 6px; font-weight: 700; vertical-align: 1px; }
+  .div { font-size: 11px; color: var(--muted); }
+  .bar { height: 6px; border-radius: 4px; background: #26303c; overflow: hidden; margin: 8px 0 2px; }
+  .bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+  table.scor { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.scor td { padding: 4px 6px; border-bottom: 1px solid #222a33; }
+  table.scor td:last-child { text-align: right; font-weight: 750; }
+  table.scor tr.me td { color: #9cc2ff; }
+  .path { display: flex; flex-direction: column; gap: 4px; }
+
+  /* tirage au sort */
+  .draw { position: fixed; inset: 0; z-index: 10; background: rgba(8, 10, 14, 0.94); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; gap: 14px; }
+  .draw h3 { margin: 0; color: var(--accent); font-size: 22px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .draw .pot { display: flex; gap: 10px; align-items: center; min-height: 88px; }
+  .ball { width: 78px; height: 78px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #d9dde2 45%, #8f98a3); color: #1b1f24; display: flex; align-items: center; justify-content: center; text-align: center; font-weight: 800; font-size: 13px; padding: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.5); animation: pop .35s ease-out; }
+  @keyframes pop { from { transform: scale(0.2) rotate(-90deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
+  .draw .pairs { width: min(640px, 100%); max-height: 50vh; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+  .draw .pairs .res { animation: pop .3s ease-out; }
+
+  @media (max-width: 760px) {
+    .grid { grid-template-columns: 1fr; }
+    .diffs { grid-template-columns: 1fr; }
+    .match { grid-template-columns: 1fr; text-align: center; }
+    .match .side.r { text-align: center; }
+    .hero .cup { font-size: 64px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top"><a href="index.html">← Accueil</a><span class="muted small" id="saved"></span></header>
+
+  <!-- départ -->
+  <section id="vStart">
+    <div class="hero"><div class="cup">🏆</div><h1>La Coupe en carton</h1>
+      <p>32 équipes : les 18 clubs de Ligue 1 et 14 petits poucets tirés au sort, de la Ligue 2 aux amateurs du dimanche. Un tirage au sort à chaque tour, pas de match retour, et des tirs au but s'il le faut. Cinq victoires pour soulever la coupe.</p></div>
+    <h2>1. Votre équipe</h2>
+    <div class="teams" id="teamPick"></div>
+    <div class="muted small" id="noMine" style="margin-top: 8px">Pour jouer avec une équipe construite : <a href="equipe.html#construire">créez-la</a>, puis « Enregistrer l'équipe ».</div>
+    <h2>2. Difficulté</h2>
+    <div class="diffs" id="diffPick"></div>
+    <div class="go"><button class="btn main" id="startBtn" disabled>Lancer la coupe : tirage des 16es de finale →</button><span class="muted small" id="startHint">Choisissez une équipe.</span></div>
+  </section>
+
+  <!-- tournoi -->
+  <section id="vCup" hidden>
+    <div class="hero"><div class="cup">🏆</div><h1 id="cupTitle">La Coupe en carton</h1><p id="cupSub"></p>
+      <div class="rounds" id="rounds"></div></div>
+    <div class="grid">
+      <div>
+        <h2 id="roundTitle">Votre match</h2>
+        <div id="myBox"></div>
+        <h2>Les autres matchs du tour</h2>
+        <div class="panel"><div id="others"></div></div>
+      </div>
+      <div>
+        <h2>Votre parcours</h2>
+        <div class="panel"><div class="path" id="path"></div></div>
+        <h2>Meilleurs buteurs</h2>
+        <div class="panel"><table class="scor" id="scorers"></table></div>
+        <div class="go"><button class="btn small" id="quit">Abandonner cette coupe</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- fin : l'image du parcours -->
+  <section id="vEnd" hidden>
+    <h2>Votre parcours en image</h2>
+    <canvas id="card" width="2400" height="1350" style="width: 100%; height: auto; border-radius: 14px; border: 1px solid var(--line)"></canvas>
+    <div class="go"><button class="btn main" id="saveImg">Enregistrer l'image</button><button class="btn" id="shareImg" hidden>Partager</button><button class="btn" id="backCup">← Retour au tableau</button><button class="btn" id="newCup">Nouvelle coupe</button></div>
+  </section>
+</div>
+
+<div class="draw" id="draw" hidden><h3 id="drawTitle">Tirage au sort</h3><div class="pot" id="pot"></div><div class="pairs" id="pairs"></div><button class="btn" id="drawSkip">Passer l'animation</button></div>
+
+<script id="engineSrc" src="engine.js"></script>
+<script>window.CoupeData = /*COUPE*/null;</script>
+<script>
+(function () {
+  'use strict';
+  const E = window.MatchEngine, D = window.CoupeData || { clubs: [], petits: [] };
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const CLE = 'coupe-partie', RES = 'coupe-resultat';
+  const ROUNDS = ['16e de finale', '8e de finale', 'Quart de finale', 'Demi-finale', 'Finale'];
+  const SHORT = ['16es', '8es', 'Quarts', 'Demies', 'Finale'];
+  const RANK = { 'Ligue 1': 4, 'Ligue 2': 3, 'National': 2, 'National 2': 1, 'Régional': 0 };
+  const DIFF = {
+    facile: { label: 'Facile', d: -1, help: 'Vos adversaires jouent avec un point de moins sur toutes leurs notes.' },
+    normal: { label: 'Normal', d: 0, help: 'Chacun avec ses vraies notes.' },
+    difficile: { label: 'Difficile', d: 1, help: 'Vos adversaires jouent avec un point de plus sur toutes leurs notes. Les petits poucets mordent.' },
+  };
+  const ALL = {}; for (const T of D.clubs.concat(D.petits)) ALL[T.id] = T;
+  const divOf = T => T.division || T.championnat && 'Ligue 1' || '';
+  const rankOf = id => { const T = id === 'moi' ? null : ALL[id]; return T ? RANK[divOf(T)] : null; };
+  const avg = T => { let s = 0, n = 0; for (const j of T.joueurs) for (const [k, v] of Object.entries(j.notes)) { if (j.poste !== 'G' && (k === 'reflexes' || k === 'mains')) continue; s += v; n++; } return n ? s / n : 0; };
+
+  // ---------- la partie enregistrée ----------
+  let G = null;
+  const load = () => { try { const g = JSON.parse(localStorage.getItem(CLE) || 'null'); return g && g.v === 1 ? g : null; } catch (e) { return null; } };
+  const save = () => { try { localStorage.setItem(CLE, JSON.stringify(G)); $('saved').textContent = 'Partie enregistrée dans ce navigateur'; } catch (e) { $('saved').textContent = 'Impossible d\'enregistrer la partie dans ce navigateur'; } };
+  const teamOf = id => id === 'moi' ? G.me : ALL[id];
+  const nameOf = id => (teamOf(id) || {}).nom || id;
+  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const round = () => G.rounds[G.rounds.length - 1];
+  const myPair = () => round() && round().pairs.find(p => p.a === 'moi' || p.b === 'moi');
+
+  // ---------- départ ----------
+  let pickTeam = null, pickDiff = 'normal';
+  function mine() {
+    try { const s = JSON.parse(localStorage.getItem('construction-equipe') || 'null'); return s && s.equipe && Array.isArray(s.equipe.joueurs) && s.equipe.joueurs.length === 11 ? Object.assign({}, s.equipe, { fromClub: ALL[s.club] ? s.club : null }) : null; } catch (e) { return null; }
+  }
+  function drawStart() {
+    const M = mine(), opts = [];
+    if (M && M.fromClub) opts.push({ key: 'moi', T: M, sub: (M.fromClub ? 'Votre ' + ALL[M.fromClub].nom + ', placé par vous' : 'Votre équipe construite') + ' · note ' + avg(M).toFixed(1).replace('.', ','), cls: 'mine' });
+    for (const C of D.clubs.slice().sort((a, b) => a.nom.localeCompare(b.nom))) opts.push({ key: C.id, T: C, sub: 'Ligue 1 · note ' + avg(C).toFixed(1).replace('.', ',') });
+    $('noMine').hidden = true;      // construction d'équipe mise au carton (n° 111) : seul un club placé dans la page équipe est proposé
+    $('teamPick').innerHTML = opts.map(o => '<button class="pick ' + (o.cls || '') + (pickTeam === o.key ? ' on' : '') + '" data-k="' + esc(o.key) + '"><b>' + esc(o.T.nom) + '</b><small>' + esc(o.sub) + '</small></button>').join('');
+    $('teamPick').querySelectorAll('[data-k]').forEach(b => b.onclick = () => { pickTeam = b.dataset.k; drawStart(); });
+    $('diffPick').innerHTML = Object.entries(DIFF).map(([k, d]) => '<button class="pick' + (pickDiff === k ? ' on' : '') + '" data-d="' + k + '"><b>' + d.label + '</b><small>' + d.help + '</small></button>').join('');
+    $('diffPick').querySelectorAll('[data-d]').forEach(b => b.onclick = () => { pickDiff = b.dataset.d; drawStart(); });
+    $('startBtn').disabled = !pickTeam; $('startHint').textContent = pickTeam ? '' : 'Choisissez une équipe.';
+  }
+  $('startBtn').onclick = () => {
+    const M = mine(), me = pickTeam === 'moi' ? M : JSON.parse(JSON.stringify(ALL[pickTeam]));
+    if (!me) return;
+    const clubId = pickTeam === 'moi' ? M.fromClub : pickTeam;      // un club de Ligue 1 (choisi ici, ou placé dans la page équipe) ne joue pas deux fois
+    // 32 équipes : la vôtre, les clubs de Ligue 1 (sauf le vôtre) et des petits poucets tirés au sort à chaque coupe, division par division
+    // (4 de Ligue 2, 4 de National, 3 de National 2, 3 régionaux pour 18 clubs de Ligue 1), jusqu'à 31 adversaires
+    let field = D.clubs.map(C => C.id).filter(id => id !== clubId);
+    const QUOTA = [['Ligue 2', 4], ['National', 4], ['National 2', 3], ['Régional', 3]];
+    for (const [div, n] of QUOTA) field = field.concat(shuffle(D.petits.filter(T => T.division === div).map(T => T.id)).slice(0, n));
+    for (const T of shuffle(D.petits.slice())) if (field.length < 31 && !field.includes(T.id)) field.push(T.id);
+    field = field.slice(0, 31);
+    G = { v: 1, started: new Date().toISOString(), diff: pickDiff, me: Object.assign({}, me, { id: 'moi', club: clubId || null }), teams: ['moi'].concat(field), rounds: [], out: null, champion: false, results: {} };
+    save(); show(); startDraw();
+  };
+
+  // ---------- tirage ----------
+  function makeRound() {
+    const k = G.rounds.length, alive = k === 0 ? G.teams.slice() : G.rounds[k - 1].pairs.map(p => p.res ? (p.res.winner === 0 ? p.a : p.b) : null);
+    const pot = shuffle(alive.slice()), pairs = [];
+    for (let i = 0; i < pot.length; i += 2) pairs.push({ id: 'r' + k + '-' + (i / 2), a: pot[i], b: pot[i + 1], seed: 1 + Math.floor(Math.random() * 99999), res: null });
+    // votre équipe joue toujours « à domicile » (les Bleus du match)
+    for (const p of pairs) if (p.b === 'moi') { p.b = p.a; p.a = 'moi'; }
+    G.rounds.push({ name: ROUNDS[k], pairs, drawn: new Date().toISOString() });
+    save();
+  }
+  let drawTimer = 0;
+  function startDraw() {
+    makeRound(); runOthers();
+    const R = round(), box = $('draw'), pairs = $('pairs'), pot = $('pot');
+    $('drawTitle').textContent = 'Tirage au sort · ' + R.name;
+    pairs.innerHTML = ''; pot.innerHTML = ''; box.hidden = false;
+    let i = 0;
+    const finish = () => { clearTimeout(drawTimer); box.hidden = true; show(); };
+    const next = () => {
+      if (i >= R.pairs.length) { $('drawSkip').textContent = 'Voir mon match →'; return; }
+      const p = R.pairs[i++];
+      pot.innerHTML = '<div class="ball">' + esc(nameOf(p.a)) + '</div><b class="muted">contre</b><div class="ball">' + esc(nameOf(p.b)) + '</div>';
+      const el = document.createElement('div'); el.className = 'res' + (p.a === 'moi' ? ' me' : ''); el.innerHTML = line(p, true); pairs.prepend(el);
+      drawTimer = setTimeout(next, p.a === 'moi' ? 1600 : 650);
+    };
+    $('drawSkip').textContent = 'Passer l\'animation'; $('drawSkip').onclick = finish;
+    drawTimer = setTimeout(next, 500);
+  }
+
+  // ---------- les autres matchs : simulés par le moteur en arrière-plan (plusieurs à la fois quand le navigateur le permet) ----------
+  // Chaque résultat est enregistré dès qu'il est connu : si l'on quitte la page, les matchs restants reprennent au retour.
+  const WORKER = `
+    self.onmessage = e => {
+      const { id, a, b, seed } = e.data, E = self.MatchEngine;
+      const m = E.createMatch({ seed, duration: 5400, teams: [a, b], autoSubs: [true, true] });
+      while (m.mode !== 'over') E.step(m);
+      const score = m.teams.map(T => T.score), sc = [];
+      for (const ev of m.events) if (ev.kind === 'goal') {
+        const og = /contre son camp de (.+) \\(\\d+-\\d+\\)$/.exec(ev.text), g = og || /! (.+) \\(\\d+-\\d+\\)$/.exec(ev.text);
+        sc.push({ team: ev.team, name: g ? g[1] : '?', og: !!og, min: Math.min(90, Math.floor(ev.t / 60) + 1) + "'" });
+      }
+      let tab = null, winner = score[0] > score[1] ? 0 : 1;
+      if (score[0] === score[1]) { const s = E.shootout(E.snapshot(m)); tab = s.score; winner = s.winner; }
+      self.postMessage({ id, res: { score, tab, winner, scorers: sc } });
+    };`;
+  let pool = null, queue = [], busy = 0, running = false;
+  function makePool() {
+    if (pool !== null) return pool;
+    try {
+      const src = $('engineSrc').textContent;
+      if (!src || typeof Worker === 'undefined') throw new Error('pas de travailleur');
+      const url = URL.createObjectURL(new Blob([src, WORKER], { type: 'text/javascript' }));
+      const n = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1));
+      pool = []; for (let i = 0; i < n; i++) { const w = new Worker(url); w.onmessage = e => done(e.data, w); w.onerror = () => { const lost = pool.filter(x => x.job).map(x => x.p).filter(p => p && !p.res); pool = []; busy = 0; queue = lost.concat(queue); pump(); }; pool.push(w); }
+    } catch (e) { pool = []; }
+    return pool;
+  }
+  function runOthers() {
+    const R = round(); if (!R) return;
+    queue = R.pairs.filter(p => !p.res && p.a !== 'moi' && p.b !== 'moi' && !queue.includes(p)).concat(queue);
+    pump();
+  }
+  function pump() {
+    const P = makePool();
+    if (P.length) { for (const w of P) if (!w.job && queue.length) { const p = queue.shift(); w.job = p.id; w.p = p; busy++; w.postMessage({ id: p.id, a: teamOf(p.a), b: teamOf(p.b), seed: p.seed }); } }
+    else if (!running && queue.length) {      // sans travailleur : un match à la fois, entre deux images
+      running = true;
+      setTimeout(() => { const p = queue.shift(); const m = E.createMatch({ seed: p.seed, duration: 5400, teams: [teamOf(p.a), teamOf(p.b)], autoSubs: [true, true] }); while (m.mode !== 'over') E.step(m); running = false; done({ id: p.id, res: resultOf(m) }); }, 30);
+    }
+    progress();
+  }
+  function resultOf(m) {
+    const score = m.teams.map(T => T.score), sc = [];
+    for (const ev of m.events) if (ev.kind === 'goal') { const og = /contre son camp de (.+) \(\d+-\d+\)$/.exec(ev.text), g = og || /! (.+) \(\d+-\d+\)$/.exec(ev.text); sc.push({ team: ev.team, name: g ? g[1] : '?', og: !!og, min: Math.min(90, Math.floor(ev.t / 60) + 1) + "'" }); }
+    let tab = null, winner = score[0] > score[1] ? 0 : 1;
+    if (score[0] === score[1]) { const s = E.shootout(E.snapshot(m)); tab = s.score; winner = s.winner; }
+    return { score, tab, winner, scorers: sc };
+  }
+  function done(msg, w) {
+    if (w) { w.job = null; busy--; }
+    for (const R of G.rounds) for (const p of R.pairs) if (p.id === msg.id && !p.res) p.res = msg.res;
+    save(); pump(); show();
+  }
+  function progress() {
+    const R = round(); if (!R) return;
+    const others = R.pairs.filter(p => p.a !== 'moi' && p.b !== 'moi'), n = others.filter(p => p.res).length;
+    const el = $('othersBar'); if (el) el.style.width = (100 * n / Math.max(1, others.length)) + '%';
+  }
+
+  // ---------- votre match ----------
+  function hard(T) {      // difficulté : un point de plus ou de moins sur toutes les notes de vos adversaires (réflexes et mains d'un joueur de champ exceptés)
+    const d = DIFF[G.diff].d; if (!d) return T;
+    const C = JSON.parse(JSON.stringify(T)), shift = (j, gk) => { for (const k of Object.keys(j.notes)) { if (!gk && (k === 'reflexes' || k === 'mains')) continue; j.notes[k] = Math.max(1, Math.min(20, j.notes[k] + d)); } };
+    for (const j of C.joueurs) shift(j, j.poste === 'G'); for (const j of C.remplacants || []) shift(j, j.poste_naturel === 'G');
+    return C;
+  }
+  function matchLink(p) {
+    const me = Object.assign({}, G.me); delete me.id;
+    return 'match.html#partie=' + encodeURIComponent(JSON.stringify({ equipe: me, adversaire: hard(teamOf(p.b)), coupe: { id: p.id, tour: round().name, seed: p.seed } }));
+  }
+  // résultat rendu par match.html (enregistré dans le navigateur au coup de sifflet final, tirs au but compris)
+  function readResult() {
+    let r = null; try { r = JSON.parse(localStorage.getItem(RES) || 'null'); } catch (e) {}
+    // match lancé puis abandonné sans retour (navigateur fermé en plein match) : défaite par forfait, une minute après le dernier signe de vie
+    try {
+      const run = JSON.parse(localStorage.getItem('coupe-en-cours') || 'null'), p = myPair();
+      if (!r && run && p && run.id === p.id && !p.res && Date.now() - run.t > 60000) { r = { id: p.id, score: [0, 3], tab: null, winner: 1, scorers: [], forfait: true }; localStorage.removeItem('coupe-en-cours'); }
+    } catch (e) {}
+    if (!r || !G) return;
+    const p = myPair();
+    if (p && p.id === r.id && !p.res) {
+      p.res = { score: r.score, tab: r.tab, winner: r.winner, scorers: r.scorers || [], forfait: !!r.forfait };
+      if (r.winner !== 0) G.out = round().name; else if (G.rounds.length === ROUNDS.length) G.champion = true;
+      save();
+    }
+    try { localStorage.removeItem(RES); const run = JSON.parse(localStorage.getItem('coupe-en-cours') || 'null'); if (run && run.id === r.id) localStorage.removeItem('coupe-en-cours'); } catch (e) {}
+  }
+
+  // ---------- affichage ----------
+  const exploit = p => { if (!p.res) return false; const w = p.res.winner === 0 ? p.a : p.b, l = p.res.winner === 0 ? p.b : p.a, rw = rankOf(w), rl = rankOf(l); return rw != null && rl != null && rl - rw >= 2; };
+  function line(p, plain) {
+    const r = p.res, A = teamOf(p.a), B = teamOf(p.b);
+    const cls = k => r ? (r.winner === k ? 'w' : 'l') : '';
+    const sub = T => T === G.me ? 'vous' : divOf(T);
+    const mid = r ? r.score[0] + ' – ' + r.score[1] + (r.tab ? '<small>t.a.b. ' + r.tab[0] + '–' + r.tab[1] + '</small>' : r.forfait ? '<small>forfait</small>' : '') : (plain ? 'contre' : '…');
+    return '<span class="a ' + cls(0) + '">' + esc(A.nom) + ' <span class="div">' + esc(sub(A)) + '</span></span><span class="s">' + mid + '</span><span class="b ' + cls(1) + '">' + esc(B.nom) + ' <span class="div">' + esc(sub(B)) + '</span>' + (exploit(p) ? '<span class="tag">exploit</span>' : '') + '</span>';
+  }
+  function show() {
+    if (!G) { $('vStart').hidden = false; $('vCup').hidden = true; $('vEnd').hidden = true; drawStart(); return; }
+    $('vStart').hidden = true; $('vCup').hidden = !!G.showEnd; $('vEnd').hidden = !G.showEnd;
+    if (G.showEnd) { drawCard(); return; }
+    const R = round(), k = G.rounds.length - 1, p = myPair();
+    $('cupTitle').textContent = 'La Coupe en carton';
+    $('cupSub').textContent = G.me.nom + ' · difficulté ' + DIFF[G.diff].label.toLowerCase();
+    $('rounds').innerHTML = ROUNDS.map((n, i) => '<span class="' + (G.out && i === k ? 'out' : i < k || (i === k && (G.champion || (p && p.res && p.res.winner === 0))) ? 'done' : i === k ? 'cur' : '') + '">' + SHORT[i] + '</span>').join('');
+    // votre match
+    $('roundTitle').textContent = R ? R.name + ' : votre match' : 'Votre match';
+    let h = '';
+    if (p) {
+      const B = teamOf(p.b), r = p.res;
+      h += '<div class="match"><div class="side">' + esc(G.me.nom) + '<small>' + (G.me.club ? 'Ligue 1' : 'votre équipe') + '</small></div>'
+        + '<div class="vs">' + (r ? r.score[0] + ' – ' + r.score[1] + (r.tab ? '<small>tirs au but ' + r.tab[0] + '–' + r.tab[1] + '</small>' : r.forfait ? '<small>forfait</small>' : '') : 'contre<small>' + esc(R.name) + '</small>') + '</div>'
+        + '<div class="side r">' + esc(B.nom) + '<small>' + esc(divOf(B)) + ' · note ' + avg(hard(B)).toFixed(1).replace('.', ',') + '</small></div></div>';
+      if (!r) h += '<div class="go"><a class="btn main" href="' + matchLink(p) + '">Jouer le match →</a><span class="muted small">Mode Coach It, 90 minutes. En cas d\'égalité : tirs au but. Une fois le coup d\'envoi donné, quitter le match = défaite par forfait.</span></div>';
+      else if (G.champion) h += '<div class="verdict champ">🏆 Vous remportez la Coupe en carton !</div><div class="go"><button class="btn main" id="toEnd">Voir mon parcours en image →</button></div>';
+      else if (r.winner === 0) h += '<div class="verdict win">Qualifié pour le tour suivant !</div>';
+      else h += '<div class="verdict lose">' + (r.forfait ? 'Match abandonné : défaite par forfait. ' : '') + 'Éliminé en ' + esc(R.name.toLowerCase()) + '. La coupe continue sans vous.</div><div class="go"><button class="btn main" id="toEnd">Voir mon parcours en image →</button><button class="btn" id="again">Nouvelle coupe</button></div>';
+      const others = R.pairs.filter(q => q !== p), left = others.filter(q => !q.res).length;
+      if (r && r.winner === 0 && !G.champion) h += '<div class="go"><button class="btn main" id="nextRound"' + (left ? ' disabled' : '') + '>Tirage du tour suivant : ' + esc(ROUNDS[k + 1].toLowerCase()) + ' →</button>' + (left ? '<span class="muted small">En attente des autres résultats (' + left + ')…</span>' : '') + '</div>';
+    }
+    $('myBox').innerHTML = h;
+    if ($('nextRound')) $('nextRound').onclick = () => startDraw();
+    if ($('toEnd')) $('toEnd').onclick = () => { G.showEnd = true; save(); show(); };
+    if ($('again')) $('again').onclick = reset;
+    // les autres matchs du tour
+    const others = R ? R.pairs.filter(q => q !== p) : [], n = others.filter(q => q.res).length;
+    $('others').innerHTML = (n < others.length ? '<div class="muted small">Les autres matchs se jouent… ' + n + ' sur ' + others.length + '</div><div class="bar"><i id="othersBar" style="width:' + (100 * n / Math.max(1, others.length)) + '%"></i></div>' : '')
+      + '<div class="list">' + others.map(q => '<div class="res' + (q.res ? '' : ' wait') + '">' + line(q) + '</div>').join('') + '</div>'
+      + (G.out && G.rounds.length < ROUNDS.length && n === others.length ? '<div class="go"><button class="btn small" id="simNext">Voir la suite de la coupe (tour suivant) →</button></div>' : '');
+    if ($('simNext')) $('simNext').onclick = () => { simulateRest(); };
+    // parcours et buteurs
+    const mine = []; for (const R2 of G.rounds) for (const q of R2.pairs) if (q.a === 'moi' || q.b === 'moi') mine.push({ R: R2, q });
+    $('path').innerHTML = mine.map(x => '<div><span class="muted small">' + esc(x.R.name) + '</span><div class="res me">' + line(x.q) + '</div></div>').join('') || '<span class="muted">Pas encore de match.</span>';
+    const top = scorers().slice(0, 8);
+    $('scorers').innerHTML = top.length ? top.map(s => '<tr class="' + (s.team === 'moi' ? 'me' : '') + '"><td>' + esc(s.name) + ' <span class="div">' + esc(nameOf(s.team)) + '</span></td><td>' + s.n + '</td></tr>').join('') : '<tr><td class="muted">Aucun but pour l\'instant.</td></tr>';
+  }
+  // après l'élimination : on peut regarder la coupe se finir sans soi (tous les matchs simulés)
+  function simulateRest() {
+    if (G.rounds.length >= ROUNDS.length) return;
+    const R = round(); if (R.pairs.some(q => !q.res)) return;
+    const k = G.rounds.length, alive = R.pairs.map(q => q.res.winner === 0 ? q.a : q.b), pot = shuffle(alive.slice()), pairs = [];
+    for (let i = 0; i < pot.length; i += 2) pairs.push({ id: 'r' + k + '-' + (i / 2), a: pot[i], b: pot[i + 1], seed: 1 + Math.floor(Math.random() * 99999), res: null });
+    G.rounds.push({ name: ROUNDS[k], pairs, drawn: new Date().toISOString() });
+    save(); runOthers(); show();
+  }
+  function scorers() {
+    const M = new Map();
+    for (const R of G.rounds) for (const p of R.pairs) if (p.res) for (const s of p.res.scorers || []) {
+      if (s.og) continue;
+      const team = s.team === 0 ? p.a : p.b, key = team + '|' + s.name;
+      const x = M.get(key) || { team, name: s.name, n: 0 }; x.n++; M.set(key, x);
+    }
+    return Array.from(M.values()).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+  }
+  function reset() {
+    if (G && !G.out && !G.champion && !confirm('Abandonner cette coupe ? La partie en cours sera effacée.')) return;
+    try { localStorage.removeItem(CLE); localStorage.removeItem(RES); } catch (e) {}
+    G = null; queue = []; pickTeam = null; window.scrollTo(0, 0); show();
+  }
+  $('quit').onclick = reset; $('newCup').onclick = reset;
+  $('backCup').onclick = () => { G.showEnd = false; save(); show(); };
+
+  // ---------- image du parcours ----------
+  function drawCard() {
+    const c = $('card'), g = c.getContext('2d'), W = 1200, H = 675, k = c.width / W;
+    g.setTransform(k, 0, 0, k, 0, 0);
+    const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', f = (w, px) => w + ' ' + px + 'px ' + FONT;
+    const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, G.champion ? '#4a3a0e' : '#1c2a40'); bg.addColorStop(0.6, '#12171d'); bg.addColorStop(1, '#0e1216');
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#ffe45c'; g.fillRect(0, 0, W, 6);
+    g.textBaseline = 'alphabetic'; g.textAlign = 'left';
+    g.fillStyle = '#ffe45c'; g.font = f(700, 16); g.fillText('LA COUPE EN CARTON · L\'ENTRAÎNEUR EN CARTON', 48, 52);
+    g.fillStyle = '#93a0af'; g.font = f(500, 16); g.textAlign = 'right'; g.fillText('Difficulté ' + DIFF[G.diff].label.toLowerCase() + ' · ' + new Date().toLocaleDateString('fr-FR'), W - 48, 52);
+    g.textAlign = 'left'; g.fillStyle = '#e8edf2'; g.font = f(800, 54); g.fillText(G.me.nom, 48, 124);
+    g.font = f(750, 30); g.fillStyle = G.champion ? '#f2c14e' : G.out ? '#f08a84' : '#9cc2ff';
+    g.fillText(G.champion ? '🏆 Vainqueur de la coupe !' : G.out ? 'Éliminé en ' + G.out.toLowerCase() : 'En course : ' + round().name.toLowerCase(), 48, 172);
+    // les matchs
+    const mine = []; for (const R of G.rounds) for (const q of R.pairs) if ((q.a === 'moi' || q.b === 'moi') && q.res) mine.push({ R, q });
+    let y = 236;
+    g.font = f(700, 14); g.fillStyle = '#93a0af'; g.fillText('LE PARCOURS', 48, y - 18);
+    for (const { R, q } of mine) {
+      const r = q.res, win = r.winner === 0;
+      g.fillStyle = 'rgba(255,255,255,0.05)'; g.fillRect(48, y - 4, 700, 58);
+      g.fillStyle = win ? '#5cc98a' : '#e06a63'; g.fillRect(48, y - 4, 6, 58);
+      g.fillStyle = '#93a0af'; g.font = f(600, 14); g.fillText(R.name, 68, y + 16);
+      g.fillStyle = '#e8edf2'; g.font = f(700, 22); g.fillText('contre ' + nameOf(q.b), 68, y + 42);
+      g.textAlign = 'right'; g.font = f(800, 30); g.fillText(r.score[0] + ' – ' + r.score[1], 730, y + 38);
+      if (r.tab || r.forfait) { g.font = f(600, 13); g.fillStyle = '#ffe45c'; g.fillText(r.tab ? 't.a.b. ' + r.tab[0] + '–' + r.tab[1] : 'forfait', 730, y + 12); }
+      g.textAlign = 'left'; y += 70;
+    }
+    // buteurs de l'équipe et meilleur buteur de la coupe
+    const all = scorers(), ours = all.filter(s => s.team === 'moi').slice(0, 5);
+    let x = 800; y = 236;
+    g.font = f(700, 14); g.fillStyle = '#93a0af'; g.fillText('NOS BUTEURS', x, y - 18);
+    g.font = f(600, 20); g.fillStyle = '#e8edf2';
+    if (!ours.length) { g.fillStyle = '#93a0af'; g.fillText('Aucun but…', x, y + 12); y += 34; }
+    for (const s of ours) { g.fillText(s.name + '  ', x, y + 12); g.fillStyle = '#ffe45c'; g.textAlign = 'right'; g.fillText(s.n + (s.n > 1 ? ' buts' : ' but'), W - 48, y + 12); g.textAlign = 'left'; g.fillStyle = '#e8edf2'; y += 34; }
+    if (all.length) {
+      y += 30; g.font = f(700, 14); g.fillStyle = '#93a0af'; g.fillText('MEILLEUR BUTEUR DE LA COUPE', x, y);
+      g.font = f(700, 20); g.fillStyle = '#e8edf2'; g.fillText(all[0].name + ' (' + all[0].n + ')', x, y + 30);
+      g.font = f(500, 15); g.fillStyle = '#93a0af'; g.fillText(nameOf(all[0].team), x, y + 52);
+    }
+    // le chemin vers la finale : les cinq tours, passés (vert), perdu (rouge), à venir (gris)
+    const reached = mine.length, px0 = 80, px1 = 760, py = H - 120;
+    g.strokeStyle = '#2b3440'; g.lineWidth = 4; g.beginPath(); g.moveTo(px0, py); g.lineTo(px1, py); g.stroke();
+    ROUNDS.forEach((n, i) => {
+      const x = px0 + (px1 - px0) * i / (ROUNDS.length - 1), m = mine[i], won = m && m.q.res.winner === 0, lost = m && m.q.res.winner !== 0;
+      if (i > 0 && mine[i - 1] && mine[i - 1].q.res.winner === 0) { g.strokeStyle = '#5cc98a'; g.beginPath(); g.moveTo(px0 + (px1 - px0) * (i - 1) / (ROUNDS.length - 1), py); g.lineTo(x, py); g.stroke(); }
+      g.fillStyle = won ? '#5cc98a' : lost ? '#e06a63' : i === reached && !G.out ? '#ffe45c' : '#26303c';
+      g.beginPath(); g.arc(x, py, 17, 0, 2 * Math.PI); g.fill();
+      g.fillStyle = won || lost || (i === reached && !G.out) ? '#0e1216' : '#93a0af'; g.font = f(800, 16); g.textAlign = 'center';
+      if (won) { g.strokeStyle = '#0e1216'; g.lineWidth = 3.5; g.lineCap = 'round'; g.beginPath(); g.moveTo(x - 7, py); g.lineTo(x - 2, py + 6); g.lineTo(x + 8, py - 6); g.stroke(); g.lineWidth = 4; }
+      else g.fillText(lost ? '✕' : String(i + 1), x, py + 6);
+      g.fillStyle = '#c9d3dd'; g.font = f(600, 14); g.fillText(SHORT[i], x, py + 40);
+    });
+    g.textAlign = 'left';
+    const goals = mine.reduce((s, m) => s + m.q.res.score[0], 0), against = mine.reduce((s, m) => s + m.q.res.score[1], 0);
+    g.font = f(600, 18); g.fillStyle = '#c9d3dd'; g.textAlign = 'left';
+    g.fillText(mine.length + ' match' + (mine.length > 1 ? 's' : '') + ' · ' + goals + ' but' + (goals > 1 ? 's' : '') + ' marqué' + (goals > 1 ? 's' : '') + ' · ' + against + ' encaissé' + (against > 1 ? 's' : ''), 48, H - 40);
+    if (G.champion) { g.font = f(400, 150); g.textAlign = 'right'; g.globalAlpha = 0.9; g.fillText('🏆', W - 40, H - 30); g.globalAlpha = 1; }
+    g.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  const fileName = () => 'coupe-en-carton-' + G.me.nom.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.png';
+  $('saveImg').onclick = () => $('card').toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = fileName(); document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }, 'image/png');
+  // téléphone : partager l'image directement (messagerie, réseaux) quand le navigateur le permet
+  if (navigator.canShare) {
+    $('shareImg').hidden = false;
+    $('shareImg').onclick = () => $('card').toBlob(b => {
+      const file = new File([b], fileName(), { type: 'image/png' });
+      if (navigator.canShare({ files: [file] })) navigator.share({ files: [file], title: 'La Coupe en carton', text: G.champion ? 'J\'ai gagné la Coupe en carton avec ' + G.me.nom + ' !' : 'Mon parcours en Coupe en carton avec ' + G.me.nom }).catch(() => {});
+    }, 'image/png');
+  }
+
+  // ---------- au chargement : reprise de la partie, résultat d'un match qui vient d'être joué ----------
+  G = load();
+  if (G) { readResult(); runOthers(); }
+  show();
+  window.addEventListener('pageshow', () => { const g = load(); if (g) { G = g; readResult(); show(); } });
+})();
+</script>
+</body>
+</html>

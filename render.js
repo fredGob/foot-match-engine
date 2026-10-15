@@ -219,6 +219,7 @@ function drawSummary(ctx, d) {
   // score et buteurs
   ctx.textAlign = 'center'; ctx.fillStyle = '#e8edf2'; ctx.font = f(800, 92);
   ctx.fillText(d.teams[0].score + ' – ' + d.teams[1].score, CW / 2, 150);
+  if (d.tab) { ctx.fillStyle = '#ffe45c'; ctx.font = f(700, 22); ctx.fillText('tirs au but ' + d.tab[0] + ' – ' + d.tab[1], CW / 2, 186); }
   d.teams.forEach((T, k) => {
     const x = k ? 780 : 420, al = k ? 'left' : 'right', sx = k ? 1 : -1;
     ctx.textAlign = al;
