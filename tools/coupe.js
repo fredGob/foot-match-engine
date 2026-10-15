@@ -84,8 +84,8 @@ const COUPE = 'file://' + path.join(ROOT, 'coupe.html');
   await page2.close();
 
   console.log('Retour à la coupe');
-  // résultat forcé : victoire (pour aller au tour suivant)
-  await page.evaluate(() => { const g = JSON.parse(localStorage.getItem('coupe-partie')); const p = g.rounds[0].pairs.find(q => q.a === 'moi'); localStorage.setItem('coupe-resultat', JSON.stringify({ id: p.id, score: [2, 1], tab: null, winner: 0, scorers: [{ team: 0, name: 'Buteur Test', og: false, min: "12'" }, { team: 0, name: 'Buteur Test', og: false, min: "80'" }, { team: 1, name: 'Autre', og: false, min: "50'" }] })); });
+  // résultat forcé : victoire 5-1, cinq buts du même joueur (pour aller au tour suivant et le voir en tête des buteurs)
+  await page.evaluate(() => { const g = JSON.parse(localStorage.getItem('coupe-partie')); const p = g.rounds[0].pairs.find(q => q.a === 'moi'); localStorage.setItem('coupe-resultat', JSON.stringify({ id: p.id, score: [5, 1], tab: null, winner: 0, scorers: [{ team: 0, name: 'Buteur Test', og: false, min: "12'" }, { team: 0, name: 'Buteur Test', og: false, min: "30'" }, { team: 0, name: 'Buteur Test', og: false, min: "44'" }, { team: 0, name: 'Buteur Test', og: false, min: "61'" }, { team: 0, name: 'Buteur Test', og: false, min: "80'" }, { team: 1, name: 'Autre', og: false, min: "50'" }] })); });
   await page.reload(); await page.waitForTimeout(500);
   check(/Qualifié/.test(await page.textContent('#myBox')), 'victoire lue au retour : « Qualifié pour le tour suivant »');
   check(/Buteur Test/.test(await page.textContent('#scorers')), 'vos buteurs comptent dans le classement');

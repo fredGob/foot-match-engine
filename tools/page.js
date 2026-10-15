@@ -127,7 +127,7 @@ const pick = async (team, key, v) => {
   check($('skip').checked, 'la lecture accélérée des arrêts de jeu est cochée par défaut');
   $('pitch').onclick({ clientX: 570, clientY: 375 }); for (let x = 200; x < 1000 && /Cliquez/.test($('player').textContent); x += 40) for (let y = 150; y < 650 && /Cliquez/.test($('player').textContent); y += 40) { $('pitch').onclick({ clientX: x, clientY: y }); await wait(30); }
   await wait(300);
-  check(/Prise de balle\s*14/.test($('player').textContent.replace(/\s+/g, ' ')), 'la fiche du joueur affiche « Prise de balle »', ($('player').textContent.match(/Prise de balle\s*\d+/) || [''])[0]);
+  check(/Prise de balle\s*70/.test($('player').textContent.replace(/\s+/g, ' ')), 'la fiche du joueur affiche « Prise de balle »', ($('player').textContent.match(/Prise de balle\s*\d+/) || [''])[0]);
 
   console.log('Série de matchs');
   $('nSeries').value = '8'; $('runSeries').click();
