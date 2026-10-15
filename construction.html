@@ -283,6 +283,7 @@ const UI = { poste: 'tous', sort: 'note', afford: false, sel: null, look: null }
 const $ = id => document.getElementById(id);
 const fmt = (x, d) => x.toFixed(d == null ? 1 : d).replace('.', ',');
 const euros = x => fmt(x) + ' M€';
+const fmtN = x => String(Math.round(x));      // notes sur 100 : sans décimale
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const nomCourt = j => { const w = j.nom.split(' '); return w.length > 1 ? w[0][0] + '. ' + w.slice(1).join(' ') : j.nom; };      // « C. Tanguy »
 const depense = () => S.squad.reduce((s, id) => s + byId[id].prix, 0);
@@ -332,16 +333,16 @@ function drawBuy() {
   const full = S.squad.length >= TAILLE;
   $('base').innerHTML = '<tr><th>Poste</th><th>Nom</th><th class="num hide-s">Âge</th><th class="num">Note</th><th class="num">Prix</th><th></th></tr>' + L.map(j => {
     const mine = S.squad.includes(j.id), cant = !mine && (j.prix > r || full);
-    return '<tr class="p' + (mine ? ' mine' : '') + (cant ? ' cant' : '') + '" data-id="' + j.id + '"><td>' + tag(j.poste) + '</td><td>' + esc(j.nom) + '</td><td class="num hide-s">' + (j.age || '') + '</td><td class="num note">' + fmt(j.note) +
+    return '<tr class="p' + (mine ? ' mine' : '') + (cant ? ' cant' : '') + '" data-id="' + j.id + '"><td>' + tag(j.poste) + '</td><td>' + esc(j.nom) + '</td><td class="num hide-s">' + (j.age || '') + '</td><td class="num note">' + fmtN(j.note) +
       '</td><td class="num">' + euros(j.prix) + '</td><td class="act">' + (mine ? '<button data-sell="' + j.id + '">Vendre</button>' : '<button data-buy="' + j.id + '"' + (cant ? ' disabled title="' + (full ? 'Effectif complet' : 'Pas assez d\'argent') + '"' : '') + '>Acheter</button>') + '</td></tr>';
   }).join('') + (L.length ? '' : '<tr><td colspan="6" class="muted">Aucun joueur.</td></tr>');
   // effectif
   let h = '';
   for (const [l, nom, min] of LIGNES) {
     const mine = S.squad.map(id => byId[id]).filter(j => LIGNE[j.poste] === l).sort((a, b) => ORDRE.indexOf(a.poste) - ORDRE.indexOf(b.poste) || b.note - a.note);
-    h += '<div class="line">' + nom + ' : ' + mine.length + ' (minimum ' + min + ')</div><table>' + (mine.length ? mine.map(j => '<tr class="p" data-id="' + j.id + '"><td>' + tag(j.poste) + '</td><td>' + esc(j.nom) + '</td><td class="num note">' + fmt(j.note) + '</td><td class="num">' + euros(j.prix) + '</td><td class="act"><button data-sell="' + j.id + '" title="Vendre">✕</button></td></tr>').join('') : '<tr><td class="empty">Personne</td></tr>') + '</table>';
+    h += '<div class="line">' + nom + ' : ' + mine.length + ' (minimum ' + min + ')</div><table>' + (mine.length ? mine.map(j => '<tr class="p" data-id="' + j.id + '"><td>' + tag(j.poste) + '</td><td>' + esc(j.nom) + '</td><td class="num note">' + fmtN(j.note) + '</td><td class="num">' + euros(j.prix) + '</td><td class="act"><button data-sell="' + j.id + '" title="Vendre">✕</button></td></tr>').join('') : '<tr><td class="empty">Personne</td></tr>') + '</table>';
   }
-  if (S.squad.length) h += '<p class="small muted">Note globale moyenne : ' + fmt(S.squad.reduce((s, id) => s + byId[id].note, 0) / S.squad.length) + ' · dépensé ' + euros(depense()) + '</p>';
+  if (S.squad.length) h += '<p class="small muted">Note globale moyenne : ' + fmtN(S.squad.reduce((s, id) => s + byId[id].note, 0) / S.squad.length) + ' · dépensé ' + euros(depense()) + '</p>';
   $('squad').innerHTML = h;
 }
 function buy(id) { const j = byId[id]; if (!j || S.squad.includes(id) || S.squad.length >= TAILLE || j.prix > reste() + 1e-9) return; S.squad.push(id); refresh(); }
@@ -356,7 +357,7 @@ function openSheet(id) {
   const canBuy = !mine && S.squad.length < TAILLE && j.prix <= reste() + 1e-9;
   $('sheetCard').innerHTML = '<div class="row" style="justify-content:space-between"><div class="who">' + esc(j.nom) + '</div><button id="closeSheet" title="Fermer">✕</button></div>' +
     '<div class="muted">' + POSTES[j.poste] + (j.age ? ' · ' + j.age + ' ans' : '') + '</div>' +
-    '<div class="row" style="margin-top:6px"><span>Note globale <b class="note">' + fmt(j.note) + '</b></span><span>Prix <b>' + euros(j.prix) + '</b></span></div>' +
+    '<div class="row" style="margin-top:6px"><span>Note globale <b class="note">' + fmtN(j.note) + '</b></span><span>Prix <b>' + euros(j.prix) + '</b></span></div>' +
     '<div class="attrs">' + attrs + '</div>' +
     '<div class="small muted">En jaune : les notes importantes pour le poste (elles comptent trois fois dans la note globale).</div>' +
     '<div class="row" style="margin-top:10px">' + (mine ? '<button data-sell="' + id + '">Vendre (' + euros(j.prix) + ')</button>' : '<button class="main" data-buy="' + id + '"' + (canBuy ? '' : ' disabled') + '>Acheter (' + euros(j.prix) + ')</button>' + (canBuy ? '' : ' <span class="small muted">' + (S.squad.length >= TAILLE ? 'Effectif complet.' : 'Pas assez d\'argent.') + '</span>')) + '</div>';
@@ -383,9 +384,9 @@ $('back').onclick = () => show(S.club ? 'vClubs' : 'vBuy');
 const moyenne = L => L.reduce((s, j) => s + j.note, 0) / L.length;
 function drawClubs() {
   $('clubs').innerHTML = CLUBS.map(C => {
-    const best = C.titulaires.slice().sort((a, b) => b.note - a.note).slice(0, 3).map(j => esc(j.nom) + ' ' + fmt(j.note)).join(' · ');
+    const best = C.titulaires.slice().sort((a, b) => b.note - a.note).slice(0, 3).map(j => esc(j.nom) + ' ' + fmtN(j.note)).join(' · ');
     return '<button class="club" data-club="' + esc(C.id) + '" title="' + esc(C.description || '') + '"><div class="top"><span class="rk">' + (C.classement ? C.classement + (C.classement === 1 ? 'er' : 'e') : 'promu') + '</span><b>' + esc(C.nom) +
-      '</b><span class="avg">' + fmt(moyenne(C.titulaires)) + '</span></div><div class="stars">' + best + '</div><div class="stars">' + (C.titulaires.length + C.remplacants.length) + ' joueurs dont ' + C.remplacants.length + ' remplaçants</div></button>';
+      '</b><span class="avg">' + fmtN(moyenne(C.titulaires)) + '</span></div><div class="stars">' + best + '</div><div class="stars">' + (C.titulaires.length + C.remplacants.length) + ' joueurs dont ' + C.remplacants.length + ' remplaçants</div></button>';
   }).join('');
 }
 // choisir un club : ses onze titulaires à leur place, dans le système habituel du club (rang n de l'effectif = place n de la formation), les remplaçants sur le banc
@@ -439,8 +440,8 @@ function pitchSvg() {
 const placeXY = pl => ({ left: (37 + pl.x) / 74 * 100, top: (L0 - (pl.role === 'GK' ? 7 : 20 + 1.3 * pl.d)) / 74 * 100 });
 function token(id, pl) {
   const j = byId[id], off = pl && !accepte(pl).includes(j.poste);
-  const sub = pl ? (off ? 'hors poste' : fmt(j.note)) : fmt(j.note);
-  return '<div class="tok' + (off ? ' off' : '') + (UI.sel === id ? ' sel' : '') + (UI.look === id ? ' look' : '') + '" data-tok="' + id + '" title="' + esc(j.nom) + ' — ' + POSTES[j.poste] + ', note ' + fmt(j.note) + (pl ? ' — place : ' + esc(pl.label) + (off ? ' (hors poste)' : '') : '') + '">' +
+  const sub = pl ? (off ? 'hors poste' : fmtN(j.note)) : fmtN(j.note);
+  return '<div class="tok' + (off ? ' off' : '') + (UI.sel === id ? ' sel' : '') + (UI.look === id ? ' look' : '') + '" data-tok="' + id + '" title="' + esc(j.nom) + ' — ' + POSTES[j.poste] + ', note ' + fmtN(j.note) + (pl ? ' — place : ' + esc(pl.label) + (off ? ' (hors poste)' : '') : '') + '">' +
     '<div class="ball">' + j.poste + (off ? '<i>!</i>' : '') + '</div><div class="nm">' + esc(nomCourt(j)) + '</div><div class="sub">' + sub + '</div></div>';
 }
 function drawTac() {
@@ -452,9 +453,9 @@ function drawTac() {
   $('bench').innerHTML = S.bench.map((id, k) => '<div class="drop" data-drop="b' + k + '">' + token(id, null) + '</div>').join('');
   // composition, place par place
   const offs = [];
-  $('compo').innerHTML = pls.map((pl, i) => { const j = byId[S.lineup[i]], off = !accepte(pl).includes(j.poste); if (off) offs.push(j); return '<tr data-look="' + j.id + '"><td>' + esc(pl.label) + '</td><td>' + esc(j.nom) + '</td><td>' + tag(j.poste) + '</td><td class="' + (off ? 'offp' : 'muted') + '">' + (off ? 'hors poste' : fmt(j.note)) + '</td></tr>'; }).join('');
+  $('compo').innerHTML = pls.map((pl, i) => { const j = byId[S.lineup[i]], off = !accepte(pl).includes(j.poste); if (off) offs.push(j); return '<tr data-look="' + j.id + '"><td>' + esc(pl.label) + '</td><td>' + esc(j.nom) + '</td><td>' + tag(j.poste) + '</td><td class="' + (off ? 'offp' : 'muted') + '">' + (off ? 'hors poste' : fmtN(j.note)) + '</td></tr>'; }).join('');
   const moy = S.lineup.reduce((s, id) => s + byId[id].note, 0) / 11;
-  $('teamInfo').textContent = 'Titulaires : note globale moyenne ' + fmt(moy) + ' · ' + (offs.length ? offs.length + ' joueur' + (offs.length > 1 ? 's' : '') + ' hors poste' : 'tout le monde à son poste') + ' · ' +
+  $('teamInfo').textContent = 'Titulaires : note globale moyenne ' + fmtN(moy) + ' · ' + (offs.length ? offs.length + ' joueur' + (offs.length > 1 ? 's' : '') + ' hors poste' : 'tout le monde à son poste') + ' · ' +
     (S.club ? 'effectif du club : ' + S.squad.length + ' joueurs (pas de budget)' : 'effectif ' + euros(depense()) + ' sur ' + D.budget + ' M€');
   // consignes
   const preset = D.presets.find(p => D.tactics.every(c => p.t[c.key] === S.tac[c.key]));
@@ -475,7 +476,7 @@ function drawLook() {
   $('look').className = '';
   $('look').innerHTML = '<div class="who">' + esc(j.nom) + '</div>' +
     '<div class="small muted">' + POSTES[j.poste] + (j.age ? ' · ' + j.age + ' ans' : '') + ' · ' + (pl ? 'place : ' + esc(pl.label) + (off ? ' <b style="color:var(--warn)">(hors poste)</b>' : '') : 'remplaçant') + '</div>' +
-    '<div class="row small" style="margin-top:4px"><span>Note globale <b class="note">' + fmt(j.note) + '</b></span>' + (S.club ? '' : '<span>Prix <b>' + euros(j.prix) + '</b></span>') + '</div>' +
+    '<div class="row small" style="margin-top:4px"><span>Note globale <b class="note">' + fmtN(j.note) + '</b></span>' + (S.club ? '' : '<span>Prix <b>' + euros(j.prix) + '</b></span>') + '</div>' +
     '<div class="attrs">' + attrsOf(j) + '</div>' +
     '<div class="row" style="margin:2px 0 8px">' + (UI.sel === id ? '<span class="small" style="color:var(--accent)">Touchez le joueur à échanger avec lui.</span> <button id="swapCancel">Annuler</button>' : '<button id="swapBtn">Échanger ce joueur</button>') + '</div>' +
     '<div class="small muted">En jaune : les notes importantes pour son poste naturel.' + (j.source === 'supposé' ? ' Notes estimées.' : '') + '</div>';

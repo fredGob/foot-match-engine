@@ -58,7 +58,7 @@ function fabrique(seed) {
     for (const [k, v] of Object.entries(j.notes)) {
       if (champ && (k === 'reflexes' || k === 'mains')) { notes[k] = v; continue; }
       const d = Math.floor(dec) + (rng() < dec - Math.floor(dec) ? 1 : 0) + (rng() < 1 / 3 ? -1 : rng() < 0.5 ? 1 : 0);
-      notes[k] = Math.max(1, Math.min(20, v + d));
+      notes[k] = Math.max(1, Math.min(100, v + 5 * d));      // décalage compté en points sur 20, notes écrites sur 100
     }
     return notes;
   };
@@ -74,11 +74,11 @@ function fabrique(seed) {
 
 // ---------- écriture : une ligne par joueur, comme equipes.json ----------
 const line = j => '{ ' + (j.poste ? '"poste": ' + (JSON.stringify(j.poste) + ',').padEnd(6) + ' ' : '') + '"numero": ' + String(j.numero).padStart(2) + ', "nom": ' + (JSON.stringify(j.nom) + ',').padEnd(16) +
-  (j.poste_naturel ? ' "poste_naturel": ' + JSON.stringify(j.poste_naturel) + ',' : '') + ' "notes": { ' + Object.entries(j.notes).map(([k, v]) => JSON.stringify(k) + ': ' + String(v).padStart(2)).join(', ') + ' } }';
+  (j.poste_naturel ? ' "poste_naturel": ' + JSON.stringify(j.poste_naturel) + ',' : '') + ' "notes": { ' + Object.entries(j.notes).map(([k, v]) => JSON.stringify(k) + ': ' + String(v).padStart(3)).join(', ') + ' } }';
 function texte(clubs) {
   const aide = [
     "Clubs inventés de la Coupe en carton : à chaque coupe, 14 d'entre eux sont tirés au sort pour compléter les 18 clubs de Ligue 1 de equipes.json (32 équipes). Fabriqués par « node tools/petits.js reecrire », puis modifiables à la main.",
-    "Mêmes postes et mêmes notes que equipes.json (de 1 à 20). « division » ne sert qu'à l'affichage ; « formation » et « consignes » : le système et le style de l'entraîneur.",
+    "Mêmes postes et mêmes notes que equipes.json (de 1 à 100). « division » ne sert qu'à l'affichage ; « formation » et « consignes » : le système et le style de l'entraîneur.",
     "Après une modification : node build.js pour que coupe.html et match.html prennent les nouvelles notes.",
   ];
   return '{\n  "aide": ' + JSON.stringify(aide, null, 4).replace(/\n/g, '\n  ') + ',\n  "equipes": [\n' + clubs.map(T => '    {\n      "id": ' + JSON.stringify(T.id) + ', "nom": ' + JSON.stringify(T.nom) + ', "court": ' + JSON.stringify(T.court) +

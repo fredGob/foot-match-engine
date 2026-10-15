@@ -1,8 +1,8 @@
-// Ce que vaut une note : on impose la même valeur à tous les joueurs de champ des Bleus (équipe standard, tout le reste à 14),
+// Ce que vaut une note : on impose la même valeur à tous les joueurs de champ des Bleus (équipe standard, tout le reste à 70 sur 100),
 // contre des Rouges standard, et on compare.
-// Usage : node tools/note.js sang_froid 8,14,18 24      (note, valeurs essayées, matchs de 90 minutes par valeur)
+// Usage : node tools/note.js sang_froid 40,70,90 24      (note, valeurs essayées, matchs de 90 minutes par valeur)
 const E = require('../engine.js');
-const key = process.argv[2] || 'sang_froid', vals = (process.argv[3] || '8,14,18').split(',').map(Number), n = +process.argv[4] || 24;
+const key = process.argv[2] || 'sang_froid', vals = (process.argv[3] || '40,70,90').split(',').map(Number), n = +process.argv[4] || 24;
 const Q = E.QUALITIES.find(q => q[1] === key); if (!Q) { console.error('note inconnue : ' + key + ' (notes : ' + E.QUALITIES.map(q => q[1]).join(', ') + ')'); process.exit(1); }
 console.log(Q[2] + ' des joueurs de champ bleus imposée ; ' + n + ' matchs de 90 minutes par valeur, contre des Rouges standard.\n');
 const cols = ['Note', 'Buts B', 'Occ. B', 'Tirs B', 'Près: buts/tir', 'Face-à-face', 'Passes B', 'Pressé: passes ok', 'Hors-jeu B', 'Buts R', 'Occ. R', 'Tirs R', 'Profondeur R'];
@@ -11,7 +11,7 @@ for (const v of vals) {
   const s = { gB: 0, xB: 0, tB: 0, near: 0, nearG: 0, face: 0, faceG: 0, pa: 0, pok: 0, prA: 0, prOk: 0, off: 0, gR: 0, xR: 0, tR: 0, deep: 0 };
   for (let i = 0; i < n; i++) {
     const m = E.createMatch({ seed: 1000 + i, duration: 5400 });
-    for (const p of m.teams[0].players) if (p.role !== 'GK') p.a[Q[0]] = v / 20;
+    for (const p of m.teams[0].players) if (p.role !== 'GK') p.a[Q[0]] = v / 100;
     let shot = null, sc = 0, pass = null;
     while (m.mode !== 'over') {
       E.step(m);

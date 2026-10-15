@@ -24,13 +24,13 @@
 // 1. Des six valeurs du profil aux vingt notes, sur l'échelle 1 à 99 : formules de DETAIL ci-dessous
 //    (vitesse ← vitesse, passe ← passe, tacle ← défense, finition et frappe de loin ← tir, jeu de tête ← physique et défense ou tir, etc., avec un petit
 //    ajustement selon le poste : un milieu axial a plus d'endurance qu'un avant-centre, un défenseur central moins de vision).
-// 2. De l'échelle 1 à 99 à nos notes sur 20, une seule formule pour tous : note = (valeur + DECALAGE) / PENTE, arrondie, entre 1 et 20.
+// 2. De l'échelle 1 à 99 à nos notes, une seule formule pour tous : note = (valeur + DECALAGE) / PENTE, arrondie entre 1 et 20, puis écrite sur 100 (× 5).
 //    Elle est réglée pour que le PSG soit un peu au-dessus de l'équipe Élite et le dixième (Lorient) au niveau de l'équipe Moyen.
-//    Un joueur de champ a 5 en réflexes et en jeu de mains.
+//    Un joueur de champ a 25 (sur 100) en réflexes et en jeu de mains.
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..'), FILE = path.join(ROOT, 'equipes.json');
 const PENTE = 6, DECALAGE = 3;
-const note = v => Math.max(1, Math.min(20, Math.round((v + DECALAGE) / PENTE)));
+const note = v => 5 * Math.max(1, Math.min(20, Math.round((v + DECALAGE) / PENTE)));      // calcul sur 20, écrit sur 100
 
 // Valeurs du profil estimées d'après la note générale, quand on ne les a pas trouvées (écart à la note générale, selon le poste du jeu).
 // Joueur de champ : vitesse, tir, passe, dribble, défense, physique. Gardien : plongeon, mains, jeu au pied, réflexes, vitesse, placement.
@@ -225,7 +225,7 @@ function notesOf(pos, O, profil) {
   const g = GABARIT[pos]; if (!g) throw new Error('poste du jeu inconnu : ' + pos);
   const c = g.map((d, i) => profil && profil[i] != null ? profil[i] : O + d);
   const x = DETAIL(pos, O, c), out = {};
-  for (const k of KEYS) out[k] = x[k] == null ? 5 : note(x[k]);
+  for (const k of KEYS) out[k] = x[k] == null ? 25 : note(x[k]);
   return out;
 }
 function build() {
@@ -245,7 +245,7 @@ function build() {
 const pad = (s, w) => (s + ' '.repeat(w)).slice(0, Math.max(w, s.length));
 function playerLine(j) {
   const head = j.poste ? '"poste": ' + pad(JSON.stringify(j.poste) + ',', 6) + ' ' : '';
-  const notes = KEYS.map(k => JSON.stringify(k) + ': ' + String(j.notes[k]).padStart(2)).join(', ');
+  const notes = KEYS.map(k => JSON.stringify(k) + ': ' + String(j.notes[k]).padStart(3)).join(', ');
   return '{ ' + head + '"numero": ' + String(j.numero).padStart(2) + ', "nom": ' + pad(JSON.stringify(j.nom) + ',', 18) + ' "poste_naturel": ' + pad(JSON.stringify(j.poste_naturel) + ',', 5) +
     ' "source": ' + pad(JSON.stringify(j.source) + ',', 15) + ' "notes": { ' + notes + ' } }';
 }

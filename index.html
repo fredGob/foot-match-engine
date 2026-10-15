@@ -176,7 +176,7 @@
   g += '</svg>';
   $('mine').innerHTML = '<div>' + g + '</div><div>'
     + '<div class="who">' + esc(A.nom) + '</div><div class="sub">' + (A.club ? 'Effectif de ' + esc(A.club) : 'Équipe construite avec le budget') + '</div>'
-    + '<div class="facts"><div class="fact"><small>Formation</small><b>' + esc(A.formation) + '</b></div><div class="fact"><small>Note moyenne</small><b>' + fmt(A.moyenne) + '</b></div><div class="fact"><small>Remplaçants</small><b>' + A.remplacants + '</b></div><div class="fact"><small>Adversaire</small><b>' + esc(A.adversaire) + '</b></div></div>'
+    + '<div class="facts"><div class="fact"><small>Formation</small><b>' + esc(A.formation) + '</b></div><div class="fact"><small>Note moyenne</small><b>' + Math.round(A.moyenne <= 20 ? A.moyenne * 5 : A.moyenne) + '</b></div><div class="fact"><small>Remplaçants</small><b>' + A.remplacants + '</b></div><div class="fact"><small>Adversaire</small><b>' + esc(A.adversaire) + '</b></div></div>'
     + '<ul class="xi">' + A.titulaires.map(t => '<li><span>' + esc(t.place) + '</span><b>' + esc(t.nom) + '</b>' + (t.hors ? '<span class="off">hors poste</span>' : '<span>' + fmt(t.note) + '</span>') + '</li>').join('') + '</ul>'
     + '<div class="btns"><a class="btn main" id="playMine" href="' + esc(A.lien) + '">Jouer le match →</a><a class="btn" id="editMine" href="equipe.html#reprendre">Modifier la tactique</a></div></div>';
 })();

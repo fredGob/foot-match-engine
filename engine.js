@@ -243,7 +243,7 @@ const QUALITIES = [['pace', 'vitesse', 'Vitesse'], ['accel', 'acceleration', 'Ac
   ['flair', 'gout_du_risque', 'Goût du risque'], ['heading', 'jeu_de_tete', 'Jeu de tête'], ['offBall', 'appels', 'Appels de balle'], ['reflexes', 'reflexes', 'Réflexes'], ['handling', 'mains', 'Jeu de mains']];
 // Les 11 places du 4-4-2, telles qu'on les écrit dans le fichier des équipes.
 const PLACES = { G: 'GK', AG: 'LB', DCG: 'LCB', DCD: 'RCB', AD: 'RB', MG: 'LM', MCG: 'LCM', MCD: 'RCM', MD: 'RM', ATG: 'LF', ATD: 'RF' };
-// Lit une équipe du fichier des équipes (notes sur 20) et la range dans l'ordre des places. Dit clairement ce qui cloche si le fichier est mal rempli.
+// Lit une équipe du fichier des équipes (notes sur 100) et la range dans l'ordre des places. Dit clairement ce qui cloche si le fichier est mal rempli.
 function readTeam(def) {
   const who = 'équipe « ' + (def && (def.nom || def.id) || '?') + ' »';
   if (!def || !Array.isArray(def.joueurs) || def.joueurs.length !== 11) throw new Error(who + ' : il faut exactement 11 joueurs');
@@ -260,8 +260,8 @@ function readNotes(who, notes) {
   const a = {}; notes = notes || {};
   for (const q of QUALITIES) {
     const v = notes[q[1]] == null && q[1] === 'frappe_de_loin' ? notes.finition : notes[q[1]];      // ancien fichier sans « frappe de loin » : on prend la finition
-    if (typeof v !== 'number' || !(v >= 1 && v <= 20)) throw new Error(who + ' : la note « ' + q[1] + ' » doit être un nombre de 1 à 20');
-    a[q[0]] = v / 20;
+    if (typeof v !== 'number' || !(v >= 1 && v <= 100)) throw new Error(who + ' : la note « ' + q[1] + ' » doit être un nombre de 1 à 100');
+    a[q[0]] = v / 100;
   }
   for (const k in notes) if (!QUALITIES.some(q => q[1] === k)) throw new Error(who + ' : note inconnue « ' + k + ' »');
   return a;

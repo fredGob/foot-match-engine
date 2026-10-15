@@ -28,7 +28,7 @@ console.log('match.html écrit (' + Math.round(html.length / 1024) + ' ko, ' + t
     const who = 'joueurs.json, ' + (j.nom || j.id || '?');
     if (!J.CLES[j.poste]) throw new Error(who + ' : poste inconnu « ' + j.poste + ' » (postes : ' + Object.keys(J.CLES).join(', ') + ')');
     if (!j.id || vus.has(j.id)) throw new Error(who + ' : identifiant manquant ou en double « ' + j.id + ' »'); vus.add(j.id);
-    for (const k of noms) if (typeof (j.notes || {})[k] !== 'number' || !(j.notes[k] >= 1 && j.notes[k] <= 20)) throw new Error(who + ' : la note « ' + k + ' » doit être un nombre de 1 à 20');
+    for (const k of noms) if (typeof (j.notes || {})[k] !== 'number' || !(j.notes[k] >= 1 && j.notes[k] <= 100)) throw new Error(who + ' : la note « ' + k + ' » doit être un nombre de 1 à 100');
     for (const k in j.notes) if (!noms.includes(k)) throw new Error(who + ' : note inconnue « ' + k + ' »');
     j.note = J.noteGlobale(j); j.prix = J.prix(j.note);
   }

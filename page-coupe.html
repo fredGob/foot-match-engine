@@ -183,8 +183,8 @@
   }
   function drawStart() {
     const M = mine(), opts = [];
-    if (M && M.fromClub) opts.push({ key: 'moi', T: M, sub: (M.fromClub ? 'Votre ' + ALL[M.fromClub].nom + ', placé par vous' : 'Votre équipe construite') + ' · note ' + avg(M).toFixed(1).replace('.', ','), cls: 'mine' });
-    for (const C of D.clubs.slice().sort((a, b) => a.nom.localeCompare(b.nom))) opts.push({ key: C.id, T: C, sub: 'Ligue 1 · note ' + avg(C).toFixed(1).replace('.', ',') });
+    if (M && M.fromClub) opts.push({ key: 'moi', T: M, sub: (M.fromClub ? 'Votre ' + ALL[M.fromClub].nom + ', placé par vous' : 'Votre équipe construite') + ' · note ' + Math.round(avg(M)), cls: 'mine' });
+    for (const C of D.clubs.slice().sort((a, b) => a.nom.localeCompare(b.nom))) opts.push({ key: C.id, T: C, sub: 'Ligue 1 · note ' + Math.round(avg(C)) });
     $('noMine').hidden = true;      // construction d'équipe mise au carton (n° 111) : seul un club placé dans la page équipe est proposé
     $('teamPick').innerHTML = opts.map(o => '<button class="pick ' + (o.cls || '') + (pickTeam === o.key ? ' on' : '') + '" data-k="' + esc(o.key) + '"><b>' + esc(o.T.nom) + '</b><small>' + esc(o.sub) + '</small></button>').join('');
     $('teamPick').querySelectorAll('[data-k]').forEach(b => b.onclick = () => { pickTeam = b.dataset.k; drawStart(); });
@@ -297,9 +297,9 @@
   }
 
   // ---------- votre match ----------
-  function hard(T) {      // difficulté : un point de plus ou de moins sur toutes les notes de vos adversaires (réflexes et mains d'un joueur de champ exceptés)
+  function hard(T) {      // difficulté : cinq points (sur 100) de plus ou de moins sur toutes les notes de vos adversaires (réflexes et mains d'un joueur de champ exceptés)
     const d = DIFF[G.diff].d; if (!d) return T;
-    const C = JSON.parse(JSON.stringify(T)), shift = (j, gk) => { for (const k of Object.keys(j.notes)) { if (!gk && (k === 'reflexes' || k === 'mains')) continue; j.notes[k] = Math.max(1, Math.min(20, j.notes[k] + d)); } };
+    const C = JSON.parse(JSON.stringify(T)), shift = (j, gk) => { for (const k of Object.keys(j.notes)) { if (!gk && (k === 'reflexes' || k === 'mains')) continue; j.notes[k] = Math.max(1, Math.min(100, j.notes[k] + 5 * d)); } };
     for (const j of C.joueurs) shift(j, j.poste === 'G'); for (const j of C.remplacants || []) shift(j, j.poste_naturel === 'G');
     return C;
   }
@@ -349,7 +349,7 @@
       const B = teamOf(p.b), r = p.res;
       h += '<div class="match"><div class="side">' + esc(G.me.nom) + '<small>' + (G.me.club ? 'Ligue 1' : 'votre équipe') + '</small></div>'
         + '<div class="vs">' + (r ? r.score[0] + ' – ' + r.score[1] + (r.tab ? '<small>tirs au but ' + r.tab[0] + '–' + r.tab[1] + '</small>' : r.forfait ? '<small>forfait</small>' : '') : 'contre<small>' + esc(R.name) + '</small>') + '</div>'
-        + '<div class="side r">' + esc(B.nom) + '<small>' + esc(divOf(B)) + ' · note ' + avg(hard(B)).toFixed(1).replace('.', ',') + '</small></div></div>';
+        + '<div class="side r">' + esc(B.nom) + '<small>' + esc(divOf(B)) + ' · note ' + Math.round(avg(hard(B))) + '</small></div></div>';
       if (!r) h += '<div class="go"><a class="btn main" href="' + matchLink(p) + '">Jouer le match →</a><span class="muted small">Mode Coach It, 90 minutes. En cas d\'égalité : tirs au but. Une fois le coup d\'envoi donné, quitter le match = défaite par forfait.</span></div>';
       else if (G.champion) h += '<div class="verdict champ">🏆 Vous remportez la Coupe en carton !</div><div class="go"><button class="btn main" id="toEnd">Voir mon parcours en image →</button></div>';
       else if (r.winner === 0) h += '<div class="verdict win">Qualifié pour le tour suivant !</div>';

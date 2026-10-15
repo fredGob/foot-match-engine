@@ -38,11 +38,11 @@ function noteGlobale(j) {
     if (j.poste === 'G' && INUTILES_G.includes(k)) p = 0;
     s += p * v; w += p;
   }
-  return Math.round(10 * s / w) / 10;
+  return Math.round(2 * s / w) / 2;      // sur 100, au demi-point
 }
-// Prix en millions d'euros : 0,4 M€ à 8 de note globale, et 40 % de plus par point (convexe : une vedette coûte très cher).
-// 10 → 0,8 M€ · 12 → 1,5 · 14 → 3,0 · 16 → 5,9 · 18 → 11,6
-function prix(note) { return Math.max(0.2, Math.round(10 * 0.4 * Math.pow(1.4, note - 8)) / 10); }
+// Prix en millions d'euros : 0,4 M€ à 40 de note globale (sur 100), et 40 % de plus tous les 5 points (convexe : une vedette coûte très cher).
+// 50 → 0,8 M€ · 60 → 1,5 · 70 → 3,0 · 80 → 5,9 · 90 → 11,6
+function prix(note) { return Math.max(0.2, Math.round(10 * 0.4 * Math.pow(1.4, note / 5 - 8)) / 10); }      // note globale sur 100
 
 // ---------- fabrication ----------
 function makeRng(seed) {
@@ -57,7 +57,7 @@ function fabrique(seed) {
   const pick = a => a[Math.floor(rng() * a.length)];
   // profils de poste : écart de chaque note au niveau (17) dans l'équipe Élite
   const elite = equipes.find(T => T.id === 'elite');
-  const profil = code => { const j = elite.joueurs.find(x => x.poste === code); const o = {}; for (const k of NOMS_NOTES) o[k] = j.notes[k] - 17; return o; };
+  const profil = code => { const j = elite.joueurs.find(x => x.poste === code); const o = {}; for (const k of NOMS_NOTES) o[k] = j.notes[k] / 5 - 17; return o; };      // calcul sur 20, écrit sur 100
   const PROFILS = { G: [profil('G')], AG: [profil('AG')], AD: [profil('AD')], DC: [profil('DCG'), profil('DCD')], MG: [profil('MG')], MD: [profil('MD')],
     MC: [profil('MCG'), profil('MCD')], AT: [profil('ATG'), profil('ATD')] };      // MC : récupérateur ou organisateur ; AT : mobile ou avant-centre
   const COMBIEN = { G: 12, AG: 11, DC: 22, AD: 11, MG: 12, MC: 24, MD: 12, AT: 16 };      // 120 joueurs
@@ -84,9 +84,9 @@ function fabrique(seed) {
       const fort = pick(NOMS_NOTES.filter(k => k !== 'reflexes' && k !== 'mains')), faible = pick(NOMS_NOTES.filter(k => k !== 'reflexes' && k !== 'mains' && k !== fort));
       const notes = {};
       for (const k of NOMS_NOTES) {
-        if (code !== 'G' && (k === 'reflexes' || k === 'mains')) { notes[k] = 5; continue; }
+        if (code !== 'G' && (k === 'reflexes' || k === 'mains')) { notes[k] = 25; continue; }
         let v = L + pr[k] + Math.round(gauss() * 0.7) + (k === fort ? 2 : 0) - (k === faible ? 2 : 0);
-        notes[k] = Math.min(20, Math.max(1, Math.round(v)));
+        notes[k] = 5 * Math.min(20, Math.max(1, Math.round(v)));
       }
       let nom; do nom = pick(PRENOMS) + ' ' + pick(NOMS); while (vus.has(nom)); vus.add(nom);
       joueurs.push({ poste: code, nom, age: 18 + Math.floor(rng() * 17), notes });
@@ -132,7 +132,7 @@ function budget(joueurs, afficher) {
     console.log('Moins cher : ' + tri[0].j.nom + ' (' + tri[0].j.poste + ', ' + f(tri[0].n) + ') ' + f(tri[0].p) + ' M€ ; plus cher : ' + tri[tri.length - 1].j.nom + ' (' + tri[tri.length - 1].j.poste + ', ' + f(tri[tri.length - 1].n) + ') ' + f(tri[tri.length - 1].p) + ' M€');
     const top16 = tri.slice(-16).reduce((s, x) => s + x.p, 0), bas16 = tri.slice(0, 16).reduce((s, x) => s + x.p, 0);
     console.log('Les 16 plus chers : ' + f(top16) + ' M€ ; les 16 moins chers : ' + f(bas16) + ' M€');
-    const hist = {}; for (const x of tri) { const b = Math.floor(x.n); hist[b] = (hist[b] || 0) + 1; }
+    const hist = {}; for (const x of tri) { const b = Math.floor(x.n / 5); hist[b] = (hist[b] || 0) + 1; }
     console.log('Joueurs par note globale : ' + Object.keys(hist).sort((a, b) => a - b).map(k => k + ' : ' + hist[k]).join(' · '));
   }
   return B;
@@ -147,11 +147,11 @@ else if (arg === 'calcul') {
   const seed = arg ? +arg : 2026;
   const joueurs = fabrique(seed), B = budget(joueurs, true);
   const ligne = j => '    { "id": "' + j.id + '", "poste": ' + JSON.stringify(j.poste).padEnd(4) + ', "nom": ' + JSON.stringify(j.nom).padEnd(22) + ', "age": ' + String(j.age).padStart(2) +
-    ', "notes": { ' + NOMS_NOTES.map(k => '"' + k + '": ' + String(j.notes[k]).padStart(2)).join(', ') + ' } }';
+    ', "notes": { ' + NOMS_NOTES.map(k => '"' + k + '": ' + String(j.notes[k]).padStart(3)).join(', ') + ' } }';
   const txt = '{\n  "aide": [\n' + [
     'Base de joueurs à acheter dans la page de construction d\'équipe (equipe.html). Fabriquée par « node tools/joueurs.js » (graine ' + seed + '), puis modifiable à la main : une ligne par joueur.',
     'Postes naturels : G = gardien, AG = arrière gauche, DC = défenseur central, AD = arrière droit, MG = milieu gauche, MC = milieu axial, MD = milieu droit, AT = attaquant.',
-    'Notes de 1 à 20, les mêmes que dans equipes.json. La note globale et le prix ne sont pas écrits ici : la page les calcule à partir des notes.',
+    'Notes de 1 à 100, les mêmes que dans equipes.json. La note globale et le prix ne sont pas écrits ici : la page les calcule à partir des notes.',
     'Budget en millions d\'euros. Après une modification : « node tools/joueurs.js calcul » refait le calcul du budget, « node build.js » refait equipe.html.',
   ].map(s => '    ' + JSON.stringify(s)).join(',\n') + '\n  ],\n  "graine": ' + seed + ',\n  "budget": ' + B + ',\n  "joueurs": [\n' + joueurs.map(ligne).join(',\n') + '\n  ]\n}\n';
   fs.writeFileSync(path.join(ROOT, 'joueurs.json'), txt);
