@@ -136,7 +136,8 @@
   body.phone.pclosed { --pw: 0px; }
   body.phone.pclosed .ppanel { display: none; }
   .pmini { display: none; }
-  body.phone.pclosed .pmini { display: flex; position: absolute; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 5; gap: 6px; }
+  body.phone.pclosed .pmini { display: grid; grid-template-columns: auto auto auto; position: absolute; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 5; gap: 6px; }
+  .pmini #miniStats { grid-row: 1; grid-column: 2; } .pmini #miniPlay { grid-row: 2; grid-column: 1; } .pmini #miniTac { grid-row: 2; grid-column: 2; } .pmini #miniMenu { grid-row: 2; grid-column: 3; }      /* Stats juste au-dessus de Tactique (demande de Frédéric) */
   body.phone .stage.tac ~ .pmini, body.phone .pmini.hide { display: none !important; }
   .pmini button { min-width: 46px; min-height: 42px; padding: 6px 12px; font-size: 16px; background: rgba(17, 21, 26, 0.85); }
   .pmini #miniTac { background: var(--accent); border-color: var(--accent); color: #11151a; font-weight: 700; }
@@ -167,9 +168,23 @@
   body.phone .ppanel #log { font-size: 12px; max-height: none; }
   body.phone .ppanel h3 { margin: 4px 0 0; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
   body.phone .phoneonly { display: inline-block; }
-  body.phone .tacview { position: fixed !important; inset: 0; z-index: 20; border-radius: 0; padding: 8px 10px calc(10px + env(safe-area-inset-bottom)); grid-template-columns: minmax(0, 1fr) 270px !important; }
-  body.phone .tpitch, body.phone .tvbt, body.phone .tbench, body.phone .tacview .hint { max-width: min(470px, calc(100dvh - 70px)); }
+  body.phone .tacview { position: fixed !important; inset: 0; z-index: 20; border-radius: 0; padding: 8px 10px calc(10px + env(safe-area-inset-bottom)); }
   body.phone .tvhead { margin-bottom: 6px; }
+  /* téléphone (remarque de Frédéric) : le terrain à gauche, les remplaçants juste à droite en deux colonnes, tout visible sans défiler pour glisser un joueur vers le banc */
+  body.phone .tacview { grid-template-columns: minmax(0, 1fr) 240px !important; gap: 8px 12px; }
+  body.phone .tvpitch { display: grid; grid-template-columns: auto 128px; grid-template-rows: auto auto minmax(0, 1fr); justify-content: start; gap: 0 8px; min-height: 0; }
+  body.phone .tvhead { grid-column: 1 / -1; flex-wrap: nowrap; gap: 6px; margin-bottom: 6px; }
+  body.phone #tvBack { padding: 4px 8px; font-size: 13px; white-space: nowrap; }
+  body.phone .tvforms { flex-wrap: nowrap; gap: 3px; }
+  body.phone .tvforms button { padding: 3px 5px; font-size: 12px; }
+  body.phone .tpitch { grid-row: 2 / 4; width: min(calc(100dvh - 56px), calc(100vw - 410px)); max-width: none; margin: 0; }
+  body.phone .tvbt { grid-column: 2; margin: 0 0 4px; max-width: none; font-size: 10px; text-align: center; }
+  body.phone .tvbt #tvSubs { display: block; font-size: 10px; text-transform: none; letter-spacing: 0; }
+  body.phone .tbench { grid-column: 2; display: grid; grid-template-columns: 60px 60px; align-content: start; justify-content: center; gap: 4px 2px; max-width: none; max-height: calc(100dvh - 92px); margin: 0; padding: 6px 2px; overflow-y: auto; }
+  body.phone .tbench .tdrop { width: 60px; }
+  body.phone .tbench .ttok .ball { width: 26px; height: 26px; font-size: 11px; }
+  body.phone .tbench .ttok .nm { max-width: 58px; font-size: 10px; }
+  body.phone .tacview .hint { display: none; }
   body.phone #tvBack { font-weight: 600; }
   body.phone #tvChanges { order: -1; }      /* « Valider » en haut, sans avoir à faire défiler */
   @media (orientation: portrait) {
@@ -301,7 +316,7 @@
       <div class="numbers" id="numbers" hidden><div class="sides" id="numSides"></div><table id="stats"></table><table id="statsSeries" hidden></table></div>
     </div>
 
-    <div class="pmini" id="pmini"><button id="miniPlay" aria-label="Lecture">▶</button><button id="miniTac">Tactique</button><button id="miniMenu" aria-label="Ouvrir le menu">☰</button></div>
+    <div class="pmini" id="pmini"><button id="miniStats">Stats</button><button id="miniPlay" aria-label="Lecture">▶</button><button id="miniTac">Tactique</button><button id="miniMenu" aria-label="Ouvrir le menu">☰</button></div>
     <div class="statsnote" id="statsNote" hidden></div>
     <div class="timeline">
       <div class="marks" id="marks"></div>
@@ -746,7 +761,7 @@ function createMatch(opts) {
       tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0, switch: 0 },
       stats: { possT: 0, passes: 0, passesOk: 0, shots: 0, onTarget: 0, goals: 0, xg: 0, tackles: 0, interceptions: 0, blocks: 0, fouls: 0, corners: 0, offsides: 0, saves: 0,
         // mesures du style de jeu : elles servent à voir l'effet des consignes
-        miscontrols: 0, passLen: 0, passLenN: 0, longBalls: 0, through: 0, crosses: 0, ballT: 0, touches: 0, widthSum: 0, widthN: 0, lineSum: 0, lineN: 0, recov: 0, recovHigh: 0, passFollow: 0, passDefy: 0 } };
+        miscontrols: 0, passLen: 0, passLenN: 0, longBalls: 0, through: 0, crosses: 0, ballT: 0, touches: 0, widthSum: 0, widthN: 0, lineSum: 0, lineN: 0, recov: 0, recovHigh: 0, passFollow: 0, passDefy: 0, run: 0 } };
     for (let i = 0; i < 11; i++) { const p = makePlayer(m, T, i, names[t * 11 + i], squads[t] && squads[t][i]); T.players.push(p); m.players.push(p); }
     // effectif : les onze titulaires, puis les remplaçants (équipe standard : cinq remplaçants à 14)
     const bench = squads[t] ? readBench(opts.teams[t]) : ['G', 'DC', 'MC', 'MD', 'AT'].map((nat, k) => { const a = {}; for (const q of QUALITIES) a[q[0]] = LEVEL; return { name: names[22 + t * 5 + k], num: 12 + k, a, nat }; });
@@ -1955,7 +1970,7 @@ function act(m, p) {
   if (!(owner && ns <= 1.4 && !p.plan && !shield)) p.face += clamp(angDiff(fa, p.face), -8 * DT, 8 * DT);
   // fatigue
   const r = ns / p.top; p.stam = Math.max(0.3, p.stam - 0.00075 * r * r * r * (1.3 - 0.5 * p.a.stamina) * (it.type === 'press' ? 4.5 : it.hunt ? 3 : 1) * DT);      // presser et harceler coûtent bien plus cher que courir (accélérations, changements de direction)      // la fraîcheur ne revient pas : un quart perdu en 90 minutes en moyenne, davantage si l'on sprinte beaucoup
-  p.dist += ns * DT;
+  p.dist += ns * DT; m.teams[p.team].stats.run += ns * DT;      // distance de l'équipe, joueurs sortis compris (un remplaçant repart de zéro)
 }
 function separate(m) {
   const ps = m.players;
@@ -2367,7 +2382,8 @@ function add(acc, m) {
   for (let t = 0; t < 2; t++) {
     const S = m.teams[t].stats, A = acc.teams[t];
     for (const k in S) A[k] = (A[k] || 0) + S[k];
-    for (const p of m.teams[t].players) { A.dist += p.dist; if (p.role !== 'GK') A.fresh += p.stam; }
+    A.dist += S.run != null ? S.run : m.teams[t].players.reduce((d, p) => d + p.dist, 0);      // toute l'équipe, joueurs sortis compris
+    for (const p of m.teams[t].players) if (p.role !== 'GK') A.fresh += p.stam;
   }
   const a = m.teams[0].score, b = m.teams[1].score;
   if (a > b) acc.teams[0].wins++; else if (b > a) acc.teams[1].wins++; else acc.draws++;
@@ -2538,7 +2554,7 @@ return { create, add, rows, rowsOf, highlights };
     }
     r.B[f * 4] = b.x; r.B[f * 4 + 1] = b.y; r.B[f * 4 + 2] = b.z; r.B[f * 4 + 3] = b.owner ? b.owner.id : -1;
     r.D[f] = m.mode === 'dead' ? 1 : 0;                      // arrêt de jeu : la lecture pourra l'accélérer
-    if (f % 10 === 0) r.stats[f / 10] = m.teams.map(T => { const s = Object.assign({ dist: 0, fresh: 0 }, T.stats); for (const p of T.players) { s.dist += p.dist; if (p.role !== 'GK') s.fresh += p.stam; } return s; });
+    if (f % 10 === 0) r.stats[f / 10] = m.teams.map(T => { const s = Object.assign({ dist: T.stats.run, fresh: 0 }, T.stats); for (const p of T.players) if (p.role !== 'GK') s.fresh += p.stam; return s; });
   }
   // calcule jusqu'à l'image « until », ou jusqu'à ce que « ms » millisecondes soient passées (0 : pas de limite)
   function advance(J, until, ms) {
@@ -2683,7 +2699,7 @@ return { create, add, rows, rowsOf, highlights };
     tvSync();
     $('play').textContent = pending ? (PHONE ? '▶ Lancer' : 'Lancer le match') : playing ? (PHONE ? '⏸ Pause' : 'Pause') : (PHONE ? '▶ Lecture' : 'Lecture');
     keepAwake(playing && !pending);
-    if (PHONE) { $('miniPlay').textContent = playing && !pending ? '⏸' : '▶'; $('pmini').classList.toggle('hide', tab !== 'match' || !$('end').hidden); }
+    if (PHONE) { $('miniPlay').textContent = playing && !pending ? '⏸' : '▶'; $('pmini').classList.toggle('hide', tab === 'tac' || !$('end').hidden); }
   }
 
   // ---------- coupe : résultat rendu à coupe.html, séance de tirs au but montrée tir par tir ----------
@@ -2919,6 +2935,7 @@ return { create, add, rows, rowsOf, highlights };
     tab = t; $('tabMatch').classList.toggle('on', t === 'match'); $('tabStats').classList.toggle('on', t === 'stats'); $('tabTac').classList.toggle('on', t === 'tac');
     $('tacView').hidden = t !== 'tac'; document.querySelector('.stage').classList.toggle('tac', t === 'tac');
     if (t === 'tac' && rec) { playing = false; tv.look = null; tv.msg = ''; tvLoad(); tvDraw(); }
+    if (PHONE) $('miniStats').textContent = t === 'stats' ? 'Match' : 'Stats';
     $('statsCtl').hidden = t !== 'stats'; $('statsNote').hidden = t !== 'stats'; document.querySelector('.stage').classList.toggle('stats', t === 'stats');
     $('tip').hidden = true; hoverNode = -1; stKey = ''; nextHud = 0;
     if (t === 'stats') fillPlayers();
@@ -3143,7 +3160,7 @@ return { create, add, rows, rowsOf, highlights };
     $('tacHint').textContent = coach() && !pending ? 'Ce que vous validez s\'applique au prochain arrêt de jeu après le direct (' + mmss(live) + '), même si vous revoyez une action plus ancienne.'
       : pending ? (coach() ? 'Avant le coup d\'envoi : réglez votre équipe. L\'adversaire joue ' + (squad[1] && squad[1].consignes ? 'avec le style de son entraîneur.' : 'avec des consignes neutres.') : 'Avant le coup d\'envoi : ce que vous validez vaut dès le début du match.')
       : tv.base.tick <= 0 ? 'Au coup d\'envoi : un changement vaut pour tout le match.' : 'Ce que vous validez s\'applique au prochain arrêt de jeu après ' + mmss(cur) + ' et réécrit la suite du match.';
-    $('tvSubs').textContent = pending ? '· avant le coup d\'envoi : titulaires au choix' : '· remplacements ' + subsUsed() + ' / ' + E.MAX_SUBS;
+    $('tvSubs').textContent = PHONE ? (pending ? 'titulaires au choix' : subsUsed() + ' / ' + E.MAX_SUBS + ' changements') : pending ? '· avant le coup d\'envoi : titulaires au choix' : '· remplacements ' + subsUsed() + ' / ' + E.MAX_SUBS;
     // ce qui est en préparation
     const lines = [];
     if (tv.form !== tv.base.form) lines.push('Formation : ' + E.FORMATIONS.find(f => f.id === tv.form).name);
@@ -3393,11 +3410,12 @@ return { create, add, rows, rowsOf, highlights };
     const close = document.createElement('button'); close.id = 'pclose'; close.textContent = 'Masquer ›';
     P.append(close, box('pctl', $('back'), $('play'), $('fwd')), document.querySelector('.timeline'), speeds,
       box('ptabs', $('tabMatch'), $('tabStats'), $('tabTac')), head('Joueur'), $('player'), head('Fil du match'), $('log'), document.querySelector('.homelink'));
-    $('tabStats').textContent = 'Stats';
+    $('tabStats').textContent = 'Stats'; $('tvBack').textContent = '← Match';
     // colonne rétractable (remarque de Frédéric : trop large) : fermée, le terrain prend tout l'écran, avec trois boutons par-dessus
     const menu = open => { document.body.classList.toggle('pclosed', !open); try { localStorage.setItem('menuFerme', open ? '' : '1'); } catch (e) {} resize(); nextHud = 0; };
     close.onclick = () => menu(false); $('miniMenu').onclick = () => menu(true);
     $('miniPlay').onclick = () => $('play').click(); $('miniTac').onclick = () => setTab('tac');
+    $('miniStats').onclick = () => setTab(tab === 'stats' ? 'match' : 'stats');
     try { if (localStorage.getItem('menuFerme')) document.body.classList.add('pclosed'); } catch (e) {}
   }
   newMatch(CUP ? CUP.seed : randomSeed());

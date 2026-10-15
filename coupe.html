@@ -524,7 +524,7 @@ function createMatch(opts) {
       tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0, switch: 0 },
       stats: { possT: 0, passes: 0, passesOk: 0, shots: 0, onTarget: 0, goals: 0, xg: 0, tackles: 0, interceptions: 0, blocks: 0, fouls: 0, corners: 0, offsides: 0, saves: 0,
         // mesures du style de jeu : elles servent à voir l'effet des consignes
-        miscontrols: 0, passLen: 0, passLenN: 0, longBalls: 0, through: 0, crosses: 0, ballT: 0, touches: 0, widthSum: 0, widthN: 0, lineSum: 0, lineN: 0, recov: 0, recovHigh: 0, passFollow: 0, passDefy: 0 } };
+        miscontrols: 0, passLen: 0, passLenN: 0, longBalls: 0, through: 0, crosses: 0, ballT: 0, touches: 0, widthSum: 0, widthN: 0, lineSum: 0, lineN: 0, recov: 0, recovHigh: 0, passFollow: 0, passDefy: 0, run: 0 } };
     for (let i = 0; i < 11; i++) { const p = makePlayer(m, T, i, names[t * 11 + i], squads[t] && squads[t][i]); T.players.push(p); m.players.push(p); }
     // effectif : les onze titulaires, puis les remplaçants (équipe standard : cinq remplaçants à 14)
     const bench = squads[t] ? readBench(opts.teams[t]) : ['G', 'DC', 'MC', 'MD', 'AT'].map((nat, k) => { const a = {}; for (const q of QUALITIES) a[q[0]] = LEVEL; return { name: names[22 + t * 5 + k], num: 12 + k, a, nat }; });
@@ -1733,7 +1733,7 @@ function act(m, p) {
   if (!(owner && ns <= 1.4 && !p.plan && !shield)) p.face += clamp(angDiff(fa, p.face), -8 * DT, 8 * DT);
   // fatigue
   const r = ns / p.top; p.stam = Math.max(0.3, p.stam - 0.00075 * r * r * r * (1.3 - 0.5 * p.a.stamina) * (it.type === 'press' ? 4.5 : it.hunt ? 3 : 1) * DT);      // presser et harceler coûtent bien plus cher que courir (accélérations, changements de direction)      // la fraîcheur ne revient pas : un quart perdu en 90 minutes en moyenne, davantage si l'on sprinte beaucoup
-  p.dist += ns * DT;
+  p.dist += ns * DT; m.teams[p.team].stats.run += ns * DT;      // distance de l'équipe, joueurs sortis compris (un remplaçant repart de zéro)
 }
 function separate(m) {
   const ps = m.players;

@@ -14,7 +14,8 @@ function add(acc, m) {
   for (let t = 0; t < 2; t++) {
     const S = m.teams[t].stats, A = acc.teams[t];
     for (const k in S) A[k] = (A[k] || 0) + S[k];
-    for (const p of m.teams[t].players) { A.dist += p.dist; if (p.role !== 'GK') A.fresh += p.stam; }
+    A.dist += S.run != null ? S.run : m.teams[t].players.reduce((d, p) => d + p.dist, 0);      // toute l'équipe, joueurs sortis compris
+    for (const p of m.teams[t].players) if (p.role !== 'GK') A.fresh += p.stam;
   }
   const a = m.teams[0].score, b = m.teams[1].score;
   if (a > b) acc.teams[0].wins++; else if (b > a) acc.teams[1].wins++; else acc.draws++;
