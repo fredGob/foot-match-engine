@@ -100,7 +100,7 @@
     </svg>
     <div class="in">
       <h1>L'entraîneur en carton</h1>
-      <p>Le tableau noir, c'est vous. Les jambes, c'est eux. Composez votre onze, criez vos consignes depuis le bord du terrain… et assumez le résultat en conférence de presse.</p>
+      <p>Tu as déjà essayé mais tu es nul. Ton équipe joue mal, tes joueurs ne te respectent pas... Alors joue! c'est plus facile.</p>
     </div>
   </header>
 
@@ -111,13 +111,13 @@
         <g font-family="system-ui" font-weight="800" text-anchor="middle"><text x="100" y="100" font-size="26" fill="#3b2c08">1</text><text x="44" y="108" font-size="20" fill="#3d4650">2</text><text x="156" y="113" font-size="17" fill="#4a2c0c">3</text></g>
         <path d="M84 14 h32 v14 a16 16 0 0 1 -32 0 z" fill="#ffe45c"/><path d="M84 18 h-8 a8 8 0 0 0 8 12 M116 18 h8 a8 8 0 0 1 -8 12" fill="none" stroke="#ffe45c" stroke-width="3"/><rect x="96" y="43" width="8" height="8" fill="#ffe45c"/><rect x="88" y="50" width="24" height="5" rx="1" fill="#ffe45c"/>
       </svg></div>
-      <div class="body"><h2>Match rapide</h2><p>Choisissez votre club parmi les 18 de Ligue 1 (sous des noms à peine déguisés), votre adversaire, votre tactique… et coup d'envoi.</p>
+      <div class="body"><h2>Match rapide</h2><p>Choisissez votre club parmi les 18 de première division française, votre adversaire, votre tactique… et coup d'envoi.</p>
         <div class="chips"><span>18 clubs de Ligue 1</span><span>6 systèmes de jeu</span><span>Le style de chaque entraîneur</span></div>
         <span class="go">Choisir mon club →</span></div>
     </a>
     <a class="choice cup" href="coupe.html" id="goCup">
       <div class="art"><div class="trophy" aria-hidden="true">🏆</div></div>
-      <div class="body"><h2>La Coupe en carton</h2><p>32 équipes, des cadors de Ligue 1 aux petits poucets du dimanche. Tirage au sort à chaque tour, élimination directe, tirs au but : cinq victoires pour soulever la coupe.</p>
+      <div class="body"><h2>La Coupe en carton</h2><p>32 équipes, des cadors aux petits poucets du dimanche. Tirage au sort à chaque tour, élimination directe, tirs au but : cinq victoires pour soulever la coupe.</p>
         <div class="state" id="cupState"></div><span class="go" id="cupGo">Jouer la coupe →</span></div>
     </a>
   </nav>
@@ -129,7 +129,7 @@
 
   <h3 class="title">Comment ça marche</h3>
   <div class="steps">
-    <div class="step"><span class="n">1</span><div><b>Le club</b><span>Un des 18 clubs de Ligue 1, avec ses joueurs d'aujourd'hui.</span></div></div>
+    <div class="step"><span class="n">1</span><div><b>Le club</b><span>Un des 18 clubs de première division française, avec ses joueurs d'aujourd'hui.</span></div></div>
     <div class="step"><span class="n">2</span><div><b>La tactique</b><span>Formation, placement des joueurs, sept consignes.</span></div></div>
     <div class="step"><span class="n">3</span><div><b>Le match</b><span>Vous suivez le match et changez la tactique ou les joueurs au prochain arrêt de jeu.</span></div></div>
     <div class="step"><span class="n">4</span><div><b>La coupe</b><span>Enchaînez les tours jusqu'à la finale. La partie est gardée dans le navigateur.</span></div></div>
@@ -176,7 +176,7 @@
   g += '</svg>';
   $('mine').innerHTML = '<div>' + g + '</div><div>'
     + '<div class="who">' + esc(A.nom) + '</div><div class="sub">' + (A.club ? 'Effectif de ' + esc(A.club) : 'Équipe construite avec le budget') + '</div>'
-    + '<div class="facts"><div class="fact"><small>Formation</small><b>' + esc(A.formation) + '</b></div><div class="fact"><small>Note moyenne</small><b>' + Math.round(A.moyenne <= 20 ? A.moyenne * 5 : A.moyenne) + '</b></div><div class="fact"><small>Remplaçants</small><b>' + A.remplacants + '</b></div><div class="fact"><small>Adversaire</small><b>' + esc(A.adversaire) + '</b></div></div>'
+    + '<div class="facts"><div class="fact"><small>Formation</small><b>' + esc(A.formation) + '</b></div><div class="fact"><small>Note moyenne</small><b>' + fmt(A.moyenne) + '</b></div><div class="fact"><small>Remplaçants</small><b>' + A.remplacants + '</b></div><div class="fact"><small>Adversaire</small><b>' + esc(A.adversaire) + '</b></div></div>'
     + '<ul class="xi">' + A.titulaires.map(t => '<li><span>' + esc(t.place) + '</span><b>' + esc(t.nom) + '</b>' + (t.hors ? '<span class="off">hors poste</span>' : '<span>' + fmt(t.note) + '</span>') + '</li>').join('') + '</ul>'
     + '<div class="btns"><a class="btn main" id="playMine" href="' + esc(A.lien) + '">Jouer le match →</a><a class="btn" id="editMine" href="equipe.html#reprendre">Modifier la tactique</a></div></div>';
 })();
