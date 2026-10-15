@@ -910,7 +910,7 @@
   }
   showSquads();
 
-  // tactiques prédéfinies : la page reconnaît une tactique quand les six consignes correspondent
+  // tactiques prédéfinies : la page reconnaît une tactique quand les sept consignes correspondent
   const PRE = E.PRESETS || [];
   const presetOf = t => { const P = PRE.find(P => TAC.every(c => (P.t[c.key] || 0) === t[c.key])); return P ? P.id : ''; };
 
@@ -982,7 +982,7 @@
     $('tvBench').innerHTML = bench.length ? bench.map(e => '<div class="tdrop" data-tdrop="b' + e.rid + '">' + ttok(e.rid, null) + '</div>').join('') : '<span class="muted small">Pas de remplaçant.</span>';
     // consignes de l'équipe affichée (brouillon)
     const opt = (c, v) => '<option value="' + v + '"' + (tv.tac[c.key] === v ? ' selected' : '') + '>' + esc(c.options[v + 1]) + '</option>', pid = presetOf(tv.tac), who = tv.team ? 'Rouges' : 'Bleus';
-    $('tvTac').innerHTML = '<tr class="presets"><td class="k" title="Une tactique règle les six consignes d\'un coup. Vous pouvez ensuite changer une consigne : la tactique devient « Personnalisée ».">Tactique</td><td><select class="preset" data-tv-preset aria-label="Tactique des ' + who + '"><option value="">Personnalisée</option>' + PRE.map(P => '<option value="' + P.id + '"' + (P.id === pid ? ' selected' : '') + ' title="' + esc(P.help) + '">' + esc(P.name) + '</option>').join('') + '</select></td></tr>'
+    $('tvTac').innerHTML = '<tr class="presets"><td class="k" title="Une tactique règle les sept consignes d\'un coup. Vous pouvez ensuite changer une consigne : la tactique devient « Personnalisée ».">Tactique</td><td><select class="preset" data-tv-preset aria-label="Tactique des ' + who + '"><option value="">Personnalisée</option>' + PRE.map(P => '<option value="' + P.id + '"' + (P.id === pid ? ' selected' : '') + ' title="' + esc(P.help) + '">' + esc(P.name) + '</option>').join('') + '</select></td></tr>'
       + TAC.map(c => '<tr><td class="k" title="' + esc(c.help) + '">' + esc(c.label) + '</td><td><select data-tv-key="' + c.key + '" aria-label="' + esc(c.label) + ' des ' + who + '"' + (tv.tac[c.key] ? ' class="set"' : '') + '>' + [-1, 0, 1].map(v => opt(c, v)).join('') + '</select></td></tr>').join('');
     $('tvNeutral').disabled = !TAC.some(c => tv.tac[c.key]);
     $('tacHint').textContent = coach() && !pending ? 'Ce que vous validez s\'applique au prochain arrêt de jeu après le direct (' + mmss(live) + '), même si vous revoyez une action plus ancienne.'

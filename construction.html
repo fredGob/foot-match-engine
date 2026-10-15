@@ -277,7 +277,7 @@ const CLUBS = D.clubs || [];
 for (const C of CLUBS) for (const j of C.titulaires.concat(C.remplacants)) byId[j.id] = j;
 // S.club : identifiant du club choisi (« Prendre une équipe de Ligue 1 »), ou null pour une équipe construite avec le budget
 // S.adv : l'adversaire choisi pour « Passer au match » (identifiant dans equipes.json, '' = équipe standard)
-const S = { squad: [], lineup: null, bench: [], formation: '442', tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0 }, nom: '', club: null, adv: '' };
+const S = { squad: [], lineup: null, bench: [], formation: '442', tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0, switch: 0 }, nom: '', club: null, adv: '' };
 // UI.look : le joueur dont la fiche est affichée dans le cadre « Joueur » de l'écran de placement
 const UI = { poste: 'tous', sort: 'note', afford: false, sel: null, look: null };
 const $ = id => document.getElementById(id);
@@ -392,7 +392,7 @@ function drawClubs() {
 function pickClub(id) {
   const C = CLUBS.find(x => x.id === id); if (!C) return;
   const F = D.formations.find(f => f.id === C.formation) || D.formations[0], pls = F.places;
-  Object.assign(S, { club: C.id, nom: C.nom, formation: F.id, tac: Object.assign({ passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0 }, C.consignes),
+  Object.assign(S, { club: C.id, nom: C.nom, formation: F.id, tac: Object.assign({ passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0, switch: 0 }, C.consignes),
     squad: C.titulaires.concat(C.remplacants).map(j => j.id), lineup: pls.map(pl => (C.titulaires.find(j => j.place === pl.code) || {}).id || null), bench: C.remplacants.map(j => j.id) });
   if (S.lineup.some(x => !x)) ranger();
   show('vTac'); say('Effectif de ' + C.nom + ' en place, dans son système habituel (' + F.name + ') et avec le style de son entraîneur. Changez la formation, faites glisser les joueurs, réglez les consignes.');
@@ -458,7 +458,7 @@ function drawTac() {
     (S.club ? 'effectif du club : ' + S.squad.length + ' joueurs (pas de budget)' : 'effectif ' + euros(depense()) + ' sur ' + D.budget + ' M€');
   // consignes
   const preset = D.presets.find(p => D.tactics.every(c => p.t[c.key] === S.tac[c.key]));
-  $('cons').innerHTML = '<span class="k" title="Un jeu des six consignes prêt à l\'emploi">Tactique</span><select class="preset" id="preset">' + D.presets.map(p => '<option value="' + p.id + '"' + (preset === p ? ' selected' : '') + ' title="' + esc(p.help) + '">' + esc(p.name) + '</option>').join('') + (preset ? '' : '<option selected value="">Personnalisée</option>') + '</select>' +
+  $('cons').innerHTML = '<span class="k" title="Un jeu des sept consignes prêt à l\'emploi">Tactique</span><select class="preset" id="preset">' + D.presets.map(p => '<option value="' + p.id + '"' + (preset === p ? ' selected' : '') + ' title="' + esc(p.help) + '">' + esc(p.name) + '</option>').join('') + (preset ? '' : '<option selected value="">Personnalisée</option>') + '</select>' +
     D.tactics.map(c => '<span class="k" title="' + esc(c.help) + '">' + c.label + '</span><select data-tac="' + c.key + '" class="' + (S.tac[c.key] ? 'set' : '') + '">' + c.options.map((o, k) => '<option value="' + (k - 1) + '"' + (S.tac[c.key] === k - 1 ? ' selected' : '') + '>' + o + '</option>').join('') + '</select>').join('');
   $('nom').value = S.nom;
   drawLook();

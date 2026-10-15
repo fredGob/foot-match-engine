@@ -177,16 +177,18 @@ const TACTICS = [
     help: 'Attendre : on garde ses positions et on laisse venir ; les attaquants ne courent pas après le ballon et restent frais. Harceler : on va chercher le porteur loin, à deux s\'il le faut, au prix de beaucoup d\'énergie.' },
   { key: 'cross', label: 'Centres adverses', options: ['Défendre la surface', 'Normal', 'Sortir sur le centreur'], notes: ['défendre la surface', '', 'sortir sur le centreur'],
     help: 'Défendre la surface : on laisse centrer, on ferme seulement l\'intérieur et on remplit la surface. Sortir sur le centreur : on va vite sur le joueur excentré, à deux, pour empêcher le centre, au risque d\'être éliminé et de laisser la surface moins garnie.' },
+  { key: 'switch', label: 'Changer d\'aile', options: ['Rarement', 'Normal', 'Souvent'], notes: ['insister côté ballon', '', 'changer d\'aile'],
+    help: 'Rarement : on insiste du côté du ballon, les joueurs s\'y regroupent. Souvent : le joueur du côté opposé reste collé à sa ligne et on renverse le jeu dès qu\'il est libre.' },
 ];
-// tactiques prédéfinies : un jeu des cinq consignes, prêt à l'emploi (passing, tempo, width, line, press)
+// tactiques prédéfinies : un jeu des sept consignes, prêt à l'emploi (passing, tempo, width, line, press, cross, switch)
 const PRESETS = [
-  { id: 'equilibre', name: 'Équilibré', t: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0 }, help: 'Toutes les consignes au neutre.' },
-  { id: 'possession', name: 'Possession', t: { passing: -1, tempo: -1, width: 1, line: 0, press: 0, cross: 0 }, help: 'Garder le ballon : passes courtes, on prend son temps, on écarte le jeu.' },
-  { id: 'pressing', name: 'Pressing haut', t: { passing: 0, tempo: 1, width: 0, line: 1, press: 1, cross: 1 }, help: 'Reprendre le ballon loin de son but : bloc haut, on harcèle le porteur, on joue vite. Coûte beaucoup d\'énergie.' },
-  { id: 'contre', name: 'Contre-attaque', t: { passing: 1, tempo: 1, width: 0, line: -1, press: -1, cross: 0 }, help: 'Laisser venir, puis partir vite dans le dos de la défense.' },
-  { id: 'blocbas', name: 'Bloc bas', t: { passing: 1, tempo: -1, width: -1, line: -1, press: -1, cross: -1 }, help: 'Défendre le score : bloc bas et compact, on ne prend aucun risque, on dégage loin.' },
-  { id: 'direct', name: 'Jeu direct', t: { passing: 1, tempo: 1, width: 1, line: 0, press: 0, cross: 0 }, help: 'Aller vite vers l\'avant : longs ballons, ailes et centres.' },
-  { id: 'attaque', name: 'Tout pour l\'attaque', t: { passing: 0, tempo: 1, width: 1, line: 1, press: 1, cross: 1 }, help: 'Courir après le score : tout le monde monte, on presse et on écarte. Laisse de l\'espace derrière.' },
+  { id: 'equilibre', name: 'Équilibré', t: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0, switch: 0 }, help: 'Toutes les consignes au neutre.' },
+  { id: 'possession', name: 'Possession', t: { passing: -1, tempo: -1, width: 1, line: 0, press: 0, cross: 0, switch: 0 }, help: 'Garder le ballon : passes courtes, on prend son temps, on écarte le jeu.' },
+  { id: 'pressing', name: 'Pressing haut', t: { passing: 0, tempo: 1, width: 0, line: 1, press: 1, cross: 1, switch: 0 }, help: 'Reprendre le ballon loin de son but : bloc haut, on harcèle le porteur, on joue vite. Coûte beaucoup d\'énergie.' },
+  { id: 'contre', name: 'Contre-attaque', t: { passing: 1, tempo: 1, width: 0, line: -1, press: -1, cross: 0, switch: 0 }, help: 'Laisser venir, puis partir vite dans le dos de la défense.' },
+  { id: 'blocbas', name: 'Bloc bas', t: { passing: 1, tempo: -1, width: -1, line: -1, press: -1, cross: -1, switch: 0 }, help: 'Défendre le score : bloc bas et compact, on ne prend aucun risque, on dégage loin.' },
+  { id: 'direct', name: 'Jeu direct', t: { passing: 1, tempo: 1, width: 1, line: 0, press: 0, cross: 0, switch: 0 }, help: 'Aller vite vers l\'avant : longs ballons, ailes et centres.' },
+  { id: 'attaque', name: 'Tout pour l\'attaque', t: { passing: 0, tempo: 1, width: 1, line: 1, press: 1, cross: 1, switch: 0 }, help: 'Courir après le score : tout le monde monte, on presse et on écarte. Laisse de l\'espace derrière.' },
 ];
 // change les consignes d'une équipe, avant ou pendant le match (un changement en cours de match est noté dans le fil du match)
 // label : nom d'une tactique prédéfinie ; le fil du match note alors une seule ligne au lieu d'une par consigne
@@ -229,6 +231,8 @@ const PATIENCE = 3;        // lucidité : attente avant de s'impatienter (8 s à
 const CTRL = 0.6;        // poids de la pression sur la prise de balle (9,6 % de contrôles ratés sous pression pour un joueur à 14)
 const MASK = 0.22;      // coup franc par-dessus le mur : retard (s) du gardien, qui voit partir le ballon tard
 const DIP = 0.8;        // coup franc brossé : le ballon plonge comme si la pesanteur était 1,8 fois plus forte
+const SWITCH = 0.15;   // changer d'aile « souvent » : un renversement devient jusqu'à 15 % plus tentant
+const SWITCH_NEG = 0.1;   // « rarement » : un renversement devient 10 % moins tentant
 const SIMPLE_LONG = 1.5;   // jouer simple : à 10 de passe et de prise de balle, dans son camp, le long ballon vers l'avant gagne comme sous la consigne « jeu long » (×1,5)
 const CARRY = 1, CARRY_Q = 0.85;   // conduire sous pression dans son camp (l'effet s'éteint 15 m après la ligne médiane) : rien au-dessus de 17 de moyenne (prise de balle, dribble, physique) ; à 14, la conduite perd 0,43 × l'enjeu sous pression maximale ; à 10, tout l'enjeu
 const SAFE_BACK = 0.3;          // … et la passe courte en retrait gagne 30 % de ce qu'a perdu la conduite
@@ -370,7 +374,7 @@ function createMatch(opts) {
   const squads = [0, 1].map(t => opts.teams && opts.teams[t] ? readTeam(opts.teams[t]) : null);
   for (let t = 0; t < 2; t++) {
     const T = { id: t, name: t === 0 ? 'Bleus' : 'Rouges', club: squads[t] ? String(opts.teams[t].nom || opts.teams[t].id || '') : '', color: t === 0 ? '#2f6fdf' : '#d8423a', dir: t === 0 ? 1 : -1, score: 0, phase: 0.5, refX: 0, refY: 0, line: -30, offLine: 0, spread: 46, players: [],
-      tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0 },
+      tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0, switch: 0 },
       stats: { possT: 0, passes: 0, passesOk: 0, shots: 0, onTarget: 0, goals: 0, xg: 0, tackles: 0, interceptions: 0, blocks: 0, fouls: 0, corners: 0, offsides: 0, saves: 0,
         // mesures du style de jeu : elles servent à voir l'effet des consignes
         miscontrols: 0, passLen: 0, passLenN: 0, longBalls: 0, through: 0, crosses: 0, ballT: 0, touches: 0, widthSum: 0, widthN: 0, lineSum: 0, lineN: 0, recov: 0, recovHigh: 0, passFollow: 0, passDefy: 0 } };
@@ -457,7 +461,7 @@ function updateContext(m) {
 
 function computeAnchors(m, T) {
   const f = T.phase, bx = T.refX, by = T.refY, d = T.dir, b = m.ball, R = m.restart, tac = T.tac;
-  const short = Math.max(0, -tac.passing), long = Math.max(0, tac.passing), wide = tac.width;
+  const short = Math.max(0, -tac.passing), long = Math.max(0, tac.passing), wide = tac.width, sw = tac.switch;
   const fit = clamp(m.teams[1 - T.id].spread / 46, 0.72, 1.12);      // le bloc se resserre face à une attaque axiale, s'étire face à une attaque large
   const wait = Math.max(0, -tac.press);                              // « attendre » : lignes plus proches, bloc plus étroit
   // consigne « hauteur du bloc » : toute l'équipe défend plus haut ou plus bas, sauf quand le ballon approche de son but
@@ -491,6 +495,11 @@ function computeAnchors(m, T) {
       if (s.role === 'MID' && s.side !== 0 && s.side === -ballSide) {
         ay -= s.side * 5 * tuck; if (f > 0.5 && bx > 20) { ay -= s.side * 6 * tuck; ax += 4; }
         if (f >= 0.5 && bx > 28 && Math.abs(by) > 12) { ax = Math.max(ax, P.HL - 9.5); ay = s.side * 6.5; }      // centre possible : il plonge au second poteau
+      }
+      // consigne « changer d'aile » : souvent, le joueur de côté opposé au ballon reste collé à sa ligne ; rarement, on se regroupe côté ballon
+      if (sw && s.role !== 'DEF' && f > 0 && !(bx > 28 && Math.abs(by) > 12)) {
+        if (sw > 0 && s.side !== 0 && s.side === -ballSide) ay = lerp(ay, s.side * 28, 0.7 * sw * f);
+        else if (sw < 0) ay += (by - ay) * 0.18 * -sw * f;
       }
       if (s.role === 'FWD') {
         if (f >= 0.5 && bx > 28 && Math.abs(by) > 12) { ax = Math.max(ax, P.HL - 11.5); ay = (s.slot === 'LF' ? -1 : 1) === ballSide ? ballSide * 3.5 : -ballSide * 4; }   // centre possible : dans la surface
@@ -808,7 +817,9 @@ function thinkSupport(m, p) {
     }
   }
   const moved = hyp(bx - ax, by - ay) > 2;
-  setIntent(m, p, 'position', moved ? 'Se démarque' : dB < 34 ? 'Propose une solution' : 'Garde sa position', bx, by, (dB < 20 ? 0.6 : dB < 34 ? 0.45 : 0.3) + 0.12 * T.tac.tempo);      // rythme rapide : on bouge plus vite sans ballon
+  const far = T.tac.switch > 0 && carrier && p.role !== 'DEF' && p.side && p.side * carrier.y * d < -6;      // changer d'aile : il attend le renversement, loin du ballon
+  setIntent(m, p, 'position', far ? 'Reste large côté opposé' : moved ? 'Se démarque' : dB < 34 ? 'Propose une solution' : 'Garde sa position', bx, by, (dB < 20 ? 0.6 : dB < 34 ? 0.45 : 0.3) + 0.12 * T.tac.tempo);      // rythme rapide : on bouge plus vite sans ballon
+  if (far) note(p, 'switch', 1);
 }
 
 // le ballon file-t-il vers le cadre ? renvoie le point où il passe à la hauteur du gardien
@@ -959,7 +970,7 @@ function passOption(m, p, q, pr, sp, hands, risk) {
 // C'est un penchant, pas un interdit : une option nettement meilleure l'emporte quand même.
 const SHORT_BACK = 0.2, SHORT_LOB = 0.3, DIRECT_ATT = 0.2;      // jeu court : passe en retrait ou latérale, long ballon vers l'avant ; jeu direct : passe vers un attaquant
 function intentBias(T, p, o, pr, waited) {
-  const tac = T.tac, d = T.dir, kp = tac.passing, kt = tac.tempo, kw = tac.width, part = { passing: 0, tempo: 0, width: 0 };
+  const tac = T.tac, d = T.dir, kp = tac.passing, kt = tac.tempo, kw = tac.width, ks = tac.switch, part = { passing: 0, tempo: 0, width: 0, switch: 0 };
   if (o.kind === 'pass') {
     const D = hyp(o.qx - p.x, o.qy - p.y), fwd = (o.qx - p.x) * d, cross = o.lofted && isCross(T, p);
     // jeu court (choix de Frédéric) : on fait circuler en retrait et en largeur, transversales comprises, et on force moins vers l'avant ;
@@ -969,12 +980,13 @@ function intentBias(T, p, o, pr, waited) {
       + (o.to && o.to.role === 'FWD' && fwd > 5 ? DIRECT_ATT : 0));
     if (kt > 0) part.tempo = 0.12 * kt; else if (kt < 0) part.tempo = kt * 0.3 * Math.max(0, 0.85 - o.pOk);
     if (kw) part.width = 0.15 * kw * clamp((Math.abs(o.qy) - 14) / 10, -1, 1) + (cross ? 0.3 * kw : 0);
+    if (ks && !cross) { const S = clamp((Math.abs(o.qy - p.y) - 22) / 14, 0, 1) * (o.qy * p.y < 0 && Math.abs(o.qy) > 14 ? 1 : 0) * clamp((p.x * d + 35) / 20, 0, 1); part.switch = ks > 0 ? ks * SWITCH * S * clamp(o.pOk / 0.5, 0.3, 1) : ks * SWITCH_NEG * S; }      // changer d'aile : renversement d'une aile à l'autre
   } else if (o.kind === 'hold') part.tempo = kt > 0 ? -0.5 * kt : -0.25 * kt * (1 - pr) * Math.max(0, 1 - waited / 2.5);
   else if (o.kind === 'dribble') part.tempo = kt > 0 ? -0.25 * kt * (1 - Math.max(0, o.dx * d)) : -0.12 * kt * (1 - pr);      // foncer vers l'avant reste du jeu rapide
   else if (o.kind === 'clear' && p.hands) part.passing = 0.5 * kp;
   let key = 'passing'; for (const k in part) if (Math.abs(part[k]) > Math.abs(part[key])) key = k;
   o.why = part[key] > 0.05 || part[key] < -0.25 ? key : null; o.against = part[key] < 0;      // pour la fiche du joueur : la consigne qui a le plus pesé
-  return part.passing + part.tempo + part.width;
+  return part.passing + part.tempo + part.width + part.switch;
 }
 const isCross = (T, p) => Math.abs(p.y) > 16 && p.x * T.dir > 25;
 
@@ -1072,7 +1084,7 @@ function thinkCarrier(m, p) {
     }
   }
   // consignes de l'entraîneur : elles rendent certaines options plus ou moins tentantes
-  if (tac.passing || tac.tempo || tac.width) {
+  if (tac.passing || tac.tempo || tac.width || tac.switch) {
     for (const g of groups) for (const o of g) o.u += ref * intentBias(T, p, o, pr, 0);
     if (!sp) for (const o of rest) o.u += ref * intentBias(T, p, o, pr, o.waited || 0);
   }
