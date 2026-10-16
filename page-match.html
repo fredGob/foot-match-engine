@@ -94,8 +94,36 @@
   canvas { display: block; width: 100%; aspect-ratio: 114 / 75; border-radius: 10px; cursor: pointer; }
   .end, .busy { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(10, 14, 18, 0.72); border-radius: 10px; font-size: 26px; font-weight: 650; }
   .end { background: rgba(10, 14, 18, 0.86); font-size: 15px; font-weight: 500; padding: 10px; }
-  .end canvas { width: min(100%, 900px); height: auto; aspect-ratio: 16 / 9; max-height: calc(100% - 56px); object-fit: contain; border-radius: 10px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); }
+  .end canvas { width: min(100%, 900px); height: auto; aspect-ratio: 16 / 9; max-height: calc(100% - 96px); object-fit: contain; border-radius: 10px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); }
   .end .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .end #endGoals:empty { display: none; }
+  .end #endGoals button { font-size: 13px; padding: 5px 10px; }
+  /* replay 3D des buts (n° 125) : plein terrain, bandeau télé, volet de transition entre les deux caméras */
+  .replay { position: absolute; inset: 0; z-index: 5; background: #05070a; overflow: hidden; border-radius: 10px; }
+  .replay[hidden], .stage.tac .replay, .stage.stats .replay { display: none; }
+  .replay canvas { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; cursor: default; }
+  .replay .rpVig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%); }
+  .replay .rpTag { position: absolute; top: 14px; left: 14px; padding: 4px 12px 4px 10px; background: #ffe45c; color: #11151a; font: italic 900 18px/1.2 system-ui, sans-serif; letter-spacing: 2px; border-radius: 3px; box-shadow: 0 2px 10px rgba(0,0,0,0.4); }
+  .replay .rpTag::before { content: '●'; color: #d8423a; margin-right: 6px; font-style: normal; animation: rp-blink 1s steps(2) infinite; }
+  @keyframes rp-blink { 50% { opacity: 0; } }
+  .replay .rpAngle { position: absolute; top: 18px; right: 16px; color: #fff; font: 600 13px system-ui, sans-serif; text-shadow: 0 1px 3px #000; opacity: 0.85; }
+  .replay .rpBand { position: absolute; left: 18px; bottom: 20px; display: flex; align-items: stretch; background: rgba(12, 16, 22, 0.88); color: #fff; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,0.5); animation: rp-in 0.5s ease-out both; max-width: calc(100% - 150px); }
+  .replay .rpBand i { width: 8px; flex: none; }
+  .replay .rpBand b { padding: 8px 14px; background: #ffe45c; color: #11151a; font: italic 900 22px/1.2 system-ui, sans-serif; letter-spacing: 1px; white-space: nowrap; }
+  .replay .rpBand span { padding: 8px 14px; font: 600 16px/1.35 system-ui, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .replay .rpBand span + span { border-left: 1px solid rgba(255,255,255,0.15); font-weight: 800; }
+  @keyframes rp-in { from { transform: translateX(-40px); opacity: 0; } }
+  .replay .rpWipe { position: absolute; inset: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; opacity: 0; }
+  .replay .rpWipe span { padding: 10px 40px; background: #ffe45c; color: #11151a; font: italic 900 40px/1 system-ui, sans-serif; letter-spacing: 6px; transform: skewX(-12deg); }
+  .replay .rpWipe.go { animation: rp-wipe 0.7s ease-in-out; }
+  @keyframes rp-wipe { 0% { opacity: 0; background: rgba(5,7,10,0); } 35% { opacity: 1; background: rgba(5,7,10,1); } 65% { opacity: 1; background: rgba(5,7,10,1); } 100% { opacity: 0; background: rgba(5,7,10,0); } }
+  .replay .rpLoad { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; }
+  .replay .rpLoad[hidden] { display: none; }
+  .replay #rpSkip { position: absolute; right: 16px; bottom: 20px; font-size: 15px; padding: 8px 16px; background: rgba(12,16,22,0.85); }
+  body.phone .replay { border-radius: 0; }
+  body.phone .replay .rpBand b { font-size: 16px; padding: 6px 10px; } body.phone .replay .rpBand span { font-size: 13px; padding: 6px 10px; }
+  body.replaying .pmini, body.replaying .ff { display: none !important; }
+  #log .rpBtn { margin-left: 6px; padding: 1px 7px; font-size: 12px; }
   .end[hidden], .busy[hidden], .pre[hidden] { display: none; }
   .tab { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(10, 14, 18, 0.96); border-radius: 10px; padding: 16px; }
   .tab[hidden], .tab [hidden], .cup .group.cuphide { display: none !important; }
@@ -295,7 +323,8 @@
     <div class="stage">
       <canvas id="pitch"></canvas>
       <canvas id="pitch3d" hidden></canvas><div class="clock3d" id="clock3d" hidden></div><div class="label3d" id="label3d" hidden></div>
-      <div class="end" id="end" hidden><canvas id="card" width="2400" height="1350" aria-label="Résumé du match"></canvas><div id="endText" hidden></div><div class="tab" id="tab" hidden></div><div class="row"><button id="saveCard" class="main">Enregistrer l'image</button><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
+      <div class="end" id="end" hidden><canvas id="card" width="2400" height="1350" aria-label="Résumé du match"></canvas><div id="endText" hidden></div><div class="row" id="endGoals"></div><div class="tab" id="tab" hidden></div><div class="row"><button id="saveCard" class="main">Enregistrer l'image</button><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
+      <div class="replay" id="replay" hidden><canvas id="replayCv"></canvas><div class="rpVig"></div><div class="rpTag">REPLAY</div><div class="rpAngle" id="rpAngle"></div><div class="rpBand" id="rpBand"><i id="rpStripe"></i><b id="rpTitle">BUT !</b><span id="rpWho"></span><span id="rpScore"></span></div><div class="rpWipe" id="rpWipe"><span>REPLAY</span></div><div class="rpLoad" id="rpLoad" hidden>Chargement du replay…</div><button id="rpSkip">Passer ⏭</button></div>
       <div class="pre" id="pre" hidden><div>Choisissez le mode, réglez votre tactique (onglet Tactique), puis donnez le coup d'envoi.</div><div class="row"><button id="preTac">Régler la tactique</button><button id="kick" class="main">Lancer le match</button><button id="instant" title="Le match est joué d'un coup, sans le regarder : on arrive directement à la feuille de match">Résultat direct ⏭</button></div></div>
       <div class="busy" id="busy" hidden><div class="spin" aria-hidden="true"></div><span>Calcul du match…</span></div>
       <div class="tip" id="tip" hidden></div>
@@ -358,6 +387,7 @@
       <label class="godonly"><input type="checkbox" id="labels"> Montrer l'intention de chaque joueur</label>
       <label title="Pendant un arrêt de jeu (touche, coup franc, sortie de but…), la lecture va six fois plus vite"><input type="checkbox" id="skip" checked> Passer vite les arrêts de jeu</label>
       <label title="Temps forts (lus à la vitesse choisie) : les actions qui finissent en tir, et les moments où une équipe a le ballon dans les 25 derniers mètres. Le reste passe à ×10."><input type="checkbox" id="hl" checked> Accélérer les temps faibles (×10)</label>
+      <label title="Après chaque but, l'action est rejouée au ralenti, en 3D (deux caméras). « Passer » pour revenir au match ; « ▶ Revoir » dans le fil du match pour la revoir."><input type="checkbox" id="rpAuto" checked> Replay des buts</label>
       <span class="group" style="margin-left: auto">Durée
         <select id="duration"><option value="5400" selected>90 min</option><option value="2700">45 min</option><option value="1200">20 min</option><option value="600">10 min (essais)</option></select>
       </span>
@@ -398,6 +428,7 @@
 <script src="engine.js"></script>
 <script src="render.js"></script>
 <script src="render3d.js"></script>
+<script src="replay3d.js"></script>
 <script src="stats.js"></script>
 <script>window.MatchTeams = /*EQUIPES*/null;</script>
 <script>
@@ -591,7 +622,7 @@
     const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
     W = r.width; H = r.height; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    size3d();
+    size3d(); sizeReplay();
   }
 
   // ---------- vue 3D (n° 120) : même match, caméra télé ; three.js est chargé depuis internet la première fois ----------
@@ -610,6 +641,62 @@
     });
   }
   document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => setView(b.dataset.view));
+
+  // ---------- replay 3D des buts (n° 125) : après un but, l'action rejouée au ralenti, caméra télé puis caméra du buteur ----------
+  const RP3 = window.MatchReplay3D, RP_AFTER = 2;      // le replay part 2 secondes de jeu après le but (ballon au fond)
+  let rp = null, rpOn = false, rpResume = false;
+  function sizeReplay() { if (rp) { const r = $('replay').getBoundingClientRect(); rp.resize(Math.max(1, r.width), Math.max(1, r.height)); } }
+  // l'action du but, lue dans l'enregistrement du match : positions des joueurs et du ballon, buteur, gardien, instant du tir
+  function goalClip(e) {
+    const T = view.teams, g = e.t, shotT = e.shotT != null ? e.shotT : g - 0.6, last = (rec.n - 1) * DT;
+    let t0 = Math.max(0, shotT - 7);      // 7 secondes avant le tir, mais pas avant la fin du dernier arrêt de jeu (corner, coup franc…)
+    for (let f = tickOf(shotT) - 1; f >= tickOf(t0); f--) if (rec.D[f]) { t0 = Math.max(0, Math.min(shotT - 2.5, f * DT - 0.6)); break; }
+    const L = lineupAt(Math.min(tickOf(g), rec.n - 1));
+    const players = view.players.map(p => { const r = T[p.team].roster[L.rids[p.team][p.idx]]; return { team: p.team, role: p.role, num: r.num, name: r.name }; });
+    const by = e.by != null ? e.by : -1, keeper = view.players.findIndex(p => p.team === 1 - e.team && p.role === 'GK');
+    const P = rec.P, B = rec.B;
+    const at = t => {
+      const fp = Math.min(Math.max(t, 0) / DT, rec.n - 1), f0 = Math.floor(fp), f1 = Math.min(f0 + 1, rec.n - 1), a = fp - f0, l = (u, v) => u + (v - u) * a;
+      return {
+        players: players.map((q, i) => { const i0 = (f0 * NP + i) * F, i1 = (f1 * NP + i) * F; return { x: l(P[i0], P[i1]), y: l(P[i0 + 1], P[i1 + 1]), face: P[i1 + 2], v: l(P[i0 + 5], P[i1 + 5]) }; }),
+        ball: { x: l(B[f0 * 4], B[f1 * 4]), y: l(B[f0 * 4 + 1], B[f1 * 4 + 1]), z: l(B[f0 * 4 + 2], B[f1 * 4 + 2]) },
+      };
+    };
+    return { t0, t1: Math.min(last, g + 2.2), shotT: e.shotT != null ? e.shotT : null, goalT: g, side: Math.sign(B[Math.min(tickOf(g), rec.n - 1) * 4]) || T[e.team].dir, scorer: by, keeper,
+      own: by >= 0 && view.players[by].team !== e.team, head: !!e.head, teams: T.map(t => ({ color: t.color })), players, at };
+  }
+  function replay(e, auto) {
+    if (rpOn || !e || !rec) return;
+    rpOn = true; rpResume = auto; playing = false; nextHud = 0;
+    $('replay').hidden = false; $('rpLoad').hidden = false; document.body.classList.add('replaying'); document.body.dataset.replay = 'chargement';
+    R3.load(err => {
+      if (!rpOn) return;
+      if (!err) try { if (!rp) rp = RP3.create($('replayCv'), R, { small: PHONE }); } catch (x) { err = new Error('la 3D ne marche pas dans ce navigateur (WebGL absent)'); }
+      if (err) { endReplay(); $('player').className = ''; $('player').textContent = 'Replay impossible : ' + (err.message || err); return; }
+      $('rpLoad').hidden = true; sizeReplay();
+      const c = goalClip(e), T = view.teams, sh = k => squad[k] && squad[k].court || short(T[k].club || T[k].name);
+      const og = /contre son camp de (.+) \((\d+)-(\d+)\)$/.exec(e.text), r = og || /! (.+) \((\d+)-(\d+)\)$/.exec(e.text);
+      $('rpTitle').textContent = og ? 'CONTRE SON CAMP' : 'BUT !'; $('rpStripe').style.background = T[e.team].color;
+      $('rpWho').textContent = (c.scorer >= 0 ? 'n°' + c.players[c.scorer].num + ' ' : '') + (r ? r[1] : '') + ' · ' + minute(e.t);
+      $('rpScore').textContent = r ? sh(0) + ' ' + r[2] + ' – ' + r[3] + ' ' + sh(1) : '';
+      const band = $('rpBand'); band.style.animation = 'none'; void band.offsetWidth; band.style.animation = '';
+      rp.play(c, {
+        onAngle: k => { document.body.dataset.replay = k; $('rpAngle').textContent = k === 'buteur' ? 'Caméra du buteur' : 'Ralenti'; const w = $('rpWipe'); w.classList.remove('go'); void w.offsetWidth; w.classList.add('go'); },
+        onEnd: endReplay,
+      });
+    });
+  }
+  function endReplay() {
+    if (!rpOn) return;
+    rpOn = false; if (rp) rp.stop();
+    $('replay').hidden = true; document.body.classList.remove('replaying'); document.body.dataset.replay = '';
+    if (rpResume) playing = true; rpResume = false; nextHud = 0;
+  }
+  const stopReplay = () => { rpResume = false; endReplay(); };
+  $('rpSkip').onclick = endReplay;
+  // pour les essais (tools/replay.js) : une image fixe du replay du but n° k, à « dt » secondes du tir, avec la caméra « cam »
+  window.replayStill = (k, dt, cam) => { const e = rec.events.filter(x => x.kind === 'goal')[k], c = goalClip(e); $('replay').hidden = false; $('rpLoad').hidden = true; if (!rp) rp = RP3.create($('replayCv'), R, { small: PHONE }); sizeReplay(); rp.still(c, (c.shotT != null ? c.shotT : c.goalT) + dt, cam); return { shotT: c.shotT, goalT: c.goalT }; };
+  $('log').addEventListener('click', ev => { const b = ev.target.closest('.rpBtn'); if (b) replay(rec.events.find(e => e.kind === 'goal' && String(e.t) === b.dataset.t), false); });
 
   const ATTRS = [['pace', 'Vitesse'], ['passing', 'Passe'], ['firstTouch', 'Prise de balle'], ['vision', 'Vision du jeu'], ['dribbling', 'Dribble'], ['finishing', 'Finition'], ['tackling', 'Tacle'], ['positioning', 'Placement'], ['decisions', 'Lucidité'], ['workRate', 'Volume de course'], ['heading', 'Jeu de tête'], ['longShots', 'Frappe de loin']];
   const attrsOf = p => p.role !== 'GK' ? ATTRS : ATTRS.map(k => k[0] === 'dribbling' ? ['reflexes', 'Réflexes'] : k[0] === 'finishing' ? ['handling', 'Jeu de mains'] : k);      // gardien : ses deux qualités propres
@@ -633,7 +720,7 @@
       for (; shown < n; shown++) {
         const e = ev[shown], d = document.createElement('div');
         if (e.kind === 'goal' || e.kind === 'tactic' || e.kind === 'sub') d.className = e.kind === 'sub' ? 'tactic' : e.kind;
-        d.innerHTML = '<time>' + mmss(e.t) + '</time><span>' + esc(e.text) + '</span>';
+        d.innerHTML = '<time>' + mmss(e.t) + '</time><span>' + esc(e.text) + '</span>' + (e.kind === 'goal' ? '<button class="rpBtn" data-t="' + e.t + '" title="Replay 3D du but">▶ Revoir</button>' : '');
         box.prepend(d);
       }
     }
@@ -649,7 +736,7 @@
         + '<div class="attrs">' + attrsOf(p).map(k => '<div class="attr"><span>' + k[1] + '</span><b>' + Math.round(E.shown(p.a[k[0]]) * 100) + '</b></div>').join('') + '</div>';
     }
     const over = !pending && cur >= end - 1e-6 && !scrub;
-    if (over) { $('endText').textContent = view.teams[0].name + ' ' + s0 + ' – ' + s1 + ' ' + view.teams[1].name; if (cardOf !== rec) { cardOf = rec; drawCard(); } }
+    if (over) { $('endText').textContent = view.teams[0].name + ' ' + s0 + ' – ' + s1 + ' ' + view.teams[1].name; if (cardOf !== rec) { cardOf = rec; drawCard(); endGoals(); } }
     if (over && CUP && !forfeited && (!job || job.done) && cupOf !== rec) { cupOf = rec; saveCup(s0, s1); if (rec.shootout) showShootout(rec.shootout); }
     $('end').hidden = !over || tab !== 'match';
     tvSync();
@@ -768,6 +855,15 @@
       teams: T.map((t, k) => ({ name: t.club || t.name, sub: t.club ? t.name : 'Équipe standard', color: t.color, score: score[k], scorers: scorers[k] })),
       momentum: M, ticks, half: full >= 20 ? 0.5 : null, goals, stats, motm
     };
+  }
+  // sous la carte de fin : un bouton par but, pour revoir son replay
+  function endGoals() {
+    const box = $('endGoals'); box.innerHTML = '';
+    for (const e of rec.events) if (e.kind === 'goal') {
+      const g = /contre son camp de (.+) \(\d+-\d+\)$/.exec(e.text) || /! (.+) \(\d+-\d+\)$/.exec(e.text), b = document.createElement('button');
+      b.className = 'rpGoal'; b.textContent = '▶ ' + minute(e.t) + ' ' + (g ? g[1] : 'But'); b.title = 'Replay 3D du but'; b.style.borderColor = view.teams[e.team].color;
+      b.onclick = () => replay(e, false); box.append(b);
+    }
   }
   function drawCard() {
     const c = $('card'), g = c.getContext('2d'), k = c.width / R.SUMMARY.W;
@@ -889,6 +985,7 @@
     sel.value = String(stPlayer);
   }
   function setTab(t) {
+    if (rpOn) stopReplay();
     tab = t; $('tabMatch').classList.toggle('on', t === 'match'); $('tabStats').classList.toggle('on', t === 'stats'); $('tabTac').classList.toggle('on', t === 'tac');
     $('tacView').hidden = t !== 'tac'; document.querySelector('.stage').classList.toggle('tac', t === 'tac');
     if (t === 'tac' && rec) { playing = false; tv.look = null; tv.msg = ''; tvLoad(); tvDraw(); }
@@ -920,6 +1017,7 @@
     }
     if (rec) {
       const fc = Math.min(Math.floor(cur / DT), rec.n - 1), weak = !pending && $('hl').checked && rec.hl && !rec.hl.on[fc];
+      if (rpOn && playing) stopReplay();                               // lecture relancée pendant un replay : on revient au match
       if (playing && !pending && !scrub && !series && $('busy').hidden) {
         if (halfStop) halfEnd();                                       // le match a repris (« Reprendre », lecture, « Valider » au téléphone)
         const dead = $('skip').checked && rec.D[fc];
@@ -928,6 +1026,7 @@
         const was = cur, h = rec.events.find(e => e.kind === 'half');
         cur = Math.min(end, cur + dt * rate); if (cur >= end) { playing = false; nextHud = 0; }
         if (h && was < h.t && cur >= h.t && h.t >= live - 1e-6) { cur = h.t; halfTime(h); }      // première fois qu'on arrive à la mi-temps : vestiaire
+        else if ($('rpAuto').checked && tab === 'match') for (const e of rec.events) if (e.kind === 'goal' && was < e.t + RP_AFTER && cur >= e.t + RP_AFTER && e.t + RP_AFTER >= live - 1e-6 && e.t + RP_AFTER <= (rec.n - 1) * DT) { cur = e.t + RP_AFTER; replay(e, true); break; }      // premier passage après un but : replay
         if (job && !job.done) cur = Math.min(cur, (rec.n - 1) * DT); }      // pas plus loin que ce qui est calculé
       else rate = speed;
       $('ff').hidden = !(weak && playing && tab === 'match');
@@ -980,6 +1079,7 @@
   }
   // nouveau match : on revient à l'avant-match, terrain en place et match à l'arrêt
   function newMatch(s) {
+    if (rpOn) stopReplay();
     tac0 = rec ? tacAt(tickOf(cur)) : tac0; changes = [];           // les consignes affichées deviennent celles du coup d'envoi
     seed = s; cur = 0; live = 0; marked = -1; selected = -1; playing = false; pending = true; tv.base = null;
     $('seed').value = seed; lockMode();
@@ -1015,7 +1115,7 @@
   function finish() {
     if (pending || forfeited || !job) return;
     if (coach() && !confirm('Finir le match d\'un coup ? La fin est jouée sans la regarder, et vous ne pourrez plus rien changer.')) return;
-    playing = false; if (halfStop) halfEnd(); $('busy').hidden = false;
+    playing = false; if (halfStop) halfEnd(); if (rpOn) stopReplay(); $('busy').hidden = false;
     setTimeout(() => {
       advance(job, job.cap - 1, 0); refresh(job);
       cur = live = end; $('busy').hidden = true; if (tab !== 'match') setTab('match'); nextHud = 0;

@@ -1502,7 +1502,7 @@ function header(m, p0, z) {
     ang = Math.atan2((rng() - 0.5) * 2 * (P.GOAL_HW - 0.5) - p.y, gx - p.x) + (0.10 + 0.14 * (1 - a.heading)) * m.gauss();
     v = 11 + 5 * rng(); vz = -1 + 3 * rng(); kind = 'shot';
     const xg = clamp(0.4 * baseXg(T, p.x, p.y), 0.01, 0.4);
-    m.shot = { by: p, team: p.team, xg, t0: m.t, done: false }; T.stats.shots++; T.stats.xg += xg;
+    m.shot = { by: p, team: p.team, xg, t0: m.t, done: false, head: true }; T.stats.shots++; T.stats.xg += xg;
   } else if (rx < -22) {                                                  // dégagement de la tête, parfois en corner
     ang = Math.atan2((p.y >= 0 ? 0.7 : -0.7) * d, rx < -44 && rng() < 0.3 ? -0.5 * d : d) + 0.35 * m.gauss(); v = 11 + 4 * rng(); vz = 4 + 2 * rng();
   } else {                                                                // remise
@@ -1699,6 +1699,8 @@ function goal(m, att) {
   if (s && !s.done) { s.done = true; if (s.team === att) { scorer = s.by; T.stats.onTarget++; } }
   const sc = ' (' + m.teams[0].score + '-' + m.teams[1].score + ')';
   log(m, 'goal', att, scorer && scorer.team !== att ? 'But contre son camp de ' + scorer.name + sc : 'BUT pour les ' + T.name + ' ! ' + (scorer ? scorer.name : '') + sc);
+  const ev = m.events[m.events.length - 1];      // pour le replay du but (page) : le buteur, l'instant du tir, tête ou coup de pied arrêté
+  ev.by = scorer ? scorer.id : -1; ev.shotT = s && s.team === att ? s.t0 : null; ev.head = !!(s && s.head); ev.sp = s && s.sp || null;
   setRestart(m, 'kickoff', 1 - att, 0, 0, STOP.kickoff);
   m.restart.ballAt = m.t + 3;
 }
