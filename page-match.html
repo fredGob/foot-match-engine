@@ -602,7 +602,7 @@
     if (!want3d || v3d) return;
     document.body.dataset.vue3d = 'chargement';
     R3.load(err => {
-      if (!err) try { v3d = R3.create($('pitch3d'), R); size3d(); } catch (e) { err = new Error('La 3D ne marche pas dans ce navigateur (WebGL absent).'); }
+      if (!err) try { v3d = R3.create($('pitch3d'), R, { small: PHONE }); size3d(); } catch (e) { err = new Error('La 3D ne marche pas dans ce navigateur (WebGL absent).'); }
       document.body.dataset.vue3d = err ? 'erreur' : 'prete';
       if (err) { want3d = false; viewButtons('2d'); $('player').className = ''; $('player').textContent = err.message; }
     });
@@ -937,7 +937,7 @@
       const use3d = want3d && v3d && tab === 'match';
       $('pitch3d').hidden = $('clock3d').hidden = !use3d;
       if (use3d) {
-        const lab = v3d.draw(view, show(cur), { selected, big: PHONE ? 1.3 : 1 }), sel = selected >= 0 && view.players[selected];
+        const lab = v3d.draw(view, show(cur), { selected, big: PHONE ? 1.3 : 1, t: cur }), sel = selected >= 0 && view.players[selected];
         $('clock3d').textContent = clock.time + '   ' + (clock.teams ? clock.teams[0] + ' ' + clock.score + ' ' + clock.teams[1] : clock.score) + (clock.dead ? '   Arrêt de jeu' : '');
         $('label3d').hidden = !(lab && lab.front && sel);
         if (lab && sel) { $('label3d').style.left = lab.x + 'px'; $('label3d').style.top = lab.y + 'px'; $('label3d').textContent = sel.name + (coach() ? '' : ' · ' + sel.intent.label); }
