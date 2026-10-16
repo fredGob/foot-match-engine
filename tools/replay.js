@@ -6,13 +6,16 @@ let pw; try { pw = require('playwright'); } catch (e) { pw = require('/opt/node2
 const ROOT = path.join(__dirname, '..'), DOCS = path.join(ROOT, 'docs'), url = 'file://' + path.join(ROOT, 'match.html');
 const R3 = require(path.join(ROOT, 'render3d.js')), LIBF = path.join(__dirname, 'node_modules', '.cache', 'three-r128.min.js');
 if (!fs.existsSync(LIBF)) { fs.mkdirSync(path.dirname(LIBF), { recursive: true }); execFileSync('curl', ['-sS', '-o', LIBF, R3.LIB]); }
+// les joueurs animés (players3d.js) : chargeur, outil de copie des squelettes et mannequin, servis aussi depuis une copie locale
+const P3 = require(path.join(ROOT, 'players3d.js')), P3F = P3.LIBS.concat(P3.MODEL).map(u => [u, path.join(path.dirname(LIBF), path.basename(u))]);
+for (const [u, f] of P3F) if (!fs.existsSync(f)) execFileSync('curl', ['-sS', '-o', f, u]);
 let fails = 0; const check = (ok, what, info) => { if (!ok) fails++; console.log((ok ? '  ok    ' : '  ÉCHEC ') + what + (info ? ' — ' + info : '')); };
 const SEED = 22;      // équipes standard, 10 minutes : un but à 0:51
 
 (async () => {
   const browser = await pw.chromium.launch({ args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });
   const errors = [];
-  const serve = async ctx => ctx.route(R3.LIB, r => r.fulfill({ status: 200, contentType: 'application/javascript', body: fs.readFileSync(LIBF) }));
+  const serve = async ctx => { await ctx.route(R3.LIB, r => r.fulfill({ status: 200, contentType: 'application/javascript', body: fs.readFileSync(LIBF) })); for (const [u, f] of P3F) await ctx.route(u, r => r.fulfill({ status: 200, contentType: /\.glb$/.test(u) ? 'model/gltf-binary' : 'application/javascript', body: fs.readFileSync(f) })); };
   const state = p => p.evaluate(() => document.body.dataset.replay || '');
   const colors = async p => {
     const png = (await (await p.$('#replayCv')).screenshot()).toString('base64');

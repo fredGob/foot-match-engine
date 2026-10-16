@@ -427,6 +427,7 @@
 
 <script src="engine.js"></script>
 <script src="render.js"></script>
+<script src="players3d.js"></script>
 <script src="render3d.js"></script>
 <script src="replay3d.js"></script>
 <script src="stats.js"></script>
@@ -637,6 +638,7 @@
     R3.load(err => {
       if (!err) try { v3d = R3.create($('pitch3d'), R, { small: PHONE }); size3d(); } catch (e) { err = new Error('La 3D ne marche pas dans ce navigateur (WebGL absent).'); }
       document.body.dataset.vue3d = err ? 'erreur' : 'prete';
+      document.body.dataset.joueurs3d = window.Players3D && Players3D.ready() ? 'animes' : 'simples';      // vrais mouvements, ou joueurs faits main (n° 129)
       if (err) { want3d = false; viewButtons('2d'); $('player').className = ''; $('player').textContent = err.message; }
     });
   }

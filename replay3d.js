@@ -298,11 +298,41 @@ function create(canvas, R2, opt) {
   const figs = [];
   let clip = null, hooks = null, segs = [], si = 0, t = 0, raf = 0, last = 0, cam = null, ballLast = null, kickLeg = 0, diveSide = 0, diveDir = 0, diveReach = 0, diveAmt = 0, W = 1, H = 1;
   function resize(w, h) { W = w; H = h; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  // les mêmes gestes pour les joueurs animés (players3d.js) : on tourne les os du squelette par-dessus le mouvement enregistré
+  function kickR(u, r, leg) {
+    const w = smooth(-0.5, -0.32, r) * (1 - smooth(0.35, 0.6, r)); if (w <= 0) return;
+    const B = u.bones, up = leg === 0 ? B.rUp : B.lUp, kn = leg === 0 ? B.rLeg : B.lLeg;
+    let hip, knee;
+    if (r < -0.12) { const k = smooth(-0.5, -0.12, r); hip = lerp(0, 0.9, k); knee = lerp(0.3, 1.7, k); }       // jambe armée
+    else if (r < 0.04) { const k = smooth(-0.12, 0.04, r); hip = lerp(0.9, -1.25, k); knee = lerp(1.7, 0.1, k); }      // frappe
+    else { const k = smooth(0.04, 0.35, r); hip = lerp(-1.25, -1.45, k); knee = lerp(0.1, 0.4, k); }                  // accompagnement
+    up.rotation.x += hip * w; kn.rotation.x += knee * w;
+    B.lArm.rotation.z += 0.8 * w; B.rArm.rotation.z -= 0.8 * w; B.spine.rotation.x -= 0.2 * w;      // bras écartés, buste en arrière
+  }
+  function headerR(u, r) {
+    const w = smooth(-0.45, -0.3, r) * (1 - smooth(0.25, 0.5, r)); if (w <= 0) return;
+    const B = u.bones;
+    u.body.position.y = 0.38 * w * Math.max(0, Math.cos(r * 3.2));
+    B.spine.rotation.x += (r < 0 ? lerp(-0.35, 0.45, smooth(-0.3, 0, r)) : 0.45) * w;      // il se cambre, puis donne le coup de tête
+    B.lLeg.rotation.x += 0.8 * w; B.rLeg.rotation.x += 0.8 * w;
+    B.lArm.rotation.z += 0.9 * w; B.rArm.rotation.z -= 0.9 * w;
+  }
+  function diveR(u, k) {
+    if (k <= 0) return;
+    const B = u.bones;
+    B.lArm.rotation.z += 2.6 * k; B.rArm.rotation.z -= 2.6 * k;      // bras tendus au-dessus de la tête
+    B.lLeg.rotation.x += 0.3 * k; B.rLeg.rotation.x += 0.3 * k;
+  }
+  const P3 = () => (typeof self !== 'undefined' && self.Players3D && self.Players3D.ready()) ? self.Players3D : null;
   function setup(c) {
     for (const f of figs) scene.remove(f); figs.length = 0;
     c.players.forEach((q, i) => {
       const k = (q.num * 7 + q.team * 3 + i) >>> 0, gk = q.role === 'GK', shirt = gk ? KEEPER[q.team] : c.teams[q.team].color;
-      figs.push(makePlayer(q, shirt, q.team === 0 ? '#f2f4f7' : '#1b1f24', gk ? shirt : q.team === 0 ? '#2f6fdf' : '#d8423a', SKIN[k % SKIN.length], HAIR[(k >> 2) % HAIR.length], gk));
+      const shorts = q.team === 0 ? '#f2f4f7' : '#1b1f24', socks = gk ? shirt : q.team === 0 ? '#2f6fdf' : '#d8423a';
+      if (P3()) {      // vrais mouvements (n° 129)
+        const f = P3().make({ shirt: lin(shirt), shorts: lin(shorts), socks: lin(socks), skin: lin(SKIN[k % SKIN.length]), hair: lin(HAIR[(k >> 2) % HAIR.length]), boots: lin('#141619'), hands: lin(gk ? '#f2f2f2' : SKIN[k % SKIN.length]) }, { num: q.num, name: q.name, ink: gk ? '#11151a' : '#ffffff', shadow: true });
+        f.rotation.order = 'YXZ'; f.userData.sp = 0; scene.add(f); figs.push(f);
+      } else figs.push(makePlayer(q, shirt, shorts, socks, SKIN[k % SKIN.length], HAIR[(k >> 2) % HAIR.length], gk));
     });
     // la jambe qui frappe : celle du côté du ballon au moment du tir
     const S = c.at(c.shotT), sc = S.players[c.scorer];
@@ -338,16 +368,16 @@ function create(canvas, R2, opt) {
     S.players.forEach((p, i) => {
       const f = figs[i], u = f.userData;
       if (!gdt) u.sp = p.v; else u.sp += (Math.min(p.v, 10) - u.sp) * Math.min(1, gdt * 10);
-      gait(u, u.sp, gdt);
+      if (u.rigged) { u.body.position.y = 0; P3().animate(f, u.sp, gdt); } else gait(u, u.sp, gdt);
       let x = p.x, z = p.y, roll = 0, lift = 0;
-      if (i === c.scorer && c.shotT != null && !c.own) { if (c.head) header(u, tt - c.shotT); else kick(u, tt - c.shotT, kickLeg); }
+      if (i === c.scorer && c.shotT != null && !c.own) { if (c.head) (u.rigged ? headerR : header)(u, tt - c.shotT); else (u.rigged ? kickR : kick)(u, tt - c.shotT, kickLeg); }
       if (i === c.keeper && c.shotT != null) {
         const k = smooth(c.shotT + 0.06, c.shotT + 0.06 + Math.max(0.3, (c.goalT - c.shotT) * 0.9), tt) * (1 - smooth(c.goalT + 1.4, c.goalT + 2.2, tt));
-        dive(u, k);
+        (u.rigged ? diveR : dive)(u, k);
         roll = diveSide * 1.3 * diveAmt * k; lift = 0.45 * diveAmt * Math.sin(Math.PI * Math.min(1, k)) * (tt < c.goalT + 0.3 ? 1 : 0.4);
         z += diveDir * diveReach * k;      // il s'étire vers le ballon, au-delà de ce que le moteur lui fait parcourir
       }
-      f.position.set(x, lift, z); f.rotation.set(roll, -p.face, 0); f.scale.setScalar(1.12);
+      f.position.set(x, lift, z); f.rotation.set(roll, -p.face, 0); f.scale.setScalar(u.rigged ? 1.03 : 1.12);
     });
     // le ballon : dans le but, il s'arrête dans le filet, qui se creuse
     let bx = S.ball.x, by = Math.max(0, S.ball.z), bz = S.ball.y;

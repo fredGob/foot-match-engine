@@ -2512,6 +2512,112 @@ return { drawSummary, SUMMARY: { W: CW, H: CH }, drawMatch, drawPitch, toWorld, 
 });
 </script>
 <script>
+/* Joueurs 3D animés avec de vrais mouvements enregistrés (demande de Frédéric, n° 129) : un mannequin tout prêt (« Xbot » des exemples de
+   three.js, mouvements capturés sur un vrai acteur : immobile, marche, course), chargé depuis internet une seule fois, cloné pour chaque joueur
+   et habillé aux couleurs de son équipe (maillot et manches, short, chaussettes, peau, cheveux, chaussures ; gants pour le gardien).
+   La course suit la vitesse du joueur dans le match : on mélange immobile, marche et course, et la cadence s'accélère avec lui.
+   Utilisé par la vue 3D du match (render3d.js) et par le replay des buts (replay3d.js). Sans internet, ils gardent leurs joueurs faits main. */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.Players3D = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+'use strict';
+
+const JS = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/';
+const LIBS = [JS + 'loaders/GLTFLoader.js', JS + 'utils/SkeletonUtils.js'];
+const MODEL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/Xbot.glb';
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+
+let gltf = null, loading = false, failed = null;
+const waiters = [];
+function script(src) {
+  return new Promise((ok, ko) => { const s = document.createElement('script'); s.src = src; s.async = true; s.onload = ok; s.onerror = () => ko(new Error('chargement impossible : ' + src)); document.head.appendChild(s); });
+}
+// charge le chargeur de modèles, l'outil de copie des squelettes et le mannequin ; rappelle cb(erreur ou null)
+function load(cb) {
+  if (gltf) return cb(null);
+  if (failed) return cb(failed);
+  waiters.push(cb); if (loading) return; loading = true;
+  const done = e => { loading = false; failed = e; const w = waiters.splice(0); w.forEach(f => f(e)); };
+  (THREE.GLTFLoader ? Promise.resolve() : script(LIBS[0]))
+    .then(() => THREE.SkeletonUtils ? null : script(LIBS[1]))
+    .then(() => new Promise((ok, ko) => new THREE.GLTFLoader().load(MODEL, ok, undefined, () => ko(new Error('mannequin 3D introuvable')))))
+    .then(g => { gltf = g; done(null); }, e => done(e));
+}
+const ready = () => !!gltf;
+
+/* La tenue : le mannequin est d'une seule pièce ; on le colorie selon la hauteur et l'écartement de chaque point dans sa pose de départ
+   (debout, bras tendus à l'horizontale, 1,80 m) : chaussures, chaussettes, genoux, short, maillot et manches, avant-bras et mains, cou, tête, cheveux. */
+function kitMaterial(kit, shade) {
+  const m = new THREE.MeshStandardMaterial({ roughness: 0.72, metalness: 0, skinning: true });
+  const U = {};
+  for (const k of ['shirt', 'shorts', 'socks', 'skin', 'hair', 'boots', 'hands']) U['k_' + k] = { value: kit[k].clone().multiplyScalar(shade) };
+  m.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, U);
+    sh.vertexShader = 'varying vec3 vBind;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vBind = position;');
+    sh.fragmentShader = 'varying vec3 vBind;\nuniform vec3 k_shirt, k_shorts, k_socks, k_skin, k_hair, k_boots, k_hands;\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      float y = vBind.y, ax = abs(vBind.x);
+      vec3 c = k_skin;
+      if (y < 0.085) c = k_boots;
+      else if (y < 0.47) c = k_socks;
+      else if (y < 0.66) c = k_skin;
+      else if (y < 0.99) c = ax < 0.27 ? k_shorts : k_skin;
+      else if (y < 1.54 && !(y > 1.46 && ax < 0.085)) c = ax < 0.43 ? k_shirt : (ax > 0.66 ? k_hands : k_skin);
+      else if (y > 1.70 || (y > 1.57 && vBind.z < -0.05)) c = k_hair;
+      diffuseColor.rgb = c;`);
+  };
+  m.customProgramCacheKey = () => 'kit';
+  return m;
+}
+// le numéro (et le nom) dans le dos
+function backTexture(name, num, ink) {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 128; const g = c.getContext('2d');
+  g.fillStyle = ink; g.textAlign = 'center'; g.textBaseline = 'middle';
+  if (name) { const nm = String(name).split(' ').pop().toUpperCase().slice(0, 12); g.font = '700 ' + (nm.length > 8 ? 13 : 16) + 'px system-ui, sans-serif'; g.fillText(nm, 64, 18); }
+  g.font = '800 76px system-ui, sans-serif'; g.fillText(String(num), 64, 76);
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t;
+}
+
+/* un joueur : kit = couleurs (THREE.Color) { shirt, shorts, socks, skin, hair, boots, hands } ; opts = { num, name, ink, shadow }.
+   Renvoie un groupe à poser au sol, qui regarde vers +x (comme les joueurs faits main) ; joueurs3d.animate(g, vitesse, dt) le fait courir. */
+function make(kit, opts) {
+  opts = opts || {};
+  const body = THREE.SkeletonUtils.clone(gltf.scene);
+  body.traverse(o => {
+    if (!o.isSkinnedMesh) return;
+    o.material = kitMaterial(kit, /Joints/.test(o.name) ? 0.82 : 1);
+    o.castShadow = opts.shadow !== false; o.receiveShadow = false; o.frustumCulled = false;
+  });
+  body.rotation.y = Math.PI / 2;      // le mannequin regarde vers +z ; on le tourne vers +x
+  const g = new THREE.Group(); g.add(body);
+  // numéro dans le dos, accroché au haut du dos (il suit le buste)
+  const spine = body.getObjectByName('mixamorigSpine2') || body.getObjectByName('mixamorig:Spine2');
+  if (spine && opts.num != null) {
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshBasicMaterial({ map: backTexture(opts.name, opts.num, opts.ink || '#ffffff'), transparent: true, depthWrite: false }));
+    plate.position.set(0, 6, -14.5); plate.rotation.y = Math.PI; spine.add(plate);      // le squelette est en centimètres
+  }
+  const mixer = new THREE.AnimationMixer(body), clip = n => gltf.animations.find(a => a.name === n);
+  const A = { idle: mixer.clipAction(clip('idle')), walk: mixer.clipAction(clip('walk')), run: mixer.clipAction(clip('run')) };
+  for (const k in A) { A[k].play(); A[k].setEffectiveWeight(0); }
+  A.walk.time = Math.random() * A.walk.getClip().duration; A.run.time = Math.random() * A.run.getClip().duration;
+  const bone = n => body.getObjectByName('mixamorig' + n) || body.getObjectByName('mixamorig:' + n);
+  g.userData = { rigged: true, body, mixer, A, sp: 0, bones: { hips: bone('Hips'), spine: bone('Spine1'), lUp: bone('LeftUpLeg'), rUp: bone('RightUpLeg'), lLeg: bone('LeftLeg'), rLeg: bone('RightLeg'), lArm: bone('LeftArm'), rArm: bone('RightArm'), lFore: bone('LeftForeArm'), rFore: bone('RightForeArm'), head: bone('Head') } };
+  return g;
+}
+// la course suit la vitesse v (m/s) du joueur dans le match ; dt : temps de jeu écoulé (0 en pause, petit au ralenti)
+function animate(g, v, dt) {
+  const u = g.userData, A = u.A;
+  const idle = clamp(1 - v / 0.7, 0, 1), run = clamp((v - 2.2) / 1.8, 0, 1), walk = Math.max(0, 1 - idle - run);
+  A.idle.setEffectiveWeight(idle); A.walk.setEffectiveWeight(walk); A.run.setEffectiveWeight(run);
+  A.walk.setEffectiveTimeScale(clamp(v / 1.4, 0.6, 1.9));
+  A.run.setEffectiveTimeScale(clamp(v / 4.6, 0.75, 1.55));
+  u.mixer.update(Math.max(0, dt));
+}
+
+return { load, ready, make, animate, LIBS, MODEL };
+});
+</script>
+<script>
 /* Vue 3D du match (demande de Frédéric, n° 120 ; plus réaliste au n° 122) : le même match que la vue de dessus, dessiné autrement.
    Le moteur ne change pas : on lit les positions des joueurs et du ballon (hauteur comprise) et on les pose dans une scène three.js.
    Caméra télé : en hauteur, sur le côté du terrain, elle suit le ballon. Besoin de three.js (r128, global THREE). */
@@ -2529,8 +2635,14 @@ const LIB = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
 
 // charge three.js une seule fois (depuis internet) ; rappelle cb(erreur)
 let loading = null;
+// puis les joueurs animés (players3d.js) ; s'ils ne se chargent pas, on garde les joueurs faits main
+const P3 = () => (typeof self !== 'undefined' && self.Players3D) || null;
 function load(cb) {
-  if (typeof THREE !== 'undefined') return cb(null);
+  const next = e => { if (e || !P3()) return cb(e); P3().load(() => cb(null)); };
+  if (typeof THREE !== 'undefined') return next(null);
+  loadThree(next);
+}
+function loadThree(cb) {
   if (!loading) {
     loading = [];
     const s = document.createElement('script'); s.src = LIB; s.async = true;
@@ -2690,8 +2802,12 @@ function create(canvas, R2, opt) {
     let f = figs.get(p.id);
     if (!f || f.userData.key !== key + shirt) {
       if (f) scene.remove(f);
-      const k = (p.num * 7 + p.team * 3 + p.id) >>> 0;
-      f = makePlayer(shirt, p.team === 0 ? '#f2f4f7' : '#1b1f24', p.role === 'GK' ? shirt : p.team === 0 ? '#2f6fdf' : '#d8423a', SKIN[k % SKIN.length], HAIR[(k >> 2) % HAIR.length], p.num, '#ffffff');
+      const k = (p.num * 7 + p.team * 3 + p.id) >>> 0, shorts = p.team === 0 ? '#f2f4f7' : '#1b1f24', socks = p.role === 'GK' ? shirt : p.team === 0 ? '#2f6fdf' : '#d8423a';
+      if (P3() && P3().ready()) {      // vrais mouvements (n° 129)
+        const C = c => new THREE.Color(c);
+        f = P3().make({ shirt: C(shirt), shorts: C(shorts), socks: C(socks), skin: C(SKIN[k % SKIN.length]), hair: C(HAIR[(k >> 2) % HAIR.length]), boots: C('#141619'), hands: C(p.role === 'GK' ? '#f2f2f2' : SKIN[k % SKIN.length]) }, { num: p.num, ink: '#ffffff', shadow: true });
+        f.userData.x = null; f.userData.lean = 0; scene.add(f);
+      } else f = makePlayer(shirt, shorts, socks, SKIN[k % SKIN.length], HAIR[(k >> 2) % HAIR.length], p.num, '#ffffff');
       f.userData.key = key + shirt; figs.set(p.id, f);
     }
     return f;
@@ -2751,8 +2867,8 @@ function create(canvas, R2, opt) {
       let v = p.v != null ? p.v : (u.x === null || !gdt ? 0 : Math.hypot(x - u.x, z - u.z) / gdt);
       if (jump || u.x === null) u.sp = v; else u.sp += (Math.min(v, 10) - u.sp) * Math.min(1, gdt * 10);
       u.x = x; u.z = z;
-      pose(u, u.sp, gdt);
-      f.position.set(x, 0, z); f.rotation.y = -p.face; f.scale.setScalar(1.15 * big);
+      if (u.rigged) P3().animate(f, u.sp, gdt); else pose(u, u.sp, gdt);
+      f.position.set(x, 0, z); f.rotation.y = -p.face; f.scale.setScalar((u.rigged ? 1.05 : 1.15) * big);
       f.visible = true;
     }
     for (const [id, f] of figs) if (!seen.has(id)) f.visible = false;
@@ -3083,11 +3199,41 @@ function create(canvas, R2, opt) {
   const figs = [];
   let clip = null, hooks = null, segs = [], si = 0, t = 0, raf = 0, last = 0, cam = null, ballLast = null, kickLeg = 0, diveSide = 0, diveDir = 0, diveReach = 0, diveAmt = 0, W = 1, H = 1;
   function resize(w, h) { W = w; H = h; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  // les mêmes gestes pour les joueurs animés (players3d.js) : on tourne les os du squelette par-dessus le mouvement enregistré
+  function kickR(u, r, leg) {
+    const w = smooth(-0.5, -0.32, r) * (1 - smooth(0.35, 0.6, r)); if (w <= 0) return;
+    const B = u.bones, up = leg === 0 ? B.rUp : B.lUp, kn = leg === 0 ? B.rLeg : B.lLeg;
+    let hip, knee;
+    if (r < -0.12) { const k = smooth(-0.5, -0.12, r); hip = lerp(0, 0.9, k); knee = lerp(0.3, 1.7, k); }       // jambe armée
+    else if (r < 0.04) { const k = smooth(-0.12, 0.04, r); hip = lerp(0.9, -1.25, k); knee = lerp(1.7, 0.1, k); }      // frappe
+    else { const k = smooth(0.04, 0.35, r); hip = lerp(-1.25, -1.45, k); knee = lerp(0.1, 0.4, k); }                  // accompagnement
+    up.rotation.x += hip * w; kn.rotation.x += knee * w;
+    B.lArm.rotation.z += 0.8 * w; B.rArm.rotation.z -= 0.8 * w; B.spine.rotation.x -= 0.2 * w;      // bras écartés, buste en arrière
+  }
+  function headerR(u, r) {
+    const w = smooth(-0.45, -0.3, r) * (1 - smooth(0.25, 0.5, r)); if (w <= 0) return;
+    const B = u.bones;
+    u.body.position.y = 0.38 * w * Math.max(0, Math.cos(r * 3.2));
+    B.spine.rotation.x += (r < 0 ? lerp(-0.35, 0.45, smooth(-0.3, 0, r)) : 0.45) * w;      // il se cambre, puis donne le coup de tête
+    B.lLeg.rotation.x += 0.8 * w; B.rLeg.rotation.x += 0.8 * w;
+    B.lArm.rotation.z += 0.9 * w; B.rArm.rotation.z -= 0.9 * w;
+  }
+  function diveR(u, k) {
+    if (k <= 0) return;
+    const B = u.bones;
+    B.lArm.rotation.z += 2.6 * k; B.rArm.rotation.z -= 2.6 * k;      // bras tendus au-dessus de la tête
+    B.lLeg.rotation.x += 0.3 * k; B.rLeg.rotation.x += 0.3 * k;
+  }
+  const P3 = () => (typeof self !== 'undefined' && self.Players3D && self.Players3D.ready()) ? self.Players3D : null;
   function setup(c) {
     for (const f of figs) scene.remove(f); figs.length = 0;
     c.players.forEach((q, i) => {
       const k = (q.num * 7 + q.team * 3 + i) >>> 0, gk = q.role === 'GK', shirt = gk ? KEEPER[q.team] : c.teams[q.team].color;
-      figs.push(makePlayer(q, shirt, q.team === 0 ? '#f2f4f7' : '#1b1f24', gk ? shirt : q.team === 0 ? '#2f6fdf' : '#d8423a', SKIN[k % SKIN.length], HAIR[(k >> 2) % HAIR.length], gk));
+      const shorts = q.team === 0 ? '#f2f4f7' : '#1b1f24', socks = gk ? shirt : q.team === 0 ? '#2f6fdf' : '#d8423a';
+      if (P3()) {      // vrais mouvements (n° 129)
+        const f = P3().make({ shirt: lin(shirt), shorts: lin(shorts), socks: lin(socks), skin: lin(SKIN[k % SKIN.length]), hair: lin(HAIR[(k >> 2) % HAIR.length]), boots: lin('#141619'), hands: lin(gk ? '#f2f2f2' : SKIN[k % SKIN.length]) }, { num: q.num, name: q.name, ink: gk ? '#11151a' : '#ffffff', shadow: true });
+        f.rotation.order = 'YXZ'; f.userData.sp = 0; scene.add(f); figs.push(f);
+      } else figs.push(makePlayer(q, shirt, shorts, socks, SKIN[k % SKIN.length], HAIR[(k >> 2) % HAIR.length], gk));
     });
     // la jambe qui frappe : celle du côté du ballon au moment du tir
     const S = c.at(c.shotT), sc = S.players[c.scorer];
@@ -3123,16 +3269,16 @@ function create(canvas, R2, opt) {
     S.players.forEach((p, i) => {
       const f = figs[i], u = f.userData;
       if (!gdt) u.sp = p.v; else u.sp += (Math.min(p.v, 10) - u.sp) * Math.min(1, gdt * 10);
-      gait(u, u.sp, gdt);
+      if (u.rigged) { u.body.position.y = 0; P3().animate(f, u.sp, gdt); } else gait(u, u.sp, gdt);
       let x = p.x, z = p.y, roll = 0, lift = 0;
-      if (i === c.scorer && c.shotT != null && !c.own) { if (c.head) header(u, tt - c.shotT); else kick(u, tt - c.shotT, kickLeg); }
+      if (i === c.scorer && c.shotT != null && !c.own) { if (c.head) (u.rigged ? headerR : header)(u, tt - c.shotT); else (u.rigged ? kickR : kick)(u, tt - c.shotT, kickLeg); }
       if (i === c.keeper && c.shotT != null) {
         const k = smooth(c.shotT + 0.06, c.shotT + 0.06 + Math.max(0.3, (c.goalT - c.shotT) * 0.9), tt) * (1 - smooth(c.goalT + 1.4, c.goalT + 2.2, tt));
-        dive(u, k);
+        (u.rigged ? diveR : dive)(u, k);
         roll = diveSide * 1.3 * diveAmt * k; lift = 0.45 * diveAmt * Math.sin(Math.PI * Math.min(1, k)) * (tt < c.goalT + 0.3 ? 1 : 0.4);
         z += diveDir * diveReach * k;      // il s'étire vers le ballon, au-delà de ce que le moteur lui fait parcourir
       }
-      f.position.set(x, lift, z); f.rotation.set(roll, -p.face, 0); f.scale.setScalar(1.12);
+      f.position.set(x, lift, z); f.rotation.set(roll, -p.face, 0); f.scale.setScalar(u.rigged ? 1.03 : 1.12);
     });
     // le ballon : dans le but, il s'arrête dans le filet, qui se creuse
     let bx = S.ball.x, by = Math.max(0, S.ball.z), bz = S.ball.y;
@@ -3500,6 +3646,7 @@ return { create, add, rows, rowsOf, highlights };
     R3.load(err => {
       if (!err) try { v3d = R3.create($('pitch3d'), R, { small: PHONE }); size3d(); } catch (e) { err = new Error('La 3D ne marche pas dans ce navigateur (WebGL absent).'); }
       document.body.dataset.vue3d = err ? 'erreur' : 'prete';
+      document.body.dataset.joueurs3d = window.Players3D && Players3D.ready() ? 'animes' : 'simples';      // vrais mouvements, ou joueurs faits main (n° 129)
       if (err) { want3d = false; viewButtons('2d'); $('player').className = ''; $('player').textContent = err.message; }
     });
   }

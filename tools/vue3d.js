@@ -8,12 +8,15 @@ let pw; try { pw = require('playwright'); } catch (e) { pw = require('/opt/node2
 const ROOT = path.join(__dirname, '..'), DOCS = path.join(ROOT, 'docs'), url = 'file://' + path.join(ROOT, 'match.html');
 const R3 = require(path.join(ROOT, 'render3d.js')), LIBF = path.join(__dirname, 'node_modules', '.cache', 'three-r128.min.js');
 if (!fs.existsSync(LIBF)) { fs.mkdirSync(path.dirname(LIBF), { recursive: true }); execFileSync('curl', ['-sS', '-o', LIBF, R3.LIB]); }
+// les joueurs animés (players3d.js) : chargeur, outil de copie des squelettes et mannequin, servis aussi depuis une copie locale
+const P3 = require(path.join(ROOT, 'players3d.js')), P3F = P3.LIBS.concat(P3.MODEL).map(u => [u, path.join(path.dirname(LIBF), path.basename(u))]);
+for (const [u, f] of P3F) if (!fs.existsSync(f)) execFileSync('curl', ['-sS', '-o', f, u]);
 let fails = 0; const check = (ok, what, info) => { if (!ok) fails++; console.log((ok ? '  ok    ' : '  ÉCHEC ') + what + (info ? ' — ' + info : '')); };
 
 (async () => {
   const browser = await pw.chromium.launch({ args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });
   const errors = [];
-  const serve = async ctx => ctx.route(R3.LIB, r => r.fulfill({ status: 200, contentType: 'application/javascript', body: fs.readFileSync(LIBF) }));
+  const serve = async ctx => { await ctx.route(R3.LIB, r => r.fulfill({ status: 200, contentType: 'application/javascript', body: fs.readFileSync(LIBF) })); for (const [u, f] of P3F) await ctx.route(u, r => r.fulfill({ status: 200, contentType: /\.glb$/.test(u) ? 'model/gltf-binary' : 'application/javascript', body: fs.readFileSync(f) })); };
 
   console.log('Ordinateur');
   const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } }); await serve(ctx);
@@ -21,8 +24,9 @@ let fails = 0; const check = (ok, what, info) => { if (!ok) fails++; console.log
   await page.goto(url); await page.evaluate(() => localStorage.removeItem('vue')); await page.reload(); await page.waitForTimeout(300);
   check(await page.isVisible('[data-view="3d"]') && await page.isHidden('#pitch3d'), 'bouton 2D / 3D ; vue de dessus au départ');
   await page.click('[data-view="3d"]');
-  await page.waitForFunction(() => document.body.dataset.vue3d === 'prete' || document.body.dataset.vue3d === 'erreur', null, { timeout: 20000 });
+  await page.waitForFunction(() => document.body.dataset.vue3d === 'prete' || document.body.dataset.vue3d === 'erreur', null, { timeout: 60000 });
   check(await page.evaluate(() => document.body.dataset.vue3d) === 'prete', 'three.js chargé, scène 3D créée');
+  check(await page.evaluate(() => document.body.dataset.joueurs3d) === 'animes', 'joueurs animés avec de vrais mouvements (mannequin chargé)');
   await page.click('#kick'); await page.waitForTimeout(3500);
   const pb = await (await page.$('#pitch3d')).boundingBox(), cb = await (await page.$('#pitch')).boundingBox();
   check(await page.isVisible('#pitch3d') && Math.abs(pb.width - cb.width) < 2 && Math.abs(pb.height - cb.height) < 2, 'la vue 3D prend la place du terrain', Math.round(pb.width) + ' × ' + Math.round(pb.height));
@@ -44,14 +48,14 @@ let fails = 0; const check = (ok, what, info) => { if (!ok) fails++; console.log
   check(await page.isHidden('#pitch3d') && await page.isHidden('#clock3d'), 'retour à la vue de dessus');
   await page.click('[data-view="3d"]'); await page.waitForTimeout(100);
   await page.reload(); await page.waitForTimeout(300);
-  await page.waitForFunction(() => document.body.dataset.vue3d === 'prete', null, { timeout: 20000 });
+  await page.waitForFunction(() => document.body.dataset.vue3d === 'prete', null, { timeout: 60000 });
   check(await page.evaluate(() => document.querySelector('[data-view="3d"]').classList.contains('on')), 'la vue 3D est retenue d\'une fois sur l\'autre');
 
   console.log('Téléphone couché (844 × 390)');
   const tel = await browser.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }); await serve(tel);
   const ph = await tel.newPage(); ph.on('pageerror', e => errors.push(String(e)));
   await ph.goto(url); await ph.evaluate(() => { localStorage.setItem('vue', '3d'); localStorage.removeItem('menuFerme'); }); await ph.reload();
-  await ph.waitForFunction(() => document.body.dataset.vue3d === 'prete', null, { timeout: 20000 });
+  await ph.waitForFunction(() => document.body.dataset.vue3d === 'prete', null, { timeout: 60000 });
   check(await ph.isVisible('#ppanel #views'), 'boutons 2D / 3D dans la colonne');
   await ph.tap('#kick'); await ph.waitForTimeout(3000);
   check(await ph.isVisible('#pitch3d') && await ph.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), 'match en 3D, sans défilement de côté');
@@ -66,8 +70,18 @@ let fails = 0; const check = (ok, what, info) => { if (!ok) fails++; console.log
   await off.route(R3.LIB, r => r.abort());
   const op = await off.newPage(); op.on('pageerror', e => errors.push(String(e)));
   await op.goto(url); await op.click('[data-view="3d"]');
-  await op.waitForFunction(() => document.body.dataset.vue3d === 'erreur', null, { timeout: 20000 });
+  await op.waitForFunction(() => document.body.dataset.vue3d === 'erreur', null, { timeout: 60000 });
   check(await op.evaluate(() => document.querySelector('[data-view="2d"]').classList.contains('on')) && /internet/.test(await op.textContent('#player')), 'message clair, on reste en vue de dessus', await op.textContent('#player'));
+
+  console.log('Sans le mannequin (seulement three.js)');
+  const nom = await browser.newContext({ viewport: { width: 1200, height: 800 } });
+  await nom.route(R3.LIB, r => r.fulfill({ status: 200, contentType: 'application/javascript', body: fs.readFileSync(LIBF) }));
+  await nom.route(P3.MODEL, r => r.abort());
+  const np = await nom.newPage(); np.on('pageerror', e => errors.push(String(e)));
+  await np.goto(url); await np.evaluate(() => localStorage.removeItem('vue')); await np.reload(); await np.click('[data-view="3d"]');
+  await np.waitForFunction(() => document.body.dataset.vue3d === 'prete' || document.body.dataset.vue3d === 'erreur', null, { timeout: 30000 });
+  await np.click('#kick'); await np.waitForTimeout(1500);
+  check(await np.evaluate(() => document.body.dataset.vue3d) === 'prete' && await np.evaluate(() => document.body.dataset.joueurs3d) === 'simples' && await np.isVisible('#pitch3d'), 'mannequin introuvable : la 3D marche quand même, avec les joueurs faits main');
 
   check(errors.length === 0, 'aucune erreur JavaScript', errors.join(' | '));
   await browser.close();

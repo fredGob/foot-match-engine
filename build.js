@@ -4,7 +4,7 @@
 const fs = require('fs'), path = require('path');
 const read = f => fs.readFileSync(path.join(__dirname, f), 'utf8');
 let html = read('page-match.html');
-for (const f of ['engine.js', 'render.js', 'render3d.js', 'replay3d.js', 'stats.js']) {
+for (const f of ['engine.js', 'render.js', 'players3d.js', 'render3d.js', 'replay3d.js', 'stats.js']) {
   const tag = '<script src="' + f + '"></script>';
   if (!html.includes(tag)) throw new Error('balise introuvable : ' + tag);
   html = html.replace(tag, () => '<script>\n' + read(f).replace(/<\/script/g, '<\\/script') + '</script>');
