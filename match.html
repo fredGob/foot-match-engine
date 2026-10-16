@@ -170,6 +170,7 @@
   body.phone .ppanel .pctl > *, body.phone .ppanel .ptabs > button { flex: 1; padding: 7px 0; min-height: 38px; font-size: 13px; }
   body.phone .ppanel .pspeed { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
   body.phone .ppanel .pspeed button { flex: 1; padding: 6px 0; }
+  body.phone .ppanel #finish { width: 100%; min-height: 36px; padding: 6px 0; font-size: 13px; }
   body.phone .ppanel #views { display: flex; } body.phone .ppanel #views button { flex: 1; padding: 6px 0; }
   body.phone .ppanel #tabTac { background: var(--accent); border-color: var(--accent); color: #11151a; font-weight: 700; }
   body.phone .ppanel .homelink { margin: 0; font-size: 13px; text-align: center; }
@@ -349,6 +350,7 @@
     <div class="bar">
       <button id="play">Pause</button>
       <span class="group"><button id="back" title="Reculer de 10 secondes">−10 s</button><button id="fwd" title="Avancer de 10 secondes">+10 s</button></span>
+      <button id="finish" hidden title="La fin du match est jouée d'un coup, sans la regarder : on arrive directement à la feuille de match">Finir le match ⏭</button>
       <span class="group">Vitesse
         <button data-speed="1">×1</button><button data-speed="1.5" class="on">×1,5</button><button data-speed="2">×2</button>
       </span>
@@ -3071,6 +3073,7 @@ return { create, add, rows, rowsOf, highlights };
     tvSync();
     $('play').textContent = pending ? (PHONE ? '▶ Lancer' : 'Lancer le match') : playing ? (PHONE ? '⏸ Pause' : 'Pause') : (PHONE ? '▶ Lecture' : 'Lecture');
     keepAwake(playing && !pending);
+    $('finish').hidden = pending || forfeited || (coach() ? live : cur) >= end - 1e-6;
     if (PHONE) { $('miniPlay').textContent = playing && !pending ? '⏸' : '▶'; $('pmini').classList.toggle('hide', tab === 'tac' || !$('end').hidden); }
   }
 
@@ -3426,6 +3429,16 @@ return { create, add, rows, rowsOf, highlights };
       cur = live = end; $('busy').hidden = true; nextHud = 0;
     }, 30);
   }
+  // finir le match d'un coup, en cours de partie : la suite est calculée sans la regarder (changements demandés compris), puis la feuille de match
+  function finish() {
+    if (pending || forfeited || !job) return;
+    if (coach() && !confirm('Finir le match d\'un coup ? La fin est jouée sans la regarder, et vous ne pourrez plus rien changer.')) return;
+    playing = false; if (halfStop) halfEnd(); $('busy').hidden = false;
+    setTimeout(() => {
+      advance(job, job.cap - 1, 0); refresh(job);
+      cur = live = end; $('busy').hidden = true; if (tab !== 'match') setTab('match'); nextHud = 0;
+    }, 30);
+  }
   function launch() { if (!pending || forfeited) return; if (PHONE) fullscreen(); pending = false; lockMode(); cur = 0; live = 0; marked = -1; playing = true; if (tab === 'tac') setTab('match'); rebuild(0); }
   // plusieurs consignes d'un coup (tactique prédéfinie) : un seul recalcul
   function setTactics(team, obj, preset) {
@@ -3670,7 +3683,7 @@ return { create, add, rows, rowsOf, highlights };
   document.addEventListener('pointercancel', e => tvEnd(e, true));
 
   $('play').onclick = () => { if (pending) return launch(); if (cur >= end - 1e-6) cur = 0; playing = !playing; nextHud = 0; };
-  $('kick').onclick = launch; $('instant').onclick = instant;
+  $('kick').onclick = launch; $('instant').onclick = instant; $('finish').onclick = finish;
   $('back').onclick = () => seek(cur - 10);
   $('fwd').onclick = () => seek(cur + 10);
   $('rewatch').onclick = () => { cur = 0; playing = true; nextHud = 0; };
@@ -3816,7 +3829,7 @@ return { create, add, rows, rowsOf, highlights };
     const P = $('ppanel'), box = (cls, ...els) => { const d = document.createElement('div'); d.className = cls; d.append(...els); return d; }, head = t => { const h = document.createElement('h3'); h.textContent = t; return h; };
     const speeds = document.querySelector('[data-speed]').parentNode; speeds.className = 'pspeed';
     const close = document.createElement('button'); close.id = 'pclose'; close.textContent = 'Masquer ›';
-    P.append(close, box('pctl', $('back'), $('play'), $('fwd')), document.querySelector('.timeline'), speeds,
+    P.append(close, box('pctl', $('back'), $('play'), $('fwd')), document.querySelector('.timeline'), speeds, $('finish'),
       box('ptabs', $('tabMatch'), $('tabStats'), $('tabTac')), $('views'), head('Joueur'), $('player'), head('Fil du match'), $('log'), document.querySelector('.homelink'));
     $('tabStats').textContent = 'Stats'; $('tvBack').textContent = '← Match';
     // colonne rétractable (remarque de Frédéric : trop large) : fermée, le terrain prend tout l'écran, avec trois boutons par-dessus

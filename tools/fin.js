@@ -69,6 +69,10 @@ const secs = s => { const m = /^(\d+):(\d+)/.exec(s); return 60 * +m[1] + +m[2];
   check(/^90:00/.test(await page.textContent('#clock')) && /Lecture/.test(await page.textContent('#play')), 'on est au coup de sifflet final, à l\'arrêt', await page.textContent('#clock'));
   await page.click('#rewatch'); await page.waitForTimeout(300); await page.click('#play'); await page.waitForTimeout(1500);
   check(await page.isHidden('#end') && secs(await page.textContent('#clock')) > 0, '« Revoir depuis le début » : on peut quand même regarder le match');
+  check(await page.isVisible('#finish'), 'en cours de match : bouton « Finir le match »');
+  await page.click('#finish');
+  await page.waitForFunction(() => !document.getElementById('end').hidden, null, { timeout: 60000 });
+  check(await page.textContent('#endText') === played && await page.isHidden('#finish'), '« Finir le match » : feuille de match, même résultat, bouton caché ensuite', await page.textContent('#endText'));
 
   check(errors.length === 0, 'aucune erreur JavaScript', errors.join(' | '));
   await browser.close();
