@@ -209,7 +209,7 @@
       "classement": 4,
       "court": "OLQ",
       "formation": "4231",
-      "consignes": {"passing": 0, "tempo": 1, "width": 1, "line": 1, "press": 1, "cross": 0},
+      "consignes": {"passing": 0, "tempo": 1, "width": 1, "line": 1, "press": 0, "cross": 0},
       "joueurs": [
         { "poste": "G",   "numero":  1, "nom": "Greif",           "poste_naturel": "G",  "source": "détaillé",     "notes": { "vitesse":  22, "acceleration":  25, "endurance":  17, "passe":  43, "vision":  34, "prise_de_balle":  17, "dribble":  10, "finition":   9, "frappe_de_loin":   5, "tacle":  11, "placement":  77, "anticipation":  76, "lucidite":  75, "sang_froid":  32, "volume_de_course":  50, "agressivite":  16, "gout_du_risque":  55, "jeu_de_tete":  33, "appels":   7, "reflexes":  77, "mains":  76 } },
         { "poste": "AG",  "numero":  3, "nom": "Abner",           "poste_naturel": "AG", "source": "détaillé",     "notes": { "vitesse":  79, "acceleration":  78, "endurance":  69, "passe":  75, "vision":  67, "prise_de_balle":  74, "dribble":  74, "finition":  55, "frappe_de_loin":  51, "tacle":  74, "placement":  65, "anticipation":  69, "lucidite":  70, "sang_froid":  73, "volume_de_course":  65, "agressivite":  69, "gout_du_risque":  55, "jeu_de_tete":  62, "appels":  72, "reflexes":  25, "mains":  25 } },
@@ -267,7 +267,7 @@
       "classement": 6,
       "court": "SGS",
       "formation": "433",
-      "consignes": {"passing": 0, "tempo": 1, "width": 1, "line": 1, "press": 1, "cross": 0},
+      "consignes": {"passing": 0, "tempo": 1, "width": 1, "line": 1, "press": 0, "cross": 0},
       "joueurs": [
         { "poste": "G",   "numero":  1, "nom": "Samba",           "poste_naturel": "G",  "source": "détaillé",     "notes": { "vitesse":  60, "acceleration":  49, "endurance":  37, "passe":  59, "vision":  48, "prise_de_balle":  36, "dribble":  14, "finition":   9, "frappe_de_loin":  10, "tacle":  13, "placement":  80, "anticipation":  79, "lucidite":  78, "sang_froid":  66, "volume_de_course":  50, "agressivite":  26, "gout_du_risque":  55, "jeu_de_tete":  44, "appels":  11, "reflexes":  80, "mains":  80 } },
         { "poste": "AG",  "numero":  3, "nom": "Nagida",          "poste_naturel": "AG", "source": "détaillé",     "notes": { "vitesse":  78, "acceleration":  75, "endurance":  62, "passe":  58, "vision":  51, "prise_de_balle":  66, "dribble":  67, "finition":  38, "frappe_de_loin":  44, "tacle":  67, "placement":  59, "anticipation":  63, "lucidite":  64, "sang_froid":  52, "volume_de_course":  65, "agressivite":  58, "gout_du_risque":  55, "jeu_de_tete":  53, "appels":  56, "reflexes":  25, "mains":  25 } },
@@ -299,7 +299,7 @@
       "classement": 7,
       "court": "ASP",
       "formation": "4231",
-      "consignes": {"passing": 0, "tempo": 1, "width": 0, "line": 1, "press": 1, "cross": 0},
+      "consignes": {"passing": 0, "tempo": 1, "width": 0, "line": 1, "press": 0, "cross": 0},
       "joueurs": [
         { "poste": "G",   "numero":  1, "nom": "Hrádecký",        "poste_naturel": "G",  "source": "détaillé",     "notes": { "vitesse":  44, "acceleration":  38, "endurance":  34, "passe":  41, "vision":  53, "prise_de_balle":  20, "dribble":  10, "finition":  11, "frappe_de_loin":  14, "tacle":  12, "placement":  81, "anticipation":  81, "lucidite":  80, "sang_froid":  45, "volume_de_course":  50, "agressivite":  31, "gout_du_risque":  50, "jeu_de_tete":  35, "appels":   9, "reflexes":  83, "mains":  79 } },
         { "poste": "AG",  "numero":  3, "nom": "Nazinho",         "poste_naturel": "AG", "source": "supposé",      "notes": { "vitesse":  65, "acceleration":  65, "endurance":  65, "passe":  60, "vision":  55, "prise_de_balle":  60, "dribble":  60, "finition":  45, "frappe_de_loin":  45, "tacle":  60, "placement":  60, "anticipation":  60, "lucidite":  65, "sang_froid":  65, "volume_de_course":  65, "agressivite":  60, "gout_du_risque":  55, "jeu_de_tete":  55, "appels":  55, "reflexes":  25, "mains":  25 } },
@@ -421,7 +421,7 @@
       "classement": 11,
       "court": "PFC",
       "formation": "4231",
-      "consignes": {"passing": -1, "tempo": 0, "width": 0, "line": 1, "press": 1, "cross": 0},
+      "consignes": {"passing": -1, "tempo": 0, "width": 0, "line": 1, "press": 0, "cross": 0},
       "joueurs": [
         { "poste": "G",   "numero":  1, "nom": "Trapp",           "poste_naturel": "G",  "source": "détaillé",     "notes": { "vitesse":  50, "acceleration":  43, "endurance":  45, "passe":  41, "vision":  48, "prise_de_balle":  24, "dribble":  10, "finition":  13, "frappe_de_loin":  13, "tacle":  12, "placement":  76, "anticipation":  79, "lucidite":  82, "sang_froid":  65, "volume_de_course":  45, "agressivite":  30, "gout_du_risque":  50, "jeu_de_tete":  40, "appels":  12, "reflexes":  84, "mains":  80 } },
         { "poste": "AG",  "numero":  3, "nom": "Traoré",          "poste_naturel": "AG", "source": "détaillé",     "notes": { "vitesse":  83, "acceleration":  80, "endurance":  90, "passe":  74, "vision":  66, "prise_de_balle":  75, "dribble":  75, "finition":  52, "frappe_de_loin":  58, "tacle":  77, "placement":  72, "anticipation":  73, "lucidite":  74, "sang_froid":  72, "volume_de_course":  65, "agressivite":  75, "gout_du_risque":  50, "jeu_de_tete":  77, "appels":  72, "reflexes":  25, "mains":  25 } },
@@ -450,7 +450,7 @@
       "classement": 12,
       "court": "SKA",
       "formation": "4231",
-      "consignes": {"passing": 1, "tempo": 0, "width": 1, "line": 0, "press": 1, "cross": 0},
+      "consignes": {"passing": 1, "tempo": 0, "width": 1, "line": 0, "press": 0, "cross": 0},
       "joueurs": [
         { "poste": "G",   "numero":  1, "nom": "Selvik",          "poste_naturel": "G",  "source": "supposé",      "notes": { "vitesse":  45, "acceleration":  45, "endurance":  45, "passe":  50, "vision":  55, "prise_de_balle":  50, "dribble":  35, "finition":  35, "frappe_de_loin":  35, "tacle":  35, "placement":  60, "anticipation":  65, "lucidite":  60, "sang_froid":  65, "volume_de_course":  40, "agressivite":  50, "gout_du_risque":  45, "jeu_de_tete":  50, "appels":  35, "reflexes":  65, "mains":  60 } },
         { "poste": "AG",  "numero":  3, "nom": "Locko",           "poste_naturel": "AG", "source": "détaillé",     "notes": { "vitesse":  77, "acceleration":  69, "endurance":  67, "passe":  67, "vision":  52, "prise_de_balle":  74, "dribble":  72, "finition":  47, "frappe_de_loin":  54, "tacle":  76, "placement":  73, "anticipation":  72, "lucidite":  68, "sang_froid":  66, "volume_de_course":  65, "agressivite":  68, "gout_du_risque":  55, "jeu_de_tete":  70, "appels":  56, "reflexes":  25, "mains":  25 } },
@@ -540,7 +540,7 @@
       "classement": 15,
       "court": "AJC",
       "formation": "3421",
-      "consignes": {"passing": 1, "tempo": 1, "width": 0, "line": 1, "press": 1, "cross": 0},
+      "consignes": {"passing": 1, "tempo": 1, "width": 0, "line": 1, "press": 0, "cross": 0},
       "joueurs": [
         { "poste": "G",   "numero":  1, "nom": "M. Diop",         "poste_naturel": "G",  "source": "supposé",      "notes": { "vitesse":  40, "acceleration":  40, "endurance":  45, "passe":  50, "vision":  50, "prise_de_balle":  50, "dribble":  35, "finition":  35, "frappe_de_loin":  35, "tacle":  35, "placement":  60, "anticipation":  60, "lucidite":  60, "sang_froid":  60, "volume_de_course":  40, "agressivite":  45, "gout_du_risque":  45, "jeu_de_tete":  45, "appels":  35, "reflexes":  60, "mains":  60 } },
         { "poste": "AG",  "numero":  3, "nom": "Oppegård",        "poste_naturel": "MG", "source": "détaillé",     "notes": { "vitesse":  80, "acceleration":  78, "endurance":  69, "passe":  62, "vision":  52, "prise_de_balle":  62, "dribble":  64, "finition":  56, "frappe_de_loin":  42, "tacle":  64, "placement":  58, "anticipation":  63, "lucidite":  63, "sang_froid":  50, "volume_de_course":  60, "agressivite":  52, "gout_du_risque":  60, "jeu_de_tete":  59, "appels":  54, "reflexes":  25, "mains":  25 } },
