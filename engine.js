@@ -1356,7 +1356,7 @@ function keeperSave(m, p, z, stretch, sp3) {
   const quick = clamp((12 - (shot.d0 || 99)) / 6, 0, 1);                // frappe de près (moins de 12 m) : il a d'autant moins le temps de réagir
   const pStop = clamp(0.995 - 0.55 * stretch * stretch * (1.5 - a.reflexes) - 0.75 * quick - (z > 1.9 ? 0.1 : 0), 0.15, 0.995);
   if (rng() >= pStop) { const sh = m.shot; deflect(m, p, 0.6, 0.35); m.shot = sh; p.noControlUntil = m.t + 0.8; return; }     // touché, pas arrêté
-  shot.done = true; m.teams[shot.team].stats.onTarget++; T.stats.saves++;
+  shot.done = true; shot.onT = true; m.teams[shot.team].stats.onTarget++; T.stats.saves++;
   if (sp3 < 15 || rng() < 0.2 + 0.5 * a.handling - 0.35 * stretch) { log(m, 'save', p.team, 'Tir de ' + shot.by.name + ', arrêt de ' + p.name); return catchBall(m, p); }
   log(m, 'save', p.team, 'Tir de ' + shot.by.name + ', parade de ' + p.name);
   const sgn = b.y >= p.y ? 1 : -1, ang = Math.atan2(sgn * (0.6 + 0.9 * rng()), T.dir * (-0.3 + 1.2 * rng())), v = 5 + 0.25 * sp3 + 3 * rng();
@@ -1575,15 +1575,27 @@ function runRestart(m) {
   k.face = Math.atan2(-k.y, -k.x || m.teams[k.team].dir);
   m.restart = null;
 }
+// Après un tir, on note si un attaquant a retouché le ballon (le tir n'est plus à l'origine d'un but éventuel).
+// Sans cela, un tir repoussé par le gardien ou dévié par un défenseur, qui finit au fond, comptait « contre son camp » (remarque de Frédéric, n° 130).
+const SHOT_CREDIT = 6;      // secondes : au-delà, un ballon qui rentre n'est plus la suite du tir
+function watchShot(m) {
+  const s = m.shot, lt = m.ball.lastTouch, id = lt ? lt.id : -1;
+  if (!s || s.re || id === s.lt) return;
+  if (s.lt !== undefined && lt && lt.team === s.team) s.re = true;
+  s.lt = id;
+}
 function goal(m, att) {
   const b = m.ball, T = m.teams[att], s = m.shot;
   T.score++; T.stats.goals++;
-  let scorer = b.lastTouch;
-  if (s && !s.done) { s.done = true; if (s.team === att) { scorer = s.by; T.stats.onTarget++; } }
+  let scorer = b.lastTouch, fromShot = false;
+  if (s && !s.done) { s.done = true; if (s.team === att) { scorer = s.by; fromShot = true; T.stats.onTarget++; } }
+  else if (s && s.team === att && !s.re && m.t - s.t0 < SHOT_CREDIT && scorer && scorer.team !== att) {      // tir dévié, contré ou repoussé par le gardien, puis au fond : but du tireur
+    scorer = s.by; fromShot = true; if (!s.onT) T.stats.onTarget++;
+  }
   const sc = ' (' + m.teams[0].score + '-' + m.teams[1].score + ')';
   log(m, 'goal', att, scorer && scorer.team !== att ? 'But contre son camp de ' + scorer.name + sc : 'BUT pour les ' + T.name + ' ! ' + (scorer ? scorer.name : '') + sc);
   const ev = m.events[m.events.length - 1];      // pour le replay du but (page) : le buteur, l'instant du tir, tête ou coup de pied arrêté
-  ev.by = scorer ? scorer.id : -1; ev.shotT = s && s.team === att ? s.t0 : null; ev.head = !!(s && s.head); ev.sp = s && s.sp || null;
+  ev.by = scorer ? scorer.id : -1; ev.shotT = fromShot ? s.t0 : null; ev.head = !!(s && s.head); ev.sp = s && s.sp || null;
   setRestart(m, 'kickoff', 1 - att, 0, 0, STOP.kickoff);
   m.restart.ballAt = m.t + 3;
 }
@@ -1744,7 +1756,7 @@ function step(m) {
   moveBall(m);
   if (m.mode === 'play') {
     if (b.owner) resolveTackles(m); else resolveFreeBall(m);
-    if (m.mode === 'play') checkBounds(m);
+    if (m.mode === 'play') { watchShot(m); checkBounds(m); }
   }
   { const o = b.owner; if (o && o.team !== m.holder) { m.holder = o.team; m.possSince = m.t; } }      // depuis quand cette équipe a le ballon
   if (m.mode === 'play') { m.playT += DT; if (m.poss >= 0) m.teams[m.poss].stats.possT += DT; if (b.owner) cnt(m, 'temps.balle_au_pied', DT); measure(m); }
