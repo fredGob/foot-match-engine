@@ -48,6 +48,10 @@
   .ttok .nm { margin-top: 2px; max-width: 78px; padding: 0 4px; border-radius: 4px; background: rgba(10,14,18,.75); font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ttok .fr { width: 34px; height: 4px; margin-top: 2px; border-radius: 2px; background: rgba(10,14,18,.75); overflow: hidden; }
   .ttok .fr b { display: block; height: 100%; }
+  .ttok .ball u { position: absolute; left: -7px; top: -6px; width: 16px; height: 16px; border-radius: 50%; background: #a98bff; color: #1a1a1a; text-decoration: none; font-size: 10px; line-height: 16px; text-align: center; font-weight: 800; }      /* consignes individuelles */
+  .ordrow { display: grid; grid-template-columns: 92px 1fr; gap: 4px 8px; align-items: center; margin-top: 6px; font-size: 12.5px; }
+  .ordrow .seg { display: flex; } .ordrow .seg button { flex: 1; padding: 4px 2px; font-size: 12px; border-radius: 0; margin-left: -1px; } .ordrow .seg button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; } .ordrow .seg button:last-child { border-radius: 0 6px 6px 0; }
+  .ordrow .seg button.on { background: #3b2f66; border-color: #a98bff; color: #fff; }
   .ttok.off .ball { border-color: #ff9a3c; }
   .ttok.new .ball { box-shadow: 0 0 0 3px rgba(92,201,138,.7); }
   .ttok.look .nm { outline: 1px solid var(--accent); }
@@ -90,8 +94,36 @@
   canvas { display: block; width: 100%; aspect-ratio: 114 / 75; border-radius: 10px; cursor: pointer; }
   .end, .busy { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(10, 14, 18, 0.72); border-radius: 10px; font-size: 26px; font-weight: 650; }
   .end { background: rgba(10, 14, 18, 0.86); font-size: 15px; font-weight: 500; padding: 10px; }
-  .end canvas { width: min(100%, 900px); height: auto; aspect-ratio: 16 / 9; max-height: calc(100% - 56px); object-fit: contain; border-radius: 10px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); }
+  .end canvas { width: min(100%, 900px); height: auto; aspect-ratio: 16 / 9; max-height: calc(100% - 96px); object-fit: contain; border-radius: 10px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); }
   .end .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .end #endGoals:empty { display: none; }
+  .end #endGoals button { font-size: 13px; padding: 5px 10px; }
+  /* replay 3D des buts (n° 125) : plein terrain, bandeau télé, volet de transition entre les deux caméras */
+  .replay { position: absolute; inset: 0; z-index: 5; background: #05070a; overflow: hidden; border-radius: 10px; }
+  .replay[hidden], .stage.tac .replay, .stage.stats .replay { display: none; }
+  .replay canvas { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; cursor: default; }
+  .replay .rpVig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%); }
+  .replay .rpTag { position: absolute; top: 14px; left: 14px; padding: 4px 12px 4px 10px; background: #ffe45c; color: #11151a; font: italic 900 18px/1.2 system-ui, sans-serif; letter-spacing: 2px; border-radius: 3px; box-shadow: 0 2px 10px rgba(0,0,0,0.4); }
+  .replay .rpTag::before { content: '●'; color: #d8423a; margin-right: 6px; font-style: normal; animation: rp-blink 1s steps(2) infinite; }
+  @keyframes rp-blink { 50% { opacity: 0; } }
+  .replay .rpAngle { position: absolute; top: 18px; right: 16px; color: #fff; font: 600 13px system-ui, sans-serif; text-shadow: 0 1px 3px #000; opacity: 0.85; }
+  .replay .rpBand { position: absolute; left: 18px; bottom: 20px; display: flex; align-items: stretch; background: rgba(12, 16, 22, 0.88); color: #fff; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,0.5); animation: rp-in 0.5s ease-out both; max-width: calc(100% - 150px); }
+  .replay .rpBand i { width: 8px; flex: none; }
+  .replay .rpBand b { padding: 8px 14px; background: #ffe45c; color: #11151a; font: italic 900 22px/1.2 system-ui, sans-serif; letter-spacing: 1px; white-space: nowrap; }
+  .replay .rpBand span { padding: 8px 14px; font: 600 16px/1.35 system-ui, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .replay .rpBand span + span { border-left: 1px solid rgba(255,255,255,0.15); font-weight: 800; }
+  @keyframes rp-in { from { transform: translateX(-40px); opacity: 0; } }
+  .replay .rpWipe { position: absolute; inset: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; opacity: 0; }
+  .replay .rpWipe span { padding: 10px 40px; background: #ffe45c; color: #11151a; font: italic 900 40px/1 system-ui, sans-serif; letter-spacing: 6px; transform: skewX(-12deg); }
+  .replay .rpWipe.go { animation: rp-wipe 0.7s ease-in-out; }
+  @keyframes rp-wipe { 0% { opacity: 0; background: rgba(5,7,10,0); } 35% { opacity: 1; background: rgba(5,7,10,1); } 65% { opacity: 1; background: rgba(5,7,10,1); } 100% { opacity: 0; background: rgba(5,7,10,0); } }
+  .replay .rpLoad { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; }
+  .replay .rpLoad[hidden] { display: none; }
+  .replay #rpSkip { position: absolute; right: 16px; bottom: 20px; font-size: 15px; padding: 8px 16px; background: rgba(12,16,22,0.85); }
+  body.phone .replay { border-radius: 0; }
+  body.phone .replay .rpBand b { font-size: 16px; padding: 6px 10px; } body.phone .replay .rpBand span { font-size: 13px; padding: 6px 10px; }
+  body.replaying .pmini, body.replaying .ff { display: none !important; }
+  #log .rpBtn { margin-left: 6px; padding: 1px 7px; font-size: 12px; }
   .end[hidden], .busy[hidden], .pre[hidden] { display: none; }
   .tab { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(10, 14, 18, 0.96); border-radius: 10px; padding: 16px; }
   .tab[hidden], .tab [hidden], .cup .group.cuphide { display: none !important; }
@@ -107,7 +139,7 @@
   .pre > div { padding: 4px 14px; border-radius: 6px; background: rgba(10, 14, 18, 0.78); }
   .pre button { font-size: 18px; padding: 10px 26px; }
   .pre > div.row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding: 0; background: none; }
-  .pre #preTac { font-size: 15px; padding: 8px 18px; }
+  .pre #preTac, .pre #instant { font-size: 15px; padding: 8px 18px; }
   .busy { font-size: 18px; font-weight: 500; }
   .spin { width: 46px; height: 46px; border-radius: 50%; border: 5px solid rgba(255, 255, 255, 0.15); border-top-color: var(--accent); animation: tourne-rond 0.8s linear infinite; }      /* tourne même quand la page calcule */
   @keyframes tourne-rond { to { transform: rotate(360deg); } }
@@ -166,6 +198,7 @@
   body.phone .ppanel .pctl > *, body.phone .ppanel .ptabs > button { flex: 1; padding: 7px 0; min-height: 38px; font-size: 13px; }
   body.phone .ppanel .pspeed { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
   body.phone .ppanel .pspeed button { flex: 1; padding: 6px 0; }
+  body.phone .ppanel #finish { width: 100%; min-height: 36px; padding: 6px 0; font-size: 13px; }
   body.phone .ppanel #views { display: flex; } body.phone .ppanel #views button { flex: 1; padding: 6px 0; }
   body.phone .ppanel #tabTac { background: var(--accent); border-color: var(--accent); color: #11151a; font-weight: 700; }
   body.phone .ppanel .homelink { margin: 0; font-size: 13px; text-align: center; }
@@ -290,8 +323,9 @@
     <div class="stage">
       <canvas id="pitch"></canvas>
       <canvas id="pitch3d" hidden></canvas><div class="clock3d" id="clock3d" hidden></div><div class="label3d" id="label3d" hidden></div>
-      <div class="end" id="end" hidden><canvas id="card" width="2400" height="1350" aria-label="Résumé du match"></canvas><div id="endText" hidden></div><div class="tab" id="tab" hidden></div><div class="row"><button id="saveCard" class="main">Enregistrer l'image</button><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
-      <div class="pre" id="pre" hidden><div>Choisissez le mode, réglez votre tactique (onglet Tactique), puis donnez le coup d'envoi.</div><div class="row"><button id="preTac">Régler la tactique</button><button id="kick" class="main">Lancer le match</button></div></div>
+      <div class="end" id="end" hidden><canvas id="card" width="2400" height="1350" aria-label="Résumé du match"></canvas><div id="endText" hidden></div><div class="row" id="endGoals"></div><div class="tab" id="tab" hidden></div><div class="row"><button id="saveCard" class="main">Enregistrer l'image</button><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
+      <div class="replay" id="replay" hidden><canvas id="replayCv"></canvas><div class="rpVig"></div><div class="rpTag">REPLAY</div><div class="rpAngle" id="rpAngle"></div><div class="rpBand" id="rpBand"><i id="rpStripe"></i><b id="rpTitle">BUT !</b><span id="rpWho"></span><span id="rpScore"></span></div><div class="rpWipe" id="rpWipe"><span>REPLAY</span></div><div class="rpLoad" id="rpLoad" hidden>Chargement du replay…</div><button id="rpSkip">Passer ⏭</button></div>
+      <div class="pre" id="pre" hidden><div>Choisissez le mode, réglez votre tactique (onglet Tactique), puis donnez le coup d'envoi.</div><div class="row"><button id="preTac">Régler la tactique</button><button id="kick" class="main">Lancer le match</button><button id="instant" title="Le match est joué d'un coup, sans le regarder : on arrive directement à la feuille de match">Résultat direct ⏭</button></div></div>
       <div class="busy" id="busy" hidden><div class="spin" aria-hidden="true"></div><span>Calcul du match…</span></div>
       <div class="tip" id="tip" hidden></div>
       <div class="ff" id="ff" hidden>⏩ temps faible ×10</div>
@@ -345,6 +379,7 @@
     <div class="bar">
       <button id="play">Pause</button>
       <span class="group"><button id="back" title="Reculer de 10 secondes">−10 s</button><button id="fwd" title="Avancer de 10 secondes">+10 s</button></span>
+      <button id="finish" hidden title="La fin du match est jouée d'un coup, sans la regarder : on arrive directement à la feuille de match">Finir le match ⏭</button>
       <span class="group">Vitesse
         <button data-speed="1">×1</button><button data-speed="1.5" class="on">×1,5</button><button data-speed="2">×2</button>
       </span>
@@ -352,6 +387,7 @@
       <label class="godonly"><input type="checkbox" id="labels"> Montrer l'intention de chaque joueur</label>
       <label title="Pendant un arrêt de jeu (touche, coup franc, sortie de but…), la lecture va six fois plus vite"><input type="checkbox" id="skip" checked> Passer vite les arrêts de jeu</label>
       <label title="Temps forts (lus à la vitesse choisie) : les actions qui finissent en tir, et les moments où une équipe a le ballon dans les 25 derniers mètres. Le reste passe à ×10."><input type="checkbox" id="hl" checked> Accélérer les temps faibles (×10)</label>
+      <label title="Après chaque but, l'action est rejouée au ralenti, en 3D (deux caméras). « Passer » pour revenir au match ; « ▶ Revoir » dans le fil du match pour la revoir."><input type="checkbox" id="rpAuto" checked> Replay des buts</label>
       <span class="group" style="margin-left: auto">Durée
         <select id="duration"><option value="5400" selected>90 min</option><option value="2700">45 min</option><option value="1200">20 min</option><option value="600">10 min (essais)</option></select>
       </span>
@@ -392,6 +428,7 @@
 <script src="engine.js"></script>
 <script src="render.js"></script>
 <script src="render3d.js"></script>
+<script src="replay3d.js"></script>
 <script src="stats.js"></script>
 <script>window.MatchTeams = /*EQUIPES*/null;</script>
 <script>
@@ -443,7 +480,7 @@
   // un match avec ces réglages : formations, consignes, titulaires choisis avant le coup d'envoi ; l'adversaire (Rouges) fait ses remplacements tout seul
   function startMatch(sd, dur, tac, sq) {
     const m = E.createMatch({ seed: sd, duration: dur, tactics: tac, teams: teamsOf(sq), formations: tac.map(t => t.formation || '442'), autoSubs: [false, true] });
-    for (let t = 0; t < 2; t++) if (tac[t].lineup) E.setLineup(m, t, tac[t].lineup, true);
+    for (let t = 0; t < 2; t++) { if (tac[t].lineup) E.setLineup(m, t, tac[t].lineup, true); if (tac[t].orders) E.setOrders(m, t, tac[t].orders); }
     return m;
   }
 
@@ -501,6 +538,7 @@
           const c = due[i];
           if (c.key === 'formation') E.setFormation(m, c.team, c.v);
           else if (c.key === 'lineup') { if (!E.setLineup(m, c.team, c.v)) { wait.push(c); continue; } }      // le tireur est concerné : arrêt suivant
+          else if (c.key === 'orders') E.setOrders(m, c.team, c.v);
           else if (c.preset) { const grp = {}; let j = i; for (; j < due.length && due[j].tick === c.tick && due[j].team === c.team && due[j].preset === c.preset; j++) { grp[due[j].key] = due[j].v; due[j].at = m.tick; } E.setTactics(m, c.team, grp, c.preset); i = j - 1; continue; }
           else E.setTactics(m, c.team, { [c.key]: c.v });
           c.at = m.tick;
@@ -584,7 +622,7 @@
     const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
     W = r.width; H = r.height; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    size3d();
+    size3d(); sizeReplay();
   }
 
   // ---------- vue 3D (n° 120) : même match, caméra télé ; three.js est chargé depuis internet la première fois ----------
@@ -597,12 +635,68 @@
     if (!want3d || v3d) return;
     document.body.dataset.vue3d = 'chargement';
     R3.load(err => {
-      if (!err) try { v3d = R3.create($('pitch3d'), R); size3d(); } catch (e) { err = new Error('La 3D ne marche pas dans ce navigateur (WebGL absent).'); }
+      if (!err) try { v3d = R3.create($('pitch3d'), R, { small: PHONE }); size3d(); } catch (e) { err = new Error('La 3D ne marche pas dans ce navigateur (WebGL absent).'); }
       document.body.dataset.vue3d = err ? 'erreur' : 'prete';
       if (err) { want3d = false; viewButtons('2d'); $('player').className = ''; $('player').textContent = err.message; }
     });
   }
   document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => setView(b.dataset.view));
+
+  // ---------- replay 3D des buts (n° 125) : après un but, l'action rejouée au ralenti, caméra télé puis caméra du buteur ----------
+  const RP3 = window.MatchReplay3D, RP_AFTER = 2;      // le replay part 2 secondes de jeu après le but (ballon au fond)
+  let rp = null, rpOn = false, rpResume = false;
+  function sizeReplay() { if (rp) { const r = $('replay').getBoundingClientRect(); rp.resize(Math.max(1, r.width), Math.max(1, r.height)); } }
+  // l'action du but, lue dans l'enregistrement du match : positions des joueurs et du ballon, buteur, gardien, instant du tir
+  function goalClip(e) {
+    const T = view.teams, g = e.t, shotT = e.shotT != null ? e.shotT : g - 0.6, last = (rec.n - 1) * DT;
+    let t0 = Math.max(0, shotT - 7);      // 7 secondes avant le tir, mais pas avant la fin du dernier arrêt de jeu (corner, coup franc…)
+    for (let f = tickOf(shotT) - 1; f >= tickOf(t0); f--) if (rec.D[f]) { t0 = Math.max(0, Math.min(shotT - 2.5, f * DT - 0.6)); break; }
+    const L = lineupAt(Math.min(tickOf(g), rec.n - 1));
+    const players = view.players.map(p => { const r = T[p.team].roster[L.rids[p.team][p.idx]]; return { team: p.team, role: p.role, num: r.num, name: r.name }; });
+    const by = e.by != null ? e.by : -1, keeper = view.players.findIndex(p => p.team === 1 - e.team && p.role === 'GK');
+    const P = rec.P, B = rec.B;
+    const at = t => {
+      const fp = Math.min(Math.max(t, 0) / DT, rec.n - 1), f0 = Math.floor(fp), f1 = Math.min(f0 + 1, rec.n - 1), a = fp - f0, l = (u, v) => u + (v - u) * a;
+      return {
+        players: players.map((q, i) => { const i0 = (f0 * NP + i) * F, i1 = (f1 * NP + i) * F; return { x: l(P[i0], P[i1]), y: l(P[i0 + 1], P[i1 + 1]), face: P[i1 + 2], v: l(P[i0 + 5], P[i1 + 5]) }; }),
+        ball: { x: l(B[f0 * 4], B[f1 * 4]), y: l(B[f0 * 4 + 1], B[f1 * 4 + 1]), z: l(B[f0 * 4 + 2], B[f1 * 4 + 2]) },
+      };
+    };
+    return { t0, t1: Math.min(last, g + 2.2), shotT: e.shotT != null ? e.shotT : null, goalT: g, side: Math.sign(B[Math.min(tickOf(g), rec.n - 1) * 4]) || T[e.team].dir, scorer: by, keeper,
+      own: by >= 0 && view.players[by].team !== e.team, head: !!e.head, teams: T.map(t => ({ color: t.color })), players, at };
+  }
+  function replay(e, auto) {
+    if (rpOn || !e || !rec) return;
+    rpOn = true; rpResume = auto; playing = false; nextHud = 0;
+    $('replay').hidden = false; $('rpLoad').hidden = false; document.body.classList.add('replaying'); document.body.dataset.replay = 'chargement';
+    R3.load(err => {
+      if (!rpOn) return;
+      if (!err) try { if (!rp) rp = RP3.create($('replayCv'), R, { small: PHONE }); } catch (x) { err = new Error('la 3D ne marche pas dans ce navigateur (WebGL absent)'); }
+      if (err) { endReplay(); $('player').className = ''; $('player').textContent = 'Replay impossible : ' + (err.message || err); return; }
+      $('rpLoad').hidden = true; sizeReplay();
+      const c = goalClip(e), T = view.teams, sh = k => squad[k] && squad[k].court || short(T[k].club || T[k].name);
+      const og = /contre son camp de (.+) \((\d+)-(\d+)\)$/.exec(e.text), r = og || /! (.+) \((\d+)-(\d+)\)$/.exec(e.text);
+      $('rpTitle').textContent = og ? 'CONTRE SON CAMP' : 'BUT !'; $('rpStripe').style.background = T[e.team].color;
+      $('rpWho').textContent = (c.scorer >= 0 ? 'n°' + c.players[c.scorer].num + ' ' : '') + (r ? r[1] : '') + ' · ' + minute(e.t);
+      $('rpScore').textContent = r ? sh(0) + ' ' + r[2] + ' – ' + r[3] + ' ' + sh(1) : '';
+      const band = $('rpBand'); band.style.animation = 'none'; void band.offsetWidth; band.style.animation = '';
+      rp.play(c, {
+        onAngle: k => { document.body.dataset.replay = k; $('rpAngle').textContent = k === 'buteur' ? 'Caméra du buteur' : 'Ralenti'; const w = $('rpWipe'); w.classList.remove('go'); void w.offsetWidth; w.classList.add('go'); },
+        onEnd: endReplay,
+      });
+    });
+  }
+  function endReplay() {
+    if (!rpOn) return;
+    rpOn = false; if (rp) rp.stop();
+    $('replay').hidden = true; document.body.classList.remove('replaying'); document.body.dataset.replay = '';
+    if (rpResume) playing = true; rpResume = false; nextHud = 0;
+  }
+  const stopReplay = () => { rpResume = false; endReplay(); };
+  $('rpSkip').onclick = endReplay;
+  // pour les essais (tools/replay.js) : une image fixe du replay du but n° k, à « dt » secondes du tir, avec la caméra « cam »
+  window.replayStill = (k, dt, cam) => { const e = rec.events.filter(x => x.kind === 'goal')[k], c = goalClip(e); $('replay').hidden = false; $('rpLoad').hidden = true; if (!rp) rp = RP3.create($('replayCv'), R, { small: PHONE }); sizeReplay(); rp.still(c, (c.shotT != null ? c.shotT : c.goalT) + dt, cam); return { shotT: c.shotT, goalT: c.goalT }; };
+  $('log').addEventListener('click', ev => { const b = ev.target.closest('.rpBtn'); if (b) replay(rec.events.find(e => e.kind === 'goal' && String(e.t) === b.dataset.t), false); });
 
   const ATTRS = [['pace', 'Vitesse'], ['passing', 'Passe'], ['firstTouch', 'Prise de balle'], ['vision', 'Vision du jeu'], ['dribbling', 'Dribble'], ['finishing', 'Finition'], ['tackling', 'Tacle'], ['positioning', 'Placement'], ['decisions', 'Lucidité'], ['workRate', 'Volume de course'], ['heading', 'Jeu de tête'], ['longShots', 'Frappe de loin']];
   const attrsOf = p => p.role !== 'GK' ? ATTRS : ATTRS.map(k => k[0] === 'dribbling' ? ['reflexes', 'Réflexes'] : k[0] === 'finishing' ? ['handling', 'Jeu de mains'] : k);      // gardien : ses deux qualités propres
@@ -626,7 +720,7 @@
       for (; shown < n; shown++) {
         const e = ev[shown], d = document.createElement('div');
         if (e.kind === 'goal' || e.kind === 'tactic' || e.kind === 'sub') d.className = e.kind === 'sub' ? 'tactic' : e.kind;
-        d.innerHTML = '<time>' + mmss(e.t) + '</time><span>' + esc(e.text) + '</span>';
+        d.innerHTML = '<time>' + mmss(e.t) + '</time><span>' + esc(e.text) + '</span>' + (e.kind === 'goal' ? '<button class="rpBtn" data-t="' + e.t + '" title="Replay 3D du but">▶ Revoir</button>' : '');
         box.prepend(d);
       }
     }
@@ -642,12 +736,13 @@
         + '<div class="attrs">' + attrsOf(p).map(k => '<div class="attr"><span>' + k[1] + '</span><b>' + Math.round(E.shown(p.a[k[0]]) * 100) + '</b></div>').join('') + '</div>';
     }
     const over = !pending && cur >= end - 1e-6 && !scrub;
-    if (over) { $('endText').textContent = view.teams[0].name + ' ' + s0 + ' – ' + s1 + ' ' + view.teams[1].name; if (cardOf !== rec) { cardOf = rec; drawCard(); } }
+    if (over) { $('endText').textContent = view.teams[0].name + ' ' + s0 + ' – ' + s1 + ' ' + view.teams[1].name; if (cardOf !== rec) { cardOf = rec; drawCard(); endGoals(); } }
     if (over && CUP && !forfeited && (!job || job.done) && cupOf !== rec) { cupOf = rec; saveCup(s0, s1); if (rec.shootout) showShootout(rec.shootout); }
     $('end').hidden = !over || tab !== 'match';
     tvSync();
     $('play').textContent = pending ? (PHONE ? '▶ Lancer' : 'Lancer le match') : playing ? (PHONE ? '⏸ Pause' : 'Pause') : (PHONE ? '▶ Lecture' : 'Lecture');
     keepAwake(playing && !pending);
+    $('finish').hidden = pending || forfeited || (coach() ? live : cur) >= end - 1e-6;
     if (PHONE) { $('miniPlay').textContent = playing && !pending ? '⏸' : '▶'; $('pmini').classList.toggle('hide', tab === 'tac' || !$('end').hidden); }
   }
 
@@ -760,6 +855,15 @@
       teams: T.map((t, k) => ({ name: t.club || t.name, sub: t.club ? t.name : 'Équipe standard', color: t.color, score: score[k], scorers: scorers[k] })),
       momentum: M, ticks, half: full >= 20 ? 0.5 : null, goals, stats, motm
     };
+  }
+  // sous la carte de fin : un bouton par but, pour revoir son replay
+  function endGoals() {
+    const box = $('endGoals'); box.innerHTML = '';
+    for (const e of rec.events) if (e.kind === 'goal') {
+      const g = /contre son camp de (.+) \(\d+-\d+\)$/.exec(e.text) || /! (.+) \(\d+-\d+\)$/.exec(e.text), b = document.createElement('button');
+      b.className = 'rpGoal'; b.textContent = '▶ ' + minute(e.t) + ' ' + (g ? g[1] : 'But'); b.title = 'Replay 3D du but'; b.style.borderColor = view.teams[e.team].color;
+      b.onclick = () => replay(e, false); box.append(b);
+    }
   }
   function drawCard() {
     const c = $('card'), g = c.getContext('2d'), k = c.width / R.SUMMARY.W;
@@ -881,6 +985,7 @@
     sel.value = String(stPlayer);
   }
   function setTab(t) {
+    if (rpOn) stopReplay();
     tab = t; $('tabMatch').classList.toggle('on', t === 'match'); $('tabStats').classList.toggle('on', t === 'stats'); $('tabTac').classList.toggle('on', t === 'tac');
     $('tacView').hidden = t !== 'tac'; document.querySelector('.stage').classList.toggle('tac', t === 'tac');
     if (t === 'tac' && rec) { playing = false; tv.look = null; tv.msg = ''; tvLoad(); tvDraw(); }
@@ -912,6 +1017,7 @@
     }
     if (rec) {
       const fc = Math.min(Math.floor(cur / DT), rec.n - 1), weak = !pending && $('hl').checked && rec.hl && !rec.hl.on[fc];
+      if (rpOn && playing) stopReplay();                               // lecture relancée pendant un replay : on revient au match
       if (playing && !pending && !scrub && !series && $('busy').hidden) {
         if (halfStop) halfEnd();                                       // le match a repris (« Reprendre », lecture, « Valider » au téléphone)
         const dead = $('skip').checked && rec.D[fc];
@@ -920,6 +1026,7 @@
         const was = cur, h = rec.events.find(e => e.kind === 'half');
         cur = Math.min(end, cur + dt * rate); if (cur >= end) { playing = false; nextHud = 0; }
         if (h && was < h.t && cur >= h.t && h.t >= live - 1e-6) { cur = h.t; halfTime(h); }      // première fois qu'on arrive à la mi-temps : vestiaire
+        else if ($('rpAuto').checked && tab === 'match') for (const e of rec.events) if (e.kind === 'goal' && was < e.t + RP_AFTER && cur >= e.t + RP_AFTER && e.t + RP_AFTER >= live - 1e-6 && e.t + RP_AFTER <= (rec.n - 1) * DT) { cur = e.t + RP_AFTER; replay(e, true); break; }      // premier passage après un but : replay
         if (job && !job.done) cur = Math.min(cur, (rec.n - 1) * DT); }      // pas plus loin que ce qui est calculé
       else rate = speed;
       $('ff').hidden = !(weak && playing && tab === 'match');
@@ -932,7 +1039,7 @@
       const use3d = want3d && v3d && tab === 'match';
       $('pitch3d').hidden = $('clock3d').hidden = !use3d;
       if (use3d) {
-        const lab = v3d.draw(view, show(cur), { selected, big: PHONE ? 1.3 : 1 }), sel = selected >= 0 && view.players[selected];
+        const lab = v3d.draw(view, show(cur), { selected, big: PHONE ? 1.3 : 1, t: cur }), sel = selected >= 0 && view.players[selected];
         $('clock3d').textContent = clock.time + '   ' + (clock.teams ? clock.teams[0] + ' ' + clock.score + ' ' + clock.teams[1] : clock.score) + (clock.dead ? '   Arrêt de jeu' : '');
         $('label3d').hidden = !(lab && lab.front && sel);
         if (lab && sel) { $('label3d').style.left = lab.x + 'px'; $('label3d').style.top = lab.y + 'px'; $('label3d').textContent = sel.name + (coach() ? '' : ' · ' + sel.intent.label); }
@@ -972,6 +1079,7 @@
   }
   // nouveau match : on revient à l'avant-match, terrain en place et match à l'arrêt
   function newMatch(s) {
+    if (rpOn) stopReplay();
     tac0 = rec ? tacAt(tickOf(cur)) : tac0; changes = [];           // les consignes affichées deviennent celles du coup d'envoi
     seed = s; cur = 0; live = 0; marked = -1; selected = -1; playing = false; pending = true; tv.base = null;
     $('seed').value = seed; lockMode();
@@ -993,6 +1101,26 @@
     const d = document.documentElement;
     try { const p = d.requestFullscreen && !document.fullscreenElement && d.requestFullscreen({ navigationUI: 'hide' }); if (p) p.then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')).catch(() => {}); } catch (e) {}
   }
+  // résultat direct : le coup d'envoi, puis tout le match calculé d'un coup, sans le regarder ; on arrive sur la feuille de match
+  function instant() {
+    if (!pending || forfeited) return;
+    $('busy').hidden = false;
+    setTimeout(() => {      // laisse le rond s'afficher avant le calcul
+      launch(); playing = false;
+      advance(job, job.cap - 1, 0); refresh(job);
+      cur = live = end; $('busy').hidden = true; nextHud = 0;
+    }, 30);
+  }
+  // finir le match d'un coup, en cours de partie : la suite est calculée sans la regarder (changements demandés compris), puis la feuille de match
+  function finish() {
+    if (pending || forfeited || !job) return;
+    if (coach() && !confirm('Finir le match d\'un coup ? La fin est jouée sans la regarder, et vous ne pourrez plus rien changer.')) return;
+    playing = false; if (halfStop) halfEnd(); if (rpOn) stopReplay(); $('busy').hidden = false;
+    setTimeout(() => {
+      advance(job, job.cap - 1, 0); refresh(job);
+      cur = live = end; $('busy').hidden = true; if (tab !== 'match') setTab('match'); nextHud = 0;
+    }, 30);
+  }
   function launch() { if (!pending || forfeited) return; if (PHONE) fullscreen(); pending = false; lockMode(); cur = 0; live = 0; marked = -1; playing = true; if (tab === 'tac') setTab('match'); rebuild(0); }
   // plusieurs consignes d'un coup (tactique prédéfinie) : un seul recalcul
   function setTactics(team, obj, preset) {
@@ -1002,7 +1130,7 @@
     const tick = Math.min(tickOf(coach() ? live : cur), rec.n - 1), now = tacAt(tick), keys = Object.keys(obj).filter(k => JSON.stringify(now[team][k]) !== JSON.stringify(obj[k]));
     if (!keys.length) return;
     if (tick <= 0) { for (const k of keys) tac0[team][k] = obj[k]; changes = []; }
-    else for (const k of keys) { changes = changes.filter(c => c.tick < tick || (c.tick === tick && !(c.team === team && c.key === k))); changes.push({ tick, team, key: k, v: obj[k], preset: k === 'formation' || k === 'lineup' ? undefined : preset }); }
+    else for (const k of keys) { changes = changes.filter(c => c.tick < tick || (c.tick === tick && !(c.team === team && c.key === k))); changes.push({ tick, team, key: k, v: obj[k], preset: k === 'formation' || k === 'lineup' || k === 'orders' ? undefined : preset }); }
     rebuild(tick);
   }
 
@@ -1066,11 +1194,17 @@
   function tvState(team) {
     const tick = pending ? 0 : nowTick(), t = tacAt(tick)[team], L = lineupAt(tick);
     const tac = {}; for (const c of TAC) tac[c.key] = t[c.key];
-    return { tick, form: t.formation || '442', rids: (t.lineup || L.rids[team]).slice(), tac, applied: L.rids[team], out: L.out[team], subs: L.subs[team] };
+    return { tick, form: t.formation || '442', rids: (t.lineup || L.rids[team]).slice(), tac, ord: ordList(t.orders), applied: L.rids[team], out: L.out[team], subs: L.subs[team] };
   }
-  function tvLoad() { if (coach()) tv.team = 0; tv.base = tvState(tv.team); tv.form = tv.base.form; tv.rids = tv.base.rids.slice(); tv.tac = Object.assign({}, tv.base.tac); tv.sel = null; tv.key = JSON.stringify(tv.base); }
+  // consignes individuelles (n° 121) : une par place (0 à 10), { dribble, attack, longshot } de −1 à +1
+  const ORD = E.ORDERS || [];
+  const ordList = a => Array.from({ length: 11 }, (_, i) => { const o = {}; for (const c of ORD) o[c.key] = (a && a[i] && a[i][c.key]) || 0; return o; });
+  const ordOn = o => o && ORD.some(c => o[c.key]);
+  const ordText = o => ORD.filter(c => o[c.key]).map(c => c.notes[o[c.key] + 1]).join(', ');
+  function tvLoad() { if (coach()) tv.team = 0; tv.base = tvState(tv.team); tv.form = tv.base.form; tv.rids = tv.base.rids.slice(); tv.tac = Object.assign({}, tv.base.tac); tv.ord = ordList(tv.base.ord); tv.sel = null; tv.key = JSON.stringify(tv.base); }
+  const ordDiff = () => tv.ord.map((o, i) => i).filter(i => ORD.some(c => tv.ord[i][c.key] !== tv.base.ord[i][c.key]));
   const tacDiff = () => TAC.filter(c => tv.tac[c.key] !== tv.base.tac[c.key]);
-  const tvDirty = () => tv.base && (tv.form !== tv.base.form || tv.rids.some((r, i) => r !== tv.base.rids[i]) || tacDiff().length > 0);
+  const tvDirty = () => tv.base && (tv.form !== tv.base.form || tv.rids.some((r, i) => r !== tv.base.rids[i]) || tacDiff().length > 0 || ordDiff().length > 0);
   const newcomers = () => pending ? [] : tv.rids.filter(r => !tv.base.applied.includes(r));
   const subsUsed = () => pending ? 0 : tv.base.subs + newcomers().length;
   function tvSync() {           // la barre de temps a bougé, un changement a été fait : on recharge, sauf brouillon en cours
@@ -1096,11 +1230,11 @@
   const tvXY = pl => ({ left: (37 + pl.x) / 74 * 100, top: (L0 - (pl.role === 'GK' ? 7 : 20 + 1.3 * pl.d)) / 74 * 100 });
   const frCol = v => v > 0.75 ? '#5cc98a' : v > 0.55 ? '#e8c547' : '#ff6b5e';
   const shortName = n => { const w = String(n).split(' '); return w.length > 1 ? w[0][0] + '. ' + w.slice(1).join(' ') : n; };
-  function ttok(rid, pl) {
+  function ttok(rid, pl, pi) {
     const T = view.teams[tv.team], e = T.roster[rid], fr = tvFresh(rid), gone = !pl && tv.base.out.includes(rid);
     const off = pl && !accepte(pl).includes(e.nat), isNew = pl && !pending && !tv.base.applied.includes(rid), leaving = !pl && !pending && tv.base.applied.includes(rid);
     return '<div class="ttok' + (off ? ' off' : '') + (isNew ? ' new' : '') + (gone ? ' gone' : '') + (leaving ? ' leaving' : '') + (tv.look === rid ? ' look' : '') + (tv.sel === rid ? ' sel' : '') + '" data-rid="' + rid + '" title="' + esc(e.name) + ' — ' + NAT_NAME[e.nat] + (pl ? ', ' + esc(pl.label) + (off ? ' (hors poste)' : '') : gone ? ' (sorti)' : ' (remplaçant)') + '">'
-      + '<div class="ball" style="background:' + (pl ? T.color : '#3a4a5e') + '">' + e.num + (off ? '<i>!</i>' : '') + '</div><div class="nm">' + esc(shortName(e.name)) + '</div>'
+      + '<div class="ball" style="background:' + (pl ? T.color : '#3a4a5e') + '">' + e.num + (off ? '<i>!</i>' : '') + (pl && ordOn(tv.ord[pi]) ? '<u title="Consignes individuelles : ' + esc(ordText(tv.ord[pi])) + '">C</u>' : '') + '</div><div class="nm">' + esc(shortName(e.name)) + '</div>'
       + (leaving ? '<div class="nm" style="font-weight:400;color:#ff9a3c">sortira</div>' : '') + (fr == null ? '<div class="nm" style="font-weight:400">sorti</div>' : '<div class="fr" title="Fraîcheur ' + Math.round(100 * fr) + ' %"><b style="width:' + Math.round(100 * fr) + '%;background:' + frCol(fr) + '"></b></div>') + '</div>';
   }
   function tvDraw() {
@@ -1109,7 +1243,7 @@
     document.querySelectorAll('[data-tv-team]').forEach(b => b.classList.toggle('on', +b.dataset.tvTeam === tv.team));
     $('tvForms').innerHTML = E.FORMATIONS.map(f => '<button data-tv-form="' + f.id + '" class="' + (f.id === tv.form ? 'on' : '') + '">' + f.name + '</button>').join('');
     let h = tvPitchSvg();
-    pls.forEach((pl, i) => { const q = tvXY(pl); h += '<div class="tspot tdrop" data-tdrop="p' + i + '" style="left:' + q.left.toFixed(2) + '%;top:' + q.top.toFixed(2) + '%">' + ttok(tv.rids[i], pl) + '</div>'; });
+    pls.forEach((pl, i) => { const q = tvXY(pl); h += '<div class="tspot tdrop" data-tdrop="p' + i + '" style="left:' + q.left.toFixed(2) + '%;top:' + q.top.toFixed(2) + '%">' + ttok(tv.rids[i], pl, i) + '</div>'; });
     $('tvPitch').innerHTML = h;
     const bench = R.filter(e => !tv.rids.includes(e.rid));
     $('tvBench').innerHTML = bench.length ? bench.map(e => '<div class="tdrop" data-tdrop="b' + e.rid + '">' + ttok(e.rid, null) + '</div>').join('') : '<span class="muted small">Pas de remplaçant.</span>';
@@ -1134,12 +1268,13 @@
       if (!was.includes(r)) lines.push((pending ? 'Titulaire : ' : 'Entre : ') + nm(r) + (was[i] != null && !tv.rids.includes(was[i]) ? (pending ? ' à la place de ' : ' pour ') + nm(was[i]) : '') + ' (' + esc(pls[i].label) + ')');
       else lines.push(nm(r) + ' → ' + esc(pls[i].label));
     }
+    for (const i of ordDiff()) { const r = tv.rids[i], t = ordText(tv.ord[i]); lines.push('Consignes de ' + nm(r) + ' (' + esc(pls[i].label) + ') : ' + (t ? esc(t) : 'neutres')); }
     $('tvDraft').innerHTML = lines.length ? lines.map(x => '<div>' + x + '</div>').join('') : '<span class="muted">Aucun changement en préparation.</span>';
     $('tvApply').disabled = !lines.length; $('tvReset').disabled = !lines.length;
     $('tvApply').textContent = pending ? 'Valider' : 'Valider (prochain arrêt de jeu)';
     // demandes pas encore faites (on attend un arrêt de jeu)
     const tk = tv.base.tick, wait = pending ? [] : changes.filter(c => c.team === tv.team && c.tick <= tk && !(c.at <= tk));
-    const desc = c => c.key === 'lineup' ? 'composition' : c.key === 'formation' ? 'formation ' + E.FORMATIONS.find(f => f.id === c.v).name : (TAC.find(x => x.key === c.key) || { label: c.key }).label.toLowerCase();
+    const desc = c => c.key === 'lineup' ? 'composition' : c.key === 'orders' ? 'consignes individuelles' : c.key === 'formation' ? 'formation ' + E.FORMATIONS.find(f => f.id === c.v).name : (TAC.find(x => x.key === c.key) || { label: c.key }).label.toLowerCase();
     $('tvPending').innerHTML = (tv.msg ? '<div style="color:var(--accent)">' + esc(tv.msg) + '</div>' : '') + (wait.length ? 'En attente du prochain arrêt de jeu : ' + esc([...new Set(wait.map(desc))].join(', ')) + '.' : '');
     // fiche du joueur cliqué
     const e = tv.look != null && R[tv.look];
@@ -1148,6 +1283,7 @@
       const i = tv.rids.indexOf(e.rid), pl = i >= 0 ? pls[i] : null, fr = tvFresh(e.rid), off = pl && !accepte(pl).includes(e.nat);
       $('tvLook').innerHTML = '<b>n°' + e.num + ' ' + esc(e.name) + '</b><div class="small muted">' + NAT_NAME[e.nat] + ' · ' + (pl ? esc(pl.label) + (off ? ' <span style="color:#ff9a3c">(hors poste)</span>' : '') : fr == null ? 'sorti' : 'remplaçant') + (fr == null ? '' : ' · fraîcheur ' + Math.round(100 * fr) + ' %') + '</div>'
         + (fr == null ? '' : '<div class="row" style="margin:6px 0">' + (tv.sel === e.rid ? '<span class="small" style="color:var(--accent)">Touchez le joueur à échanger.</span> <button id="tvSwapCancel">Annuler</button>' : '<button id="tvSwap">Échanger ce joueur</button>') + '</div>')
+        + (pl && pl.role !== 'GK' && !(coach() && tv.team) ? '<div class="small muted" style="margin-top:8px">Consignes individuelles (pour cette place)</div>' + ORD.map(c => '<div class="ordrow"><span title="' + esc(c.help) + '">' + esc(c.label) + '</span><span class="seg">' + [-1, 0, 1].map(v => '<button data-ord="' + c.key + '" data-ord-v="' + v + '" data-ord-i="' + i + '" class="' + (tv.ord[i][c.key] === v ? 'on' : '') + '">' + esc(c.options[v + 1]) + '</button>').join('') + '</span></div>').join('') : '')
         + '<div class="attrs">' + E.QUALITIES.filter(q => e.nat === 'G' || (q[0] !== 'reflexes' && q[0] !== 'handling')).map(q => '<div class="attr"><span>' + q[2] + '</span><b>' + Math.round(E.shown(e.a[q[0]]) * 100) + '</b></div>').join('') + '</div>';
     }
   }
@@ -1168,6 +1304,7 @@
     const obj = {};
     if (tv.form !== tv.base.form) obj.formation = tv.form;
     if (tv.rids.some((r, i) => r !== tv.base.rids[i])) obj.lineup = tv.rids.slice();
+    if (ordDiff().length) obj.orders = tv.ord.map(o => Object.assign({}, o));
     const td = tacDiff(), pid = presetOf(tv.tac), P = td.length > 1 && pid ? PRE.find(P => P.id === pid) : null;
     for (const c of td) obj[c.key] = tv.tac[c.key];
     const at = pending ? 0 : tv.base.tick * DT;
@@ -1192,6 +1329,7 @@
     else if (b.dataset.tvTeam) { tv.team = +b.dataset.tvTeam; tv.look = null; tv.msg = ''; tvLoad(); tvDraw(); }
     else if (b.id === 'tvSwap') { tv.sel = tv.look; tvDraw(); }
     else if (b.id === 'tvSwapCancel') { tv.sel = null; tvDraw(); }
+    else if (b.dataset.ord) { tv.ord[+b.dataset.ordI][b.dataset.ord] = +b.dataset.ordV; tv.msg = ''; tvDraw(); }
   });
   // glisser-déposer à la souris ou au doigt ; un clic montre la fiche ; après « Échanger ce joueur », le clic suivant fait l'échange
   const TD = { rid: null, from: null, x0: 0, y0: 0, on: false, ghost: null, over: null, el: null };
@@ -1227,7 +1365,7 @@
   document.addEventListener('pointercancel', e => tvEnd(e, true));
 
   $('play').onclick = () => { if (pending) return launch(); if (cur >= end - 1e-6) cur = 0; playing = !playing; nextHud = 0; };
-  $('kick').onclick = launch;
+  $('kick').onclick = launch; $('instant').onclick = instant; $('finish').onclick = finish;
   $('back').onclick = () => seek(cur - 10);
   $('fwd').onclick = () => seek(cur + 10);
   $('rewatch').onclick = () => { cur = 0; playing = true; nextHud = 0; };
@@ -1373,7 +1511,7 @@
     const P = $('ppanel'), box = (cls, ...els) => { const d = document.createElement('div'); d.className = cls; d.append(...els); return d; }, head = t => { const h = document.createElement('h3'); h.textContent = t; return h; };
     const speeds = document.querySelector('[data-speed]').parentNode; speeds.className = 'pspeed';
     const close = document.createElement('button'); close.id = 'pclose'; close.textContent = 'Masquer ›';
-    P.append(close, box('pctl', $('back'), $('play'), $('fwd')), document.querySelector('.timeline'), speeds,
+    P.append(close, box('pctl', $('back'), $('play'), $('fwd')), document.querySelector('.timeline'), speeds, $('finish'),
       box('ptabs', $('tabMatch'), $('tabStats'), $('tabTac')), $('views'), head('Joueur'), $('player'), head('Fil du match'), $('log'), document.querySelector('.homelink'));
     $('tabStats').textContent = 'Stats'; $('tvBack').textContent = '← Match';
     // colonne rétractable (remarque de Frédéric : trop large) : fermée, le terrain prend tout l'écran, avec trois boutons par-dessus
@@ -1392,7 +1530,7 @@
       forfeit();
       const msg = document.createElement('div'); msg.id = 'forfait';
       msg.innerHTML = '<b>Match abandonné : défaite par forfait (0-3).</b><br>Dans la Coupe en carton, un match lancé doit être joué jusqu\'au bout.';
-      $('pre').prepend(msg); $('kick').style.display = 'none'; $('preTac').style.display = 'none';
+      $('pre').prepend(msg); $('kick').style.display = 'none'; $('preTac').style.display = 'none'; $('instant').style.display = 'none';
       const back = document.createElement('button'); back.className = 'main'; back.textContent = 'Retour à la coupe →'; back.onclick = () => { location.href = 'coupe.html'; };
       $('kick').parentNode.append(back);
     }

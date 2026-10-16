@@ -204,6 +204,28 @@ function setTactics(m, team, tac, label) {
 }
 const tacNote = (key, v) => TACTICS.find(c => c.key === key).notes[v < 0 ? 0 : 2];
 
+// ---------- consignes individuelles (n° 121, choix de Frédéric) ----------
+// Elles s'attachent à une place de l'équipe (pas à la personne) : un remplaçant qui entre à cette place les reprend.
+// Comme les consignes d'équipe, ce sont des penchants : elles rendent une option plus ou moins tentante, sans l'interdire.
+const ORDERS = [
+  { key: 'dribble', label: 'Avec le ballon', options: ['Jouer simple', 'Normal', 'Dribbler'], notes: ['jouer simple', '', 'dribbler'], help: 'Jouer simple : il donne vite le ballon. Dribbler : il garde le ballon et tente de passer son adversaire.' },
+  { key: 'attack', label: 'Projection', options: ['Rester derrière', 'Normal', 'Monter'], notes: ['rester derrière', '', 'monter'], help: 'Monter : quand l\'équipe a le ballon, il se projette plus haut et fait des appels. Rester derrière : il garde sa position défensive.' },
+  { key: 'longshot', label: 'Tirs de loin', options: ['Moins', 'Normal', 'Plus'], notes: ['tirer moins de loin', '', 'tirer de loin'], help: 'Plus : il tente sa chance de plus loin et plus souvent. Moins : il cherche plutôt la passe.' },
+];
+const ORD_DRIB = 0.35, ORD_SIMPLE = 0.15, ORD_SHOT = 0.6, ORD_UP = 9, ORD_BACK = 6;
+// arr : pour chaque place (0 à 10), { dribble, attack, longshot } de −1 à +1 (absent = neutre)
+function setOrders(m, team, arr) {
+  const T = m.teams[team], ch = [];
+  for (const p of T.players) {
+    const o = (arr && arr[p.idx]) || {}, n = {};
+    for (const c of ORDERS) n[c.key] = clamp(Math.round(+o[c.key] || 0), -1, 1);
+    if (ORDERS.some(c => n[c.key] !== p.ord[c.key])) { const on = ORDERS.filter(c => n[c.key]).map(c => c.notes[n[c.key] + 1]); ch.push('n°' + p.num + ' ' + p.name + ' : ' + (on.length ? on.join(', ') : 'consignes neutres')); }
+    p.ord = n;
+  }
+  if (ch.length && m.tick > 0) log(m, 'tactic', team, 'Consignes individuelles des ' + T.name + ' : ' + ch.join(' ; '));
+}
+function noteOrd(p, key, v) { p.intent.note = 'Consigne individuelle : ' + ORDERS.find(c => c.key === key).notes[v + 1]; }
+
 // ---------- gestion du score (choix de Frédéric, 15 octobre 2026) ----------
 // Une équipe qui mène largement gère : elle ralentit, garde le ballon, recule un peu et presse moins.
 // Une équipe menée en fin de match pousse : elle accélère, joue vers l'avant, monte et presse.
@@ -330,7 +352,7 @@ function makePlayer(m, T, i, name, own) {
 function newPlayer(m, T, i, name, a) {
   const s = SLOTS[i];
   return {
-    id: T.id * 11 + i, rid: i, team: T.id, idx: i, num: s.num, name, slot: s.slot, role: s.role, side: s.side, poste: POSTE[s.slot], a,
+    id: T.id * 11 + i, rid: i, team: T.id, idx: i, num: s.num, name, slot: s.slot, role: s.role, side: s.side, poste: POSTE[s.slot], a, ord: { dribble: 0, attack: 0, longshot: 0 },
     top: topOf(a), acc: accOf(a),
     x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, face: T.dir > 0 ? 0 : Math.PI, stam: 1, dist: 0,
     ax: 0, ay: 0, driftX: 0, driftY: 0,
@@ -525,7 +547,7 @@ function computeAnchors(m, T) {
       if (s.role !== 'DEF') ax += (bx - ax) * 0.2 * short * f;
       if (hunt) { if (s.role !== 'DEF') ax += (bx - 3 - ax) * 0.2 * hunt; ay += (by - ay) * (s.role === 'DEF' ? 0.08 : 0.15) * hunt; }
       if (s.role === 'DEF' && s.side !== 0) {
-        if (f > 0.5 && s.side === ballSide && bx > -10) ax += 12 * (f - 0.5);     // le latéral côté ballon monte
+        if (f > 0.5 && s.side === ballSide && bx > -10 && p.ord.attack >= 0) ax += 12 * (f - 0.5);     // le latéral côté ballon monte
         if (s.side === -ballSide) ay -= s.side * 4 * tuck;                       // l'autre resserre
       }
       if (s.role === 'MID' && s.side !== 0 && s.side === -ballSide) {
@@ -540,6 +562,9 @@ function computeAnchors(m, T) {
       if (s.role === 'FWD') {
         if (f >= 0.5 && bx > 28 && Math.abs(by) > 12) { ax = Math.max(ax, P.HL - 11.5); ay = (s.slot === 'LF' ? -1 : 1) === ballSide ? ballSide * 3.5 : -ballSide * 4; }   // centre possible : dans la surface
       }
+      // consigne individuelle « projection » : avec le ballon, il se projette plus haut, ou reste derrière (le latéral ne monte plus)
+      const ka = p.ord.attack;
+      if (ka && f > 0) ax += (ka > 0 ? ORD_UP : ORD_BACK) * ka * f * clamp((bx + 35) / 30, 0, 1);
       if (f > 0.3) ax = Math.min(ax, T.offLine - (s.role === 'FWD' ? 3 : 1));      // rester en jeu, avec un peu d'élan devant soi
     }
     // « harceler » + bloc haut : on presse la relance adverse ; les milieux de côté montent sur les défenseurs excentrés, les attaquants serrent l'axe
@@ -825,10 +850,11 @@ function thinkSupport(m, p) {
   // consigne « jeu de passes » : en jeu long on multiplie les appels et on les lance de plus loin ; en jeu court on reste à portée du porteur
   const kp = T.tac.passing, long = Math.max(0, kp), short = Math.max(0, -kp), runs = 1 + 0.9 * long - 0.4 * short, gap = 1 - 0.4 * long + 0.3 * short;
   // appel en profondeur
-  if ((p.role === 'FWD' || (p.role === 'MID' && p.side !== 0)) && carrier && !carrier.setPiece && dB < 38 + 14 * long && th.x * d > -15 - 18 * long && m.t > p.nextRunAt
-      && T.offLine < P.HL - 14 && pressure(m, carrier) < 0.7 - RUN_WAIT * clamp((p.a.offBall - LEVEL) / 0.2, 0, 1) && m.rng() < (0.08 + 0.22 * p.a.offBall) * runs) {
+  const kr = p.ord.attack, runsP = runs * (kr > 0 ? 1 + 0.8 * kr : 1 + 0.7 * kr);
+  if ((p.role === 'FWD' || (p.role === 'MID' && p.side !== 0) || (kr > 0 && p.role !== 'GK')) && carrier && !carrier.setPiece && dB < 38 + 14 * long && th.x * d > -15 - 18 * long && m.t > p.nextRunAt
+      && T.offLine < P.HL - 14 && pressure(m, carrier) < 0.7 - RUN_WAIT * clamp((p.a.offBall - LEVEL) / 0.2, 0, 1) && m.rng() < (0.08 + 0.22 * p.a.offBall) * runsP) {
     const tx = Math.min(T.offLine + 14, 46) * d, ty = clamp(p.y * 0.55 + 4 * m.gauss(), -26, 26);
-    setIntent(m, p, 'run', 'Appel en profondeur', tx, ty, 1);
+    setIntent(m, p, 'run', 'Appel en profondeur', tx, ty, 1); if (kr > 0 && p.role !== 'FWD') noteOrd(p, 'attack', 1);
     it.until = m.t + 2.2; p.nextRunAt = m.t + 6 * gap + 6 * m.rng() * gap;
     if (long && !(dB < 38 && th.x * d > -15)) note(p, 'passing', kp);
     return;
@@ -1064,7 +1090,7 @@ function thinkCarrier(m, p) {
   const vHere = valueAt(T, p.x, p.y), lossHere = valueAt(O, p.x, p.y) + TURNOVER, risk = (1.15 - 0.4 * a.flair) * (1 + LUCID * (a.decisions - LEVEL));      // un joueur lucide sait ce que coûte une passe forcée : il est plus prudent (rien à 14)
   const opts = [];
   if (sp === 'freekick') { if (dGoal < 31) { const xg = clamp(0.085 - 0.004 * (dGoal - 18), 0.03, 0.085) * clamp(1.5 - Math.abs(p.y) / 12, 0.25, 1); opts.push({ kind: 'shot', u: xg, xg }); } }      // coup franc direct
-  else if ((!sp || sp === 'penalty') && !hands && dGoal < 28) { const xg = shotXg(m, p, sp ? 0 : shotPressure(m, p, gx)); opts.push({ kind: 'shot', u: sp === 'penalty' ? 9 : xg * (dGoal > 17 ? 1.15 : 1), xg }); }      // de loin, on tente sa chance un peu plus que ne le dit le calcul
+  else if ((!sp || sp === 'penalty') && !hands && dGoal < 28 + 4 * Math.max(0, p.ord.longshot)) { const xg = shotXg(m, p, sp ? 0 : shotPressure(m, p, gx)), far = sp ? 0 : clamp((dGoal - 17) / 6, 0, 1) * p.ord.longshot; opts.push({ kind: 'shot', u: sp === 'penalty' ? 9 : xg * (dGoal > 17 ? 1.15 : 1) * (1 + (far > 0 ? ORD_SHOT : 0.5) * far), xg, ordShot: Math.abs(far) > 0.3 ? p.ord.longshot : 0 }); }      // consigne individuelle « tirs de loin » : plus ou moins tentés, et de plus loin      // de loin, on tente sa chance un peu plus que ne le dit le calcul
   const groups = [], rest = [];
   // vision : un partenaire loin, dans le dos ou de l'autre côté peut passer inaperçu, surtout sous pression
   const blind = [];
@@ -1135,6 +1161,12 @@ function thinkCarrier(m, p) {
     const w = SIMPLE_LONG * clamp((LEVEL - (a.passing + a.firstTouch) / 2) / 0.2, 0, 1) * clamp((5 - p.x * d) / 30, 0, 1);
     if (w > 0) for (const g of groups) for (const o of g) if (o.lofted) { const b = w * 0.9 * clamp((o.qx - p.x) * d / 25, 0, 1) * clamp(o.pOk / 0.4, 0.2, 1); if (b > 0) { o.u += ref * b; o.simple = b > 0.15; } }
   }
+  // consigne individuelle « avec le ballon » : dribbler (garder, conduire, tenter de passer) ou jouer simple (donner vite, au sol)
+  const kd = sp || hands ? 0 : p.ord.dribble;
+  if (kd) {
+    for (const o of rest) if (o.kind === 'dribble') { o.u += ref * kd * (kd > 0 ? ORD_DRIB : 0.4); o.ordDrib = kd; }
+    for (const g of groups) for (const o of g) if (o.feet && kd < 0) { o.u += ref * ORD_SIMPLE; o.ordDrib = kd; }
+  }
   for (const g of groups) { let best = g[0]; for (const o of g) if (o.u > best.u) best = o; opts.push(best); }      // une seule passe par partenaire : la meilleure
   for (const o of rest) opts.push(o);
   if (!opts.length) return setIntent(m, p, 'hold', 'Cherche une solution', p.x, p.y, 0.1);
@@ -1146,7 +1178,7 @@ function thinkCarrier(m, p) {
   cnt(m, 'choix.' + pick.kind);
   if (m.onChoice) m.onChoice(p, opts, pick, pr);      // point d'écoute pour les outils de mesure (aucun effet sur le match)
   if (pick.why && !pick.against && pick === natural) pick.why = null;      // il l'aurait fait de toute façon
-  const why = () => { if (pick.why) note(p, pick.why, tac[pick.why], pick.against); };
+  const why = () => { if (pick.ordDrib) noteOrd(p, 'dribble', pick.ordDrib); else if (pick.ordShot) noteOrd(p, 'longshot', pick.ordShot); else if (pick.why) note(p, pick.why, tac[pick.why], pick.against); };
 
   if (pick.kind === 'dribble') { setIntent(m, p, 'dribble', pick.stroll ? 'Avance avec le ballon' : 'Conduit le ballon', p.x + pick.dx * 6, p.y + pick.dy * 6, 0.8); p.intent.dx = pick.dx; p.intent.dy = pick.dy; p.intent.speed = pick.speed; why(); return; }
   if (pick.kind === 'hold') {
@@ -1323,7 +1355,7 @@ function header(m, p0, z) {
     ang = Math.atan2((rng() - 0.5) * 2 * (P.GOAL_HW - 0.5) - p.y, gx - p.x) + (0.10 + 0.14 * (1 - a.heading)) * m.gauss();
     v = 11 + 5 * rng(); vz = -1 + 3 * rng(); kind = 'shot';
     const xg = clamp(0.4 * baseXg(T, p.x, p.y), 0.01, 0.4);
-    m.shot = { by: p, team: p.team, xg, t0: m.t, done: false }; T.stats.shots++; T.stats.xg += xg;
+    m.shot = { by: p, team: p.team, xg, t0: m.t, done: false, head: true }; T.stats.shots++; T.stats.xg += xg;
   } else if (rx < -22) {                                                  // dégagement de la tête, parfois en corner
     ang = Math.atan2((p.y >= 0 ? 0.7 : -0.7) * d, rx < -44 && rng() < 0.3 ? -0.5 * d : d) + 0.35 * m.gauss(); v = 11 + 4 * rng(); vz = 4 + 2 * rng();
   } else {                                                                // remise
@@ -1520,6 +1552,8 @@ function goal(m, att) {
   if (s && !s.done) { s.done = true; if (s.team === att) { scorer = s.by; T.stats.onTarget++; } }
   const sc = ' (' + m.teams[0].score + '-' + m.teams[1].score + ')';
   log(m, 'goal', att, scorer && scorer.team !== att ? 'But contre son camp de ' + scorer.name + sc : 'BUT pour les ' + T.name + ' ! ' + (scorer ? scorer.name : '') + sc);
+  const ev = m.events[m.events.length - 1];      // pour le replay du but (page) : le buteur, l'instant du tir, tête ou coup de pied arrêté
+  ev.by = scorer ? scorer.id : -1; ev.shotT = s && s.team === att ? s.t0 : null; ev.head = !!(s && s.head); ev.sp = s && s.sp || null;
   setRestart(m, 'kickoff', 1 - att, 0, 0, STOP.kickoff);
   m.restart.ballAt = m.t + 3;
 }
@@ -1723,5 +1757,5 @@ function shootout(snap) {
 }
 
 // restart : met en scène un arrêt de jeu (penalty, coup franc, corner…), pour les outils de mesure
-return { createMatch, step, snapshot, restore, shootout, setTactics, setFormation, setLineup, formationPlaces, MAX_SUBS, FORMATIONS, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt, dose, shown, NOTE_DOSE, MOOD };
+return { createMatch, step, snapshot, restore, shootout, setTactics, setFormation, setLineup, formationPlaces, MAX_SUBS, FORMATIONS, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt, dose, shown, NOTE_DOSE, MOOD, ORDERS, setOrders };
 });

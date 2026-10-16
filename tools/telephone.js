@@ -41,7 +41,7 @@ const phone = (browser, w, h) => browser.newContext({ viewport: { width: w, heig
   const c1 = await page.textContent('#clock');
   check(!/^00:00/.test(c1) && await page.textContent('#play') === '⏸ Pause', 'au toucher, le match se lance et se lit', c1);
   // toucher un joueur : sa fiche dans la colonne
-  for (let x = 40; x < 580 && /Cliquez/.test(await page.textContent('#player')); x += 30) for (let y = 30; y < 370 && /Cliquez/.test(await page.textContent('#player')); y += 30) await page.mouse.click(x, y);
+  for (let x = 40; x < 580 && /Cliquez/.test(await page.textContent('#player')); x += 30) for (let y = 30; y < 370 && /Cliquez/.test(await page.textContent('#player')); y += 30) { await page.mouse.click(x, y); await page.waitForTimeout(170); }      // la fiche se met à jour un instant après : sans attendre, un second toucher sur le même joueur le désélectionnerait
   check(!/Cliquez/.test(await page.textContent('#player')), 'toucher un joueur affiche sa fiche dans la colonne', (await page.textContent('#player')).replace(/\s+/g, ' ').slice(0, 60));
   check(await page.isHidden('.score') && (await page.$$('.pspeed button')).length === 3 && /×1,5/.test(await page.textContent('.pspeed')), 'score et temps une seule fois (sur le terrain) ; vitesses ×1, ×1,5, ×2');
   await page.screenshot({ path: path.join(DOCS, 'telephone-match.png') }); console.log('        capture : docs/telephone-match.png');
