@@ -282,6 +282,7 @@ const PLACE_GAP = 0.3;      // placement au-dessus de 14 : en défense, il refer
 const RUN_WAIT = 0.3;       // appels au-dessus de 14 : il part au bon moment, quand le porteur est libre de donner (pression sous 0,4 à 18 au lieu de 0,7)
 const RUN_EARLY = 3;
 const RUN_SOON = 0.7;       // appels sous 14 : un receveur lancé, à moins de 5 m de la ligne, part trop tôt et se fait prendre hors-jeu (7 fois sur 10 à 10)        // appels sous 14 : il traîne jusqu'à 3 m en position de hors-jeu (à 10)
+const COVER_LAM = 1.4, ALONE_LAM = 0.55, COVER_WIN = 0.1;      // défense en 1 contre 1 (n° 127) : couvert, le presseur attaque plus souvent et gagne plus souvent ; seul loin de son but, il temporise
 const PRESS_CAP = 2;       // hors « harceler », au plus deux joueurs sur le porteur (un presse, un ferme ou aide) ; les autres couvrent (n° 126)
 const CB_STEP = 8;         // un défenseur central ne sort pas sur un porteur à plus de 8 m devant sa ligne, loin de son but (n° 126)
 const AXIS_D = 35;         // à moins de 35 m du but, un défenseur ferme l'axe ballon-but s'il est ouvert
@@ -1466,10 +1467,14 @@ function resolveTackles(m) {
     const T = m.teams[o.team], keeper = o.role === 'GK' && inOwnBox(T, o.x, o.y);
     const rx = o.x - c.x, ry = o.y - c.y, closing = (c.vx * rx + c.vy * ry) / (hyp(rx, ry) || 1);
     const lam = closing > 2.5 || (keeper && o.intent.type === 'claim') ? 5 : (o.intent.type === 'press' || keeper ? 0.6 : 0.25) * (0.6 + 0.8 * o.a.aggression) * (hyp(c.x + P.HL * T.dir, c.y) < 25 ? 2.2 : 1) * (o.intent.type === 'press' ? 1 + 0.5 * T.tac.press : 1) * (1 - 0.7 * (o.intent.contain || 0)) * (1 + 0.3 * (o.intent.hard || 0));      // « défendre la surface » : il temporise, se jette rarement
+    // un coéquipier couvre-t-il derrière lui (près du porteur, côté but) ? Couvert, il peut attaquer le ballon ; seul et loin de son but, il temporise (n° 127)
+    const gxo = -P.HL * T.dir, dcg = hyp(c.x - gxo, c.y);
+    const covered = T.players.some(q => q !== o && q.role !== 'GK' && q.stunUntil <= m.t && hyp(q.x - c.x, q.y - c.y) < 7 && hyp(q.x - gxo, q.y) < dcg - 1);
+    const lone = covered ? COVER_LAM : dcg > 30 ? ALONE_LAM : 1;
     const stale = clamp((m.t - c.gotBallAt - 4) / 4, 0, 1) * (hyp(c.vx, c.vy) < 1 ? 1 : 0);      // un porteur planté sur place depuis plus de 4 s finit par être attaqué, même par un défenseur qui temporise
-    if (rng() > lam * (1 + 4 * stale) * DT) continue;
+    if (rng() > lam * (closing > 2.5 ? 1 : lone) * (1 + 4 * stale) * DT) continue;
     const front = (rx * Math.cos(c.face) + ry * Math.sin(c.face)) / (hyp(rx, ry) || 1);      // 1 : de face, −1 : dans le dos
-    const pWin = clamp(0.46 * (0.8 + 0.2 * o.stam) + 0.55 * (duelDef(o) - duelAtt(c)) + 0.12 * front + (m.t < c.controlReadyAt ? 0.5 * (1 - c.a.firstTouch) : 0) + (keeper ? 0.2 : 0), 0.12, 0.85);      // pendant son contrôle, il est d'autant plus vulnérable que sa prise de balle est faible
+    const pWin = clamp(0.46 * (0.8 + 0.2 * o.stam) + 0.55 * (duelDef(o) - duelAtt(c)) + 0.12 * front + (m.t < c.controlReadyAt ? 0.5 * (1 - c.a.firstTouch) : 0) + (keeper ? 0.2 : 0) + (covered ? COVER_WIN : 0), 0.12, 0.88);      // pendant son contrôle, il est d'autant plus vulnérable que sa prise de balle est faible
     const pFoul = (0.09 + 0.13 * o.a.aggression) * (front < -0.2 ? 1.6 : 1) * (keeper ? 0.4 : 1) * (inOwnBox(T, c.x, c.y) ? 0.1 : 1);      // dans sa surface, on se retient
     const r = rng();
     o.tackleReadyAt = m.t + 1.0 + 0.6 * rng();
