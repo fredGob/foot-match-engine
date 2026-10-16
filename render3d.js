@@ -15,8 +15,14 @@ const LIB = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
 
 // charge three.js une seule fois (depuis internet) ; rappelle cb(erreur)
 let loading = null;
+// puis les joueurs animés (players3d.js) ; s'ils ne se chargent pas, on garde les joueurs faits main
+const P3 = () => (typeof self !== 'undefined' && self.Players3D) || null;
 function load(cb) {
-  if (typeof THREE !== 'undefined') return cb(null);
+  const next = e => { if (e || !P3()) return cb(e); P3().load(() => cb(null)); };
+  if (typeof THREE !== 'undefined') return next(null);
+  loadThree(next);
+}
+function loadThree(cb) {
   if (!loading) {
     loading = [];
     const s = document.createElement('script'); s.src = LIB; s.async = true;
@@ -176,8 +182,12 @@ function create(canvas, R2, opt) {
     let f = figs.get(p.id);
     if (!f || f.userData.key !== key + shirt) {
       if (f) scene.remove(f);
-      const k = (p.num * 7 + p.team * 3 + p.id) >>> 0;
-      f = makePlayer(shirt, p.team === 0 ? '#f2f4f7' : '#1b1f24', p.role === 'GK' ? shirt : p.team === 0 ? '#2f6fdf' : '#d8423a', SKIN[k % SKIN.length], HAIR[(k >> 2) % HAIR.length], p.num, '#ffffff');
+      const k = (p.num * 7 + p.team * 3 + p.id) >>> 0, shorts = p.team === 0 ? '#f2f4f7' : '#1b1f24', socks = p.role === 'GK' ? shirt : p.team === 0 ? '#2f6fdf' : '#d8423a';
+      if (P3() && P3().ready()) {      // vrais mouvements (n° 129)
+        const C = c => new THREE.Color(c);
+        f = P3().make({ shirt: C(shirt), shorts: C(shorts), socks: C(socks), skin: C(SKIN[k % SKIN.length]), hair: C(HAIR[(k >> 2) % HAIR.length]), boots: C('#141619'), hands: C(p.role === 'GK' ? '#f2f2f2' : SKIN[k % SKIN.length]) }, { num: p.num, ink: '#ffffff', shadow: !opt.small });      // sur téléphone, pas d'ombre sous les joueurs (plus léger)
+        f.userData.x = null; f.userData.lean = 0; scene.add(f);
+      } else f = makePlayer(shirt, shorts, socks, SKIN[k % SKIN.length], HAIR[(k >> 2) % HAIR.length], p.num, '#ffffff');
       f.userData.key = key + shirt; figs.set(p.id, f);
     }
     return f;
@@ -237,8 +247,8 @@ function create(canvas, R2, opt) {
       let v = p.v != null ? p.v : (u.x === null || !gdt ? 0 : Math.hypot(x - u.x, z - u.z) / gdt);
       if (jump || u.x === null) u.sp = v; else u.sp += (Math.min(v, 10) - u.sp) * Math.min(1, gdt * 10);
       u.x = x; u.z = z;
-      pose(u, u.sp, gdt);
-      f.position.set(x, 0, z); f.rotation.y = -p.face; f.scale.setScalar(1.15 * big);
+      if (u.rigged) P3().animate(f, u.sp, gdt); else pose(u, u.sp, gdt);
+      f.position.set(x, 0, z); f.rotation.y = -p.face; f.scale.setScalar((u.rigged ? 1.05 : 1.15) * big);
       f.visible = true;
     }
     for (const [id, f] of figs) if (!seen.has(id)) f.visible = false;
