@@ -17,6 +17,11 @@
   .score .clock { color: var(--muted); font-size: 16px; font-weight: 500; min-width: 110px; }
   main { min-width: 0; }
   .stage { position: relative; }
+  /* vue 3D (n° 120) : même match, dessiné en 3D par-dessus la vue de dessus ; chrono et nom du joueur choisi en surimpression */
+  #pitch3d { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; }
+  #pitch3d[hidden], .clock3d[hidden], .label3d[hidden] { display: none; }
+  .clock3d { position: absolute; top: 8px; left: 10px; padding: 3px 10px; border-radius: 4px; background: rgba(12,16,20,0.85); color: #fff; font-weight: 700; font-size: 15px; pointer-events: none; white-space: pre; }
+  .label3d { position: absolute; transform: translate(-50%, -100%); padding: 2px 8px; border-radius: 4px; background: rgba(12,16,20,0.85); color: #ffe45c; font-weight: 600; font-size: 13px; pointer-events: none; white-space: nowrap; }
   .tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 8px; color: var(--muted); }
   .tabs .group button { border-radius: 0; margin-left: -1px; }
   .tabs .group button:first-child { border-radius: 7px 0 0 7px; margin-left: 0; }
@@ -136,7 +141,8 @@
   body.phone.pclosed { --pw: 0px; }
   body.phone.pclosed .ppanel { display: none; }
   .pmini { display: none; }
-  body.phone.pclosed .pmini { display: flex; position: absolute; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 5; gap: 6px; }
+  body.phone.pclosed .pmini { display: grid; grid-template-columns: auto auto auto; position: absolute; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 5; gap: 6px; }
+  .pmini #miniView { grid-row: 1; grid-column: 1; } .pmini #miniStats { grid-row: 1; grid-column: 2; } .pmini #miniPlay { grid-row: 2; grid-column: 1; } .pmini #miniTac { grid-row: 2; grid-column: 2; } .pmini #miniMenu { grid-row: 2; grid-column: 3; }      /* Stats juste au-dessus de Tactique (demande de Frédéric) */
   body.phone .stage.tac ~ .pmini, body.phone .pmini.hide { display: none !important; }
   .pmini button { min-width: 46px; min-height: 42px; padding: 6px 12px; font-size: 16px; background: rgba(17, 21, 26, 0.85); }
   .pmini #miniTac { background: var(--accent); border-color: var(--accent); color: #11151a; font-weight: 700; }
@@ -160,6 +166,7 @@
   body.phone .ppanel .pctl > *, body.phone .ppanel .ptabs > button { flex: 1; padding: 7px 0; min-height: 38px; font-size: 13px; }
   body.phone .ppanel .pspeed { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
   body.phone .ppanel .pspeed button { flex: 1; padding: 6px 0; }
+  body.phone .ppanel #views { display: flex; } body.phone .ppanel #views button { flex: 1; padding: 6px 0; }
   body.phone .ppanel #tabTac { background: var(--accent); border-color: var(--accent); color: #11151a; font-weight: 700; }
   body.phone .ppanel .homelink { margin: 0; font-size: 13px; text-align: center; }
   body.phone .ppanel #player { font-size: 12.5px; }
@@ -167,9 +174,23 @@
   body.phone .ppanel #log { font-size: 12px; max-height: none; }
   body.phone .ppanel h3 { margin: 4px 0 0; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
   body.phone .phoneonly { display: inline-block; }
-  body.phone .tacview { position: fixed !important; inset: 0; z-index: 20; border-radius: 0; padding: 8px 10px calc(10px + env(safe-area-inset-bottom)); grid-template-columns: minmax(0, 1fr) 270px !important; }
-  body.phone .tpitch, body.phone .tvbt, body.phone .tbench, body.phone .tacview .hint { max-width: min(470px, calc(100dvh - 70px)); }
+  body.phone .tacview { position: fixed !important; inset: 0; z-index: 20; border-radius: 0; padding: 8px 10px calc(10px + env(safe-area-inset-bottom)); }
   body.phone .tvhead { margin-bottom: 6px; }
+  /* téléphone (remarque de Frédéric) : le terrain à gauche, les remplaçants juste à droite en deux colonnes, tout visible sans défiler pour glisser un joueur vers le banc */
+  body.phone .tacview { grid-template-columns: minmax(0, 1fr) 240px !important; gap: 8px 12px; }
+  body.phone .tvpitch { display: grid; grid-template-columns: auto 128px; grid-template-rows: auto auto minmax(0, 1fr); justify-content: start; gap: 0 8px; min-height: 0; }
+  body.phone .tvhead { grid-column: 1 / -1; flex-wrap: nowrap; gap: 6px; margin-bottom: 6px; }
+  body.phone #tvBack { padding: 4px 8px; font-size: 13px; white-space: nowrap; }
+  body.phone .tvforms { flex-wrap: nowrap; gap: 3px; }
+  body.phone .tvforms button { padding: 3px 5px; font-size: 12px; }
+  body.phone .tpitch { grid-row: 2 / 4; width: min(calc(100dvh - 56px), calc(100vw - 410px)); max-width: none; margin: 0; }
+  body.phone .tvbt { grid-column: 2; margin: 0 0 4px; max-width: none; font-size: 10px; text-align: center; }
+  body.phone .tvbt #tvSubs { display: block; font-size: 10px; text-transform: none; letter-spacing: 0; }
+  body.phone .tbench { grid-column: 2; display: grid; grid-template-columns: 60px 60px; align-content: start; justify-content: center; gap: 4px 2px; max-width: none; max-height: calc(100dvh - 92px); margin: 0; padding: 6px 2px; overflow-y: auto; }
+  body.phone .tbench .tdrop { width: 60px; }
+  body.phone .tbench .ttok .ball { width: 26px; height: 26px; font-size: 11px; }
+  body.phone .tbench .ttok .nm { max-width: 58px; font-size: 10px; }
+  body.phone .tacview .hint { display: none; }
   body.phone #tvBack { font-weight: 600; }
   body.phone #tvChanges { order: -1; }      /* « Valider » en haut, sans avoir à faire défiler */
   @media (orientation: portrait) {
@@ -256,6 +277,7 @@
     <div class="tabs">
       <span class="group" id="modes" title="Mode God : on règle les deux équipes, on voit les intentions et toute la suite du match. Mode Coach It : on dirige les Bleus seulement, comme un vrai entraîneur, sans voir la suite. Le mode se choisit avant le coup d'envoi."><button data-mode="god" class="on">Mode God</button><button data-mode="coach">Mode Coach It</button></span>
       <span class="group"><button id="tabMatch" class="on">Match</button><button id="tabStats">Statistiques</button><button id="tabTac">Tactique</button></span>
+      <span class="group" id="views" title="Vue de dessus (2D) ou caméra télé (3D) : le même match, dessiné autrement."><button data-view="2d" class="on">2D</button><button data-view="3d">3D</button></span>
       <a class="homelink" href="index.html">Accueil</a>
       <span id="statsCtl" hidden>
         <span class="group"><button data-st-map="num" class="on">Chiffres</button><button data-st-map="heat">Carte de chaleur</button><button data-st-map="net">Réseau de passes</button></span>
@@ -267,6 +289,7 @@
     </div>
     <div class="stage">
       <canvas id="pitch"></canvas>
+      <canvas id="pitch3d" hidden></canvas><div class="clock3d" id="clock3d" hidden></div><div class="label3d" id="label3d" hidden></div>
       <div class="end" id="end" hidden><canvas id="card" width="2400" height="1350" aria-label="Résumé du match"></canvas><div id="endText" hidden></div><div class="tab" id="tab" hidden></div><div class="row"><button id="saveCard" class="main">Enregistrer l'image</button><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
       <div class="pre" id="pre" hidden><div>Choisissez le mode, réglez votre tactique (onglet Tactique), puis donnez le coup d'envoi.</div><div class="row"><button id="preTac">Régler la tactique</button><button id="kick" class="main">Lancer le match</button></div></div>
       <div class="busy" id="busy" hidden><div class="spin" aria-hidden="true"></div><span>Calcul du match…</span></div>
@@ -301,7 +324,7 @@
       <div class="numbers" id="numbers" hidden><div class="sides" id="numSides"></div><table id="stats"></table><table id="statsSeries" hidden></table></div>
     </div>
 
-    <div class="pmini" id="pmini"><button id="miniPlay" aria-label="Lecture">▶</button><button id="miniTac">Tactique</button><button id="miniMenu" aria-label="Ouvrir le menu">☰</button></div>
+    <div class="pmini" id="pmini"><button id="miniView">3D</button><button id="miniStats">Stats</button><button id="miniPlay" aria-label="Lecture">▶</button><button id="miniTac">Tactique</button><button id="miniMenu" aria-label="Ouvrir le menu">☰</button></div>
     <div class="statsnote" id="statsNote" hidden></div>
     <div class="timeline">
       <div class="marks" id="marks"></div>
@@ -368,6 +391,7 @@
 
 <script src="engine.js"></script>
 <script src="render.js"></script>
+<script src="render3d.js"></script>
 <script src="stats.js"></script>
 <script>window.MatchTeams = /*EQUIPES*/null;</script>
 <script>
@@ -461,7 +485,7 @@
     }
     r.B[f * 4] = b.x; r.B[f * 4 + 1] = b.y; r.B[f * 4 + 2] = b.z; r.B[f * 4 + 3] = b.owner ? b.owner.id : -1;
     r.D[f] = m.mode === 'dead' ? 1 : 0;                      // arrêt de jeu : la lecture pourra l'accélérer
-    if (f % 10 === 0) r.stats[f / 10] = m.teams.map(T => { const s = Object.assign({ dist: 0, fresh: 0 }, T.stats); for (const p of T.players) { s.dist += p.dist; if (p.role !== 'GK') s.fresh += p.stam; } return s; });
+    if (f % 10 === 0) r.stats[f / 10] = m.teams.map(T => { const s = Object.assign({ dist: T.stats.run, fresh: 0 }, T.stats); for (const p of T.players) if (p.role !== 'GK') s.fresh += p.stam; return s; });
   }
   // calcule jusqu'à l'image « until », ou jusqu'à ce que « ms » millisecondes soient passées (0 : pas de limite)
   function advance(J, until, ms) {
@@ -560,7 +584,25 @@
     const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
     W = r.width; H = r.height; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    size3d();
   }
+
+  // ---------- vue 3D (n° 120) : même match, caméra télé ; three.js est chargé depuis internet la première fois ----------
+  const R3 = window.MatchRender3D; let v3d = null, want3d = false;
+  function size3d() { if (v3d) { const r = cv.getBoundingClientRect(); v3d.resize(Math.max(1, r.width), Math.max(1, r.height)); } }
+  function viewButtons(k) { document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === k)); if ($('miniView')) $('miniView').textContent = k === '3d' ? '2D' : '3D'; }
+  function setView(k) {
+    want3d = k === '3d'; viewButtons(k); nextHud = 0;
+    try { localStorage.setItem('vue', k); } catch (e) {}
+    if (!want3d || v3d) return;
+    document.body.dataset.vue3d = 'chargement';
+    R3.load(err => {
+      if (!err) try { v3d = R3.create($('pitch3d'), R); size3d(); } catch (e) { err = new Error('La 3D ne marche pas dans ce navigateur (WebGL absent).'); }
+      document.body.dataset.vue3d = err ? 'erreur' : 'prete';
+      if (err) { want3d = false; viewButtons('2d'); $('player').className = ''; $('player').textContent = err.message; }
+    });
+  }
+  document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => setView(b.dataset.view));
 
   const ATTRS = [['pace', 'Vitesse'], ['passing', 'Passe'], ['firstTouch', 'Prise de balle'], ['vision', 'Vision du jeu'], ['dribbling', 'Dribble'], ['finishing', 'Finition'], ['tackling', 'Tacle'], ['positioning', 'Placement'], ['decisions', 'Lucidité'], ['workRate', 'Volume de course'], ['heading', 'Jeu de tête'], ['longShots', 'Frappe de loin']];
   const attrsOf = p => p.role !== 'GK' ? ATTRS : ATTRS.map(k => k[0] === 'dribbling' ? ['reflexes', 'Réflexes'] : k[0] === 'finishing' ? ['handling', 'Jeu de mains'] : k);      // gardien : ses deux qualités propres
@@ -597,7 +639,7 @@
         + '<div class="muted">' + p.poste + ' · ' + T.name + (T.club ? ' (' + esc(T.club) + ')' : '') + '</div>'
         + (coach() ? '' : '<div class="doing">' + esc(p.intent.label) + (p.intent.note ? '<span class="note">' + esc(p.intent.note) + '</span>' : '') + '</div>')
         + '<div class="muted" style="margin-bottom:8px">' + (p.v * 3.6).toFixed(0) + ' km/h · fraîcheur ' + Math.round(100 * p.stam) + ' % · ' + (p.dist / 1000).toFixed(2) + ' km parcourus</div>'
-        + '<div class="attrs">' + attrsOf(p).map(k => '<div class="attr"><span>' + k[1] + '</span><b>' + Math.round(p.a[k[0]] * 100) + '</b></div>').join('') + '</div>';
+        + '<div class="attrs">' + attrsOf(p).map(k => '<div class="attr"><span>' + k[1] + '</span><b>' + Math.round(E.shown(p.a[k[0]]) * 100) + '</b></div>').join('') + '</div>';
     }
     const over = !pending && cur >= end - 1e-6 && !scrub;
     if (over) { $('endText').textContent = view.teams[0].name + ' ' + s0 + ' – ' + s1 + ' ' + view.teams[1].name; if (cardOf !== rec) { cardOf = rec; drawCard(); } }
@@ -606,7 +648,7 @@
     tvSync();
     $('play').textContent = pending ? (PHONE ? '▶ Lancer' : 'Lancer le match') : playing ? (PHONE ? '⏸ Pause' : 'Pause') : (PHONE ? '▶ Lecture' : 'Lecture');
     keepAwake(playing && !pending);
-    if (PHONE) { $('miniPlay').textContent = playing && !pending ? '⏸' : '▶'; $('pmini').classList.toggle('hide', tab !== 'match' || !$('end').hidden); }
+    if (PHONE) { $('miniPlay').textContent = playing && !pending ? '⏸' : '▶'; $('pmini').classList.toggle('hide', tab === 'tac' || !$('end').hidden); }
   }
 
   // ---------- coupe : résultat rendu à coupe.html, séance de tirs au but montrée tir par tir ----------
@@ -842,6 +884,7 @@
     tab = t; $('tabMatch').classList.toggle('on', t === 'match'); $('tabStats').classList.toggle('on', t === 'stats'); $('tabTac').classList.toggle('on', t === 'tac');
     $('tacView').hidden = t !== 'tac'; document.querySelector('.stage').classList.toggle('tac', t === 'tac');
     if (t === 'tac' && rec) { playing = false; tv.look = null; tv.msg = ''; tvLoad(); tvDraw(); }
+    if (PHONE) $('miniStats').textContent = t === 'stats' ? 'Match' : 'Stats';
     $('statsCtl').hidden = t !== 'stats'; $('statsNote').hidden = t !== 'stats'; document.querySelector('.stage').classList.toggle('stats', t === 'stats');
     $('tip').hidden = true; hoverNode = -1; stKey = ''; nextHud = 0;
     if (t === 'stats') fillPlayers();
@@ -881,10 +924,22 @@
       else rate = speed;
       $('ff').hidden = !(weak && playing && tab === 'match');
       if (!pending && cur > live) live = cur;                        // le direct avance avec la lecture
+      if (tab !== 'match') $('pitch3d').hidden = $('clock3d').hidden = $('label3d').hidden = true;
       if (tab === 'stats') drawStats(ts);
       else {
       const stopped = !!rec.D[Math.min(Math.floor(cur / DT), rec.n - 1)];
-      R.drawMatch(ctx, W, H, view, show(cur), { intents: !coach() && $('intents').checked, labels: !coach() && $('labels').checked, hideMind: coach(), big: PHONE ? 1.4 : 1, selected, clock: { time: mmss(cur), score: $('goals').textContent, teams: PHONE ? view.teams.map((t, k) => squad[k] && squad[k].court || short(t.club || t.name)) : null, dead: stopped && cur > 0 && cur < end } });
+      const clock = { time: mmss(cur), score: $('goals').textContent, teams: PHONE ? view.teams.map((t, k) => squad[k] && squad[k].court || short(t.club || t.name)) : null, dead: stopped && cur > 0 && cur < end };
+      const use3d = want3d && v3d && tab === 'match';
+      $('pitch3d').hidden = $('clock3d').hidden = !use3d;
+      if (use3d) {
+        const lab = v3d.draw(view, show(cur), { selected, big: PHONE ? 1.3 : 1 }), sel = selected >= 0 && view.players[selected];
+        $('clock3d').textContent = clock.time + '   ' + (clock.teams ? clock.teams[0] + ' ' + clock.score + ' ' + clock.teams[1] : clock.score) + (clock.dead ? '   Arrêt de jeu' : '');
+        $('label3d').hidden = !(lab && lab.front && sel);
+        if (lab && sel) { $('label3d').style.left = lab.x + 'px'; $('label3d').style.top = lab.y + 'px'; $('label3d').textContent = sel.name + (coach() ? '' : ' · ' + sel.intent.label); }
+      } else {
+        $('label3d').hidden = true;
+        R.drawMatch(ctx, W, H, view, show(cur), { intents: !coach() && $('intents').checked, labels: !coach() && $('labels').checked, hideMind: coach(), big: PHONE ? 1.4 : 1, selected, clock });
+      }
       }
       if (ts >= nextHud) { hud(); nextHud = ts + 150; }
     }
@@ -1066,7 +1121,7 @@
     $('tacHint').textContent = coach() && !pending ? 'Ce que vous validez s\'applique au prochain arrêt de jeu après le direct (' + mmss(live) + '), même si vous revoyez une action plus ancienne.'
       : pending ? (coach() ? 'Avant le coup d\'envoi : réglez votre équipe. L\'adversaire joue ' + (squad[1] && squad[1].consignes ? 'avec le style de son entraîneur.' : 'avec des consignes neutres.') : 'Avant le coup d\'envoi : ce que vous validez vaut dès le début du match.')
       : tv.base.tick <= 0 ? 'Au coup d\'envoi : un changement vaut pour tout le match.' : 'Ce que vous validez s\'applique au prochain arrêt de jeu après ' + mmss(cur) + ' et réécrit la suite du match.';
-    $('tvSubs').textContent = pending ? '· avant le coup d\'envoi : titulaires au choix' : '· remplacements ' + subsUsed() + ' / ' + E.MAX_SUBS;
+    $('tvSubs').textContent = PHONE ? (pending ? 'titulaires au choix' : subsUsed() + ' / ' + E.MAX_SUBS + ' changements') : pending ? '· avant le coup d\'envoi : titulaires au choix' : '· remplacements ' + subsUsed() + ' / ' + E.MAX_SUBS;
     // ce qui est en préparation
     const lines = [];
     if (tv.form !== tv.base.form) lines.push('Formation : ' + E.FORMATIONS.find(f => f.id === tv.form).name);
@@ -1093,7 +1148,7 @@
       const i = tv.rids.indexOf(e.rid), pl = i >= 0 ? pls[i] : null, fr = tvFresh(e.rid), off = pl && !accepte(pl).includes(e.nat);
       $('tvLook').innerHTML = '<b>n°' + e.num + ' ' + esc(e.name) + '</b><div class="small muted">' + NAT_NAME[e.nat] + ' · ' + (pl ? esc(pl.label) + (off ? ' <span style="color:#ff9a3c">(hors poste)</span>' : '') : fr == null ? 'sorti' : 'remplaçant') + (fr == null ? '' : ' · fraîcheur ' + Math.round(100 * fr) + ' %') + '</div>'
         + (fr == null ? '' : '<div class="row" style="margin:6px 0">' + (tv.sel === e.rid ? '<span class="small" style="color:var(--accent)">Touchez le joueur à échanger.</span> <button id="tvSwapCancel">Annuler</button>' : '<button id="tvSwap">Échanger ce joueur</button>') + '</div>')
-        + '<div class="attrs">' + E.QUALITIES.filter(q => e.nat === 'G' || (q[0] !== 'reflexes' && q[0] !== 'handling')).map(q => '<div class="attr"><span>' + q[2] + '</span><b>' + Math.round(e.a[q[0]] * 100) + '</b></div>').join('') + '</div>';
+        + '<div class="attrs">' + E.QUALITIES.filter(q => e.nat === 'G' || (q[0] !== 'reflexes' && q[0] !== 'handling')).map(q => '<div class="attr"><span>' + q[2] + '</span><b>' + Math.round(E.shown(e.a[q[0]]) * 100) + '</b></div>').join('') + '</div>';
     }
   }
   // échange deux emplacements : « p3 » = place n° 3, « b14 » = remplaçant n° 14 de l'effectif
@@ -1233,9 +1288,13 @@
     }
     let best = -1, bd = 3;
     for (const p of view.players) { const d = Math.hypot(p.x - w.x, p.y - w.y); if (d < bd) { bd = d; best = p.id; } }
+    pickPlayer(best);
+  };
+  function pickPlayer(best) {
     selected = best === selected ? -1 : best; nextHud = 0;
     if (selected < 0) { $('player').className = 'muted'; $('player').textContent = 'Cliquez sur un joueur pour voir ce qu\'il est en train de faire.'; }
-  };
+  }
+  $('pitch3d').onclick = ev => { if (!v3d || !rec) return; const r = $('pitch3d').getBoundingClientRect(); pickPlayer(v3d.pick(view, ev.clientX - r.left, ev.clientY - r.top)); };
   document.addEventListener('keydown', ev => {
     const tag = ev.target.tagName, field = (tag === 'INPUT' && ev.target !== time && ev.target.type !== 'checkbox') || tag === 'SELECT';
     if (field) return;
@@ -1315,15 +1374,18 @@
     const speeds = document.querySelector('[data-speed]').parentNode; speeds.className = 'pspeed';
     const close = document.createElement('button'); close.id = 'pclose'; close.textContent = 'Masquer ›';
     P.append(close, box('pctl', $('back'), $('play'), $('fwd')), document.querySelector('.timeline'), speeds,
-      box('ptabs', $('tabMatch'), $('tabStats'), $('tabTac')), head('Joueur'), $('player'), head('Fil du match'), $('log'), document.querySelector('.homelink'));
-    $('tabStats').textContent = 'Stats';
+      box('ptabs', $('tabMatch'), $('tabStats'), $('tabTac')), $('views'), head('Joueur'), $('player'), head('Fil du match'), $('log'), document.querySelector('.homelink'));
+    $('tabStats').textContent = 'Stats'; $('tvBack').textContent = '← Match';
     // colonne rétractable (remarque de Frédéric : trop large) : fermée, le terrain prend tout l'écran, avec trois boutons par-dessus
     const menu = open => { document.body.classList.toggle('pclosed', !open); try { localStorage.setItem('menuFerme', open ? '' : '1'); } catch (e) {} resize(); nextHud = 0; };
     close.onclick = () => menu(false); $('miniMenu').onclick = () => menu(true);
     $('miniPlay').onclick = () => $('play').click(); $('miniTac').onclick = () => setTab('tac');
+    $('miniStats').onclick = () => setTab(tab === 'stats' ? 'match' : 'stats');
+    $('miniView').onclick = () => setView(want3d ? '2d' : '3d');
     try { if (localStorage.getItem('menuFerme')) document.body.classList.add('pclosed'); } catch (e) {}
   }
   newMatch(CUP ? CUP.seed : randomSeed());
+  try { if (localStorage.getItem('vue') === '3d') setView('3d'); } catch (e) {}      // la vue choisie la dernière fois
   if (CUP) {
     let run = null; try { run = JSON.parse(localStorage.getItem('coupe-en-cours') || 'null'); } catch (e) {}
     if (run && run.id === CUP.id) {      // match déjà lancé puis quitté (page rechargée) : défaite par forfait

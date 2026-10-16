@@ -53,6 +53,12 @@ const phone = (browser, w, h) => browser.newContext({ viewport: { width: w, heig
   await page.tap('#miniPlay'); await page.waitForTimeout(300);
   check(await page.textContent('#play') === '▶ Lecture' && await page.textContent('#miniPlay') === '▶', 'le bouton flottant met en pause');
   await page.tap('#miniPlay'); await page.waitForTimeout(300);
+  const ms = await box('#miniStats'), mt = await box('#miniTac');
+  check(ms && ms.y + ms.height <= mt.y + 1 && Math.abs((ms.x + ms.width / 2) - (mt.x + mt.width / 2)) < 2, 'bouton « Stats » juste au-dessus de « Tactique »');
+  await page.tap('#miniStats'); await page.waitForTimeout(300);
+  check(await page.isVisible('#numbers') && await page.textContent('#miniStats') === 'Match', '« Stats » montre les chiffres sans rouvrir le menu ; le bouton devient « Match »');
+  await page.tap('#miniStats'); await page.waitForTimeout(300);
+  check(await page.isHidden('#numbers') && await page.textContent('#miniStats') === 'Stats', '« Match » ramène au terrain');
   await page.screenshot({ path: path.join(DOCS, 'telephone-menu-ferme.png') }); console.log('        capture : docs/telephone-menu-ferme.png');
   await page.tap('#miniMenu'); await page.waitForTimeout(300);
   check(await page.isVisible('#ppanel') && await page.isHidden('#pmini') && await page.textContent('#play') === '⏸ Pause', '« ☰ » rouvre le menu, le match continue');
@@ -62,6 +68,18 @@ const phone = (browser, w, h) => browser.newContext({ viewport: { width: w, heig
   const tb = await box('#tacView');
   check(tb.x === 0 && tb.y === 0 && tb.width >= 840 && await page.textContent('#play') === '▶ Lecture', '« Tactique » met en pause et ouvre l\'écran Tactique en plein écran', Math.round(tb.width) + ' × ' + Math.round(tb.height));
   check((await page.$$('#tvPitch .ttok')).length === 11 && await page.isHidden('#tvTeams') && await page.isVisible('#tvBack'), 'onze joueurs, votre équipe seulement, bouton « Retour au match »');
+  // le banc en colonne à droite du terrain, entièrement visible : on glisse l'avant-centre sur un remplaçant
+  const tp = await box('#tvPitch'), bench = await page.$$('#tvBench .ttok'), bb = [];
+  for (const t of bench) bb.push(await t.boundingBox());
+  check(bench.length >= 3 && bb.every(b => b.x > tp.x + tp.width - 1 && b.y >= 0 && b.y + b.height <= 391), 'remplaçants en colonne à droite du terrain, tous visibles sans défiler', bench.length + ' remplaçants, dernier en bas à ' + Math.round(bb[bb.length - 1].y + bb[bb.length - 1].height) + ' px');
+  const toks = await page.$$('#tvPitch .ttok'); let top = null, ty = 1e9;
+  for (const t of toks) { const b = await t.boundingBox(); if (b.y < ty) { ty = b.y; top = t; } }
+  const fb = await top.boundingBox(), sb = bb[0], who = await top.getAttribute('title');
+  await page.mouse.move(fb.x + fb.width / 2, fb.y + 12); await page.mouse.down();
+  for (let k = 1; k <= 8; k++) await page.mouse.move(fb.x + fb.width / 2 + (sb.x + sb.width / 2 - fb.x - fb.width / 2) * k / 8, fb.y + 12 + (sb.y + 12 - fb.y - 12) * k / 8);
+  await page.mouse.up(); await page.waitForTimeout(200);
+  check(/Entre :/.test(await page.textContent('#tvDraft')), 'attaquant glissé sur un remplaçant : remplacement en préparation', who.split(' — ')[0] + ' → ' + (await page.textContent('#tvDraft')).replace(/\s+/g, ' '));
+  await page.tap('#tvReset'); await page.waitForTimeout(100);
   await page.selectOption('#tvTac select[data-tv-key="press"]', '1'); await page.waitForTimeout(100);
   await page.screenshot({ path: path.join(DOCS, 'telephone-tactique.png') }); console.log('        capture : docs/telephone-tactique.png');
   await page.tap('#tvApply'); await ready(); await page.waitForTimeout(400);
@@ -91,6 +109,10 @@ const phone = (browser, w, h) => browser.newContext({ viewport: { width: w, heig
   check(await small.evaluate('document.documentElement.scrollWidth <= window.innerWidth') && sp.height >= 370 && sp.width >= 400, 'terrain et colonne tiennent, sans défilement de côté', Math.round(sp.width) + ' × ' + Math.round(sp.height));
   await small.tap('#preTac'); await small.waitForTimeout(300);
   check((await (await small.$('#tacView')).boundingBox()).width >= 660 && await small.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), 'écran Tactique en plein écran');
+  const sb2 = []; for (const t of await small.$$('#tvBench .tdrop')) sb2.push(await t.boundingBox());
+  const sp2 = await (await small.$('#tvPitch')).boundingBox();
+  check(sb2.length && sb2.every(b => b.x >= sp2.x + sp2.width - 1 && b.x + b.width <= 667) && sp2.y + sp2.height <= 376, 'petit écran : terrain et banc côte à côte, terrain entier', 'terrain ' + Math.round(sp2.width) + ' × ' + Math.round(sp2.height) + ', banc de ' + sb2.length);
+  await small.screenshot({ path: path.join(DOCS, 'telephone-tactique-petit.png') }); console.log('        capture : docs/telephone-tactique-petit.png');
 
   console.log('Ordinateur');
   const desk = await browser.newPage({ viewport: { width: 1400, height: 900 } }); desk.on('pageerror', e => errors.push(String(e)));

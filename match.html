@@ -17,6 +17,11 @@
   .score .clock { color: var(--muted); font-size: 16px; font-weight: 500; min-width: 110px; }
   main { min-width: 0; }
   .stage { position: relative; }
+  /* vue 3D (n° 120) : même match, dessiné en 3D par-dessus la vue de dessus ; chrono et nom du joueur choisi en surimpression */
+  #pitch3d { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; }
+  #pitch3d[hidden], .clock3d[hidden], .label3d[hidden] { display: none; }
+  .clock3d { position: absolute; top: 8px; left: 10px; padding: 3px 10px; border-radius: 4px; background: rgba(12,16,20,0.85); color: #fff; font-weight: 700; font-size: 15px; pointer-events: none; white-space: pre; }
+  .label3d { position: absolute; transform: translate(-50%, -100%); padding: 2px 8px; border-radius: 4px; background: rgba(12,16,20,0.85); color: #ffe45c; font-weight: 600; font-size: 13px; pointer-events: none; white-space: nowrap; }
   .tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 8px; color: var(--muted); }
   .tabs .group button { border-radius: 0; margin-left: -1px; }
   .tabs .group button:first-child { border-radius: 7px 0 0 7px; margin-left: 0; }
@@ -136,7 +141,8 @@
   body.phone.pclosed { --pw: 0px; }
   body.phone.pclosed .ppanel { display: none; }
   .pmini { display: none; }
-  body.phone.pclosed .pmini { display: flex; position: absolute; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 5; gap: 6px; }
+  body.phone.pclosed .pmini { display: grid; grid-template-columns: auto auto auto; position: absolute; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 5; gap: 6px; }
+  .pmini #miniView { grid-row: 1; grid-column: 1; } .pmini #miniStats { grid-row: 1; grid-column: 2; } .pmini #miniPlay { grid-row: 2; grid-column: 1; } .pmini #miniTac { grid-row: 2; grid-column: 2; } .pmini #miniMenu { grid-row: 2; grid-column: 3; }      /* Stats juste au-dessus de Tactique (demande de Frédéric) */
   body.phone .stage.tac ~ .pmini, body.phone .pmini.hide { display: none !important; }
   .pmini button { min-width: 46px; min-height: 42px; padding: 6px 12px; font-size: 16px; background: rgba(17, 21, 26, 0.85); }
   .pmini #miniTac { background: var(--accent); border-color: var(--accent); color: #11151a; font-weight: 700; }
@@ -160,6 +166,7 @@
   body.phone .ppanel .pctl > *, body.phone .ppanel .ptabs > button { flex: 1; padding: 7px 0; min-height: 38px; font-size: 13px; }
   body.phone .ppanel .pspeed { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
   body.phone .ppanel .pspeed button { flex: 1; padding: 6px 0; }
+  body.phone .ppanel #views { display: flex; } body.phone .ppanel #views button { flex: 1; padding: 6px 0; }
   body.phone .ppanel #tabTac { background: var(--accent); border-color: var(--accent); color: #11151a; font-weight: 700; }
   body.phone .ppanel .homelink { margin: 0; font-size: 13px; text-align: center; }
   body.phone .ppanel #player { font-size: 12.5px; }
@@ -167,9 +174,23 @@
   body.phone .ppanel #log { font-size: 12px; max-height: none; }
   body.phone .ppanel h3 { margin: 4px 0 0; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
   body.phone .phoneonly { display: inline-block; }
-  body.phone .tacview { position: fixed !important; inset: 0; z-index: 20; border-radius: 0; padding: 8px 10px calc(10px + env(safe-area-inset-bottom)); grid-template-columns: minmax(0, 1fr) 270px !important; }
-  body.phone .tpitch, body.phone .tvbt, body.phone .tbench, body.phone .tacview .hint { max-width: min(470px, calc(100dvh - 70px)); }
+  body.phone .tacview { position: fixed !important; inset: 0; z-index: 20; border-radius: 0; padding: 8px 10px calc(10px + env(safe-area-inset-bottom)); }
   body.phone .tvhead { margin-bottom: 6px; }
+  /* téléphone (remarque de Frédéric) : le terrain à gauche, les remplaçants juste à droite en deux colonnes, tout visible sans défiler pour glisser un joueur vers le banc */
+  body.phone .tacview { grid-template-columns: minmax(0, 1fr) 240px !important; gap: 8px 12px; }
+  body.phone .tvpitch { display: grid; grid-template-columns: auto 128px; grid-template-rows: auto auto minmax(0, 1fr); justify-content: start; gap: 0 8px; min-height: 0; }
+  body.phone .tvhead { grid-column: 1 / -1; flex-wrap: nowrap; gap: 6px; margin-bottom: 6px; }
+  body.phone #tvBack { padding: 4px 8px; font-size: 13px; white-space: nowrap; }
+  body.phone .tvforms { flex-wrap: nowrap; gap: 3px; }
+  body.phone .tvforms button { padding: 3px 5px; font-size: 12px; }
+  body.phone .tpitch { grid-row: 2 / 4; width: min(calc(100dvh - 56px), calc(100vw - 410px)); max-width: none; margin: 0; }
+  body.phone .tvbt { grid-column: 2; margin: 0 0 4px; max-width: none; font-size: 10px; text-align: center; }
+  body.phone .tvbt #tvSubs { display: block; font-size: 10px; text-transform: none; letter-spacing: 0; }
+  body.phone .tbench { grid-column: 2; display: grid; grid-template-columns: 60px 60px; align-content: start; justify-content: center; gap: 4px 2px; max-width: none; max-height: calc(100dvh - 92px); margin: 0; padding: 6px 2px; overflow-y: auto; }
+  body.phone .tbench .tdrop { width: 60px; }
+  body.phone .tbench .ttok .ball { width: 26px; height: 26px; font-size: 11px; }
+  body.phone .tbench .ttok .nm { max-width: 58px; font-size: 10px; }
+  body.phone .tacview .hint { display: none; }
   body.phone #tvBack { font-weight: 600; }
   body.phone #tvChanges { order: -1; }      /* « Valider » en haut, sans avoir à faire défiler */
   @media (orientation: portrait) {
@@ -256,6 +277,7 @@
     <div class="tabs">
       <span class="group" id="modes" title="Mode God : on règle les deux équipes, on voit les intentions et toute la suite du match. Mode Coach It : on dirige les Bleus seulement, comme un vrai entraîneur, sans voir la suite. Le mode se choisit avant le coup d'envoi."><button data-mode="god" class="on">Mode God</button><button data-mode="coach">Mode Coach It</button></span>
       <span class="group"><button id="tabMatch" class="on">Match</button><button id="tabStats">Statistiques</button><button id="tabTac">Tactique</button></span>
+      <span class="group" id="views" title="Vue de dessus (2D) ou caméra télé (3D) : le même match, dessiné autrement."><button data-view="2d" class="on">2D</button><button data-view="3d">3D</button></span>
       <a class="homelink" href="index.html">Accueil</a>
       <span id="statsCtl" hidden>
         <span class="group"><button data-st-map="num" class="on">Chiffres</button><button data-st-map="heat">Carte de chaleur</button><button data-st-map="net">Réseau de passes</button></span>
@@ -267,6 +289,7 @@
     </div>
     <div class="stage">
       <canvas id="pitch"></canvas>
+      <canvas id="pitch3d" hidden></canvas><div class="clock3d" id="clock3d" hidden></div><div class="label3d" id="label3d" hidden></div>
       <div class="end" id="end" hidden><canvas id="card" width="2400" height="1350" aria-label="Résumé du match"></canvas><div id="endText" hidden></div><div class="tab" id="tab" hidden></div><div class="row"><button id="saveCard" class="main">Enregistrer l'image</button><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
       <div class="pre" id="pre" hidden><div>Choisissez le mode, réglez votre tactique (onglet Tactique), puis donnez le coup d'envoi.</div><div class="row"><button id="preTac">Régler la tactique</button><button id="kick" class="main">Lancer le match</button></div></div>
       <div class="busy" id="busy" hidden><div class="spin" aria-hidden="true"></div><span>Calcul du match…</span></div>
@@ -301,7 +324,7 @@
       <div class="numbers" id="numbers" hidden><div class="sides" id="numSides"></div><table id="stats"></table><table id="statsSeries" hidden></table></div>
     </div>
 
-    <div class="pmini" id="pmini"><button id="miniPlay" aria-label="Lecture">▶</button><button id="miniTac">Tactique</button><button id="miniMenu" aria-label="Ouvrir le menu">☰</button></div>
+    <div class="pmini" id="pmini"><button id="miniView">3D</button><button id="miniStats">Stats</button><button id="miniPlay" aria-label="Lecture">▶</button><button id="miniTac">Tactique</button><button id="miniMenu" aria-label="Ouvrir le menu">☰</button></div>
     <div class="statsnote" id="statsNote" hidden></div>
     <div class="timeline">
       <div class="marks" id="marks"></div>
@@ -565,16 +588,52 @@ function setTactics(m, team, tac, label) {
   const T = m.teams[team]; let changed = false;
   for (const c of TACTICS) if (tac && tac[c.key] != null) {
     const v = clamp(+tac[c.key] || 0, -1, 1);
-    if (v !== T.tac[c.key] && m.tick > 0) { changed = true; if (!label) log(m, 'tactic', team, 'Consigne des ' + T.name + ' : ' + c.label.toLowerCase() + ' → ' + c.options[Math.round(v) + 1].toLowerCase()); }
-    T.tac[c.key] = v;
+    if (v !== T.order[c.key] && m.tick > 0) { changed = true; if (!label) log(m, 'tactic', team, 'Consigne des ' + T.name + ' : ' + c.label.toLowerCase() + ' → ' + c.options[Math.round(v) + 1].toLowerCase()); }
+    T.order[c.key] = v;
   }
+  applyMood(T);
   if (label && changed) log(m, 'tactic', team, 'Tactique des ' + T.name + ' : ' + label);
 }
 const tacNote = (key, v) => TACTICS.find(c => c.key === key).notes[v < 0 ? 0 : 2];
 
+// ---------- gestion du score (choix de Frédéric, 15 octobre 2026) ----------
+// Une équipe qui mène largement gère : elle ralentit, garde le ballon, recule un peu et presse moins.
+// Une équipe menée en fin de match pousse : elle accélère, joue vers l'avant, monte et presse.
+// Ce n'est pas une consigne : cela s'ajoute aux consignes de l'entraîneur (T.order), et le résultat (T.tac) est ce que l'équipe joue vraiment.
+const MOOD = 1;
+function moodOf(m, T) {
+  const O = m.teams[1 - T.id], diff = T.score - O.score, tl = m.duration > 0 && isFinite(m.duration) ? clamp(m.t / m.duration, 0, 1) : 0;
+  if (diff >= 3) return { k: 1, lead: true };
+  if (diff === 2) return { k: 0.5 + 0.5 * tl, lead: true };
+  if (diff === 1) return { k: 0.7 * clamp((tl - 0.7) / 0.3, 0, 1), lead: true };
+  if (diff === -1) return { k: clamp((tl - 0.6) / 0.4, 0, 1), lead: false };
+  if (diff <= -2) return { k: 0.4 + 0.6 * tl, lead: false };
+  return { k: 0, lead: false };
+}
+const MOOD_LEAD = { tempo: -0.8, passing: -0.6, press: -0.6, line: -0.4 }, MOOD_CHASE = { tempo: 0.6, passing: 0.6, press: 0.6, line: 0.6 };
+function applyMood(T) {
+  const k = MOOD * (T.mood || 0), d = T.moodLead ? MOOD_LEAD : MOOD_CHASE;
+  for (const c of TACTICS) T.tac[c.key] = clamp(T.order[c.key] + (d[c.key] || 0) * k, -1, 1);
+}
+function updateMood(m) {
+  if (!m.moodOn) return;
+  for (const T of m.teams) {
+    const md = moodOf(m, T), k = Math.round(md.k * 10) / 10;
+    if (k === T.mood && md.lead === T.moodLead) continue;
+    if (k && (!T.mood || md.lead !== T.moodLead)) log(m, 'mood', T.id, md.lead ? 'Les ' + T.name + ' gèrent leur avance : moins de risques, ballon gardé' : 'Les ' + T.name + ' poussent pour revenir au score');
+    T.mood = k; T.moodLead = md.lead; applyMood(T);
+    const lab = !k ? '' : md.lead ? 'Gère le score' : 'Court après le score';
+    for (const p of T.players) p.mood = lab;
+  }
+}
+
 // Dans cette version, tous les joueurs ont toutes leurs qualités au même niveau (14 sur 20) : deux équipes strictement égales,
 // pour que seules les consignes fassent la différence. Les notes individuelles tirées au hasard restent disponibles (opts.random).
 const LEVEL = 0.7;
+// Dosage des notes (choix de Frédéric, 15 octobre 2026) : le moteur ne prend qu'une part de l'écart entre une note et 70 ;
+// une note de 70 reste 70, une note de 90 compte comme 70 + NOTE_DOSE × 20. Les fiches affichent toujours la vraie note (shown).
+const NOTE_DOSE = 0.4;
+const dose = x => LEVEL + NOTE_DOSE * (x - LEVEL), shown = x => LEVEL + (x - LEVEL) / NOTE_DOSE;
 const PASS_GAP = 3.5;          // poids de la note de passe sur la précision du geste (×1 à 14, ×2,9 à 8, ×0,6 à 17)
 const BAD_LAT = 0.6, BAD_PASS = 0.25;      // passe mal ajustée : écart toléré (m), puis risque de contrôle raté
 const VISION = 2.5;        // poids de la vision : risque de ne pas voir un partenaire loin ou dans le dos
@@ -630,7 +689,7 @@ function readNotes(who, notes) {
   for (const q of QUALITIES) {
     const v = notes[q[1]] == null && q[1] === 'frappe_de_loin' ? notes.finition : notes[q[1]];      // ancien fichier sans « frappe de loin » : on prend la finition
     if (typeof v !== 'number' || !(v >= 1 && v <= 100)) throw new Error(who + ' : la note « ' + q[1] + ' » doit être un nombre de 1 à 100');
-    a[q[0]] = v / 100;
+    a[q[0]] = dose(v / 100);
   }
   for (const k in notes) if (!QUALITIES.some(q => q[1] === k)) throw new Error(who + ' : note inconnue « ' + k + ' »');
   return a;
@@ -735,7 +794,7 @@ function formationPlaces(id) {
 function createMatch(opts) {
   opts = opts || {};
   const seed = opts.seed == null ? 1 : opts.seed;
-  const m = { seed, rng: makeRng(seed), t: 0, tick: 0, duration: opts.duration || 600, mode: 'dead', players: [], teams: [], events: [], pass: null, shot: null, restart: null, corner: null, wall: null, path: [], icpt: [], icptTick: -9, poss: -1, lastTeam: -1, holder: -1, possSince: 0, playT: 0, count: {}, random: !!opts.random, halftime: opts.halftime !== false, half: false };
+  const m = { seed, rng: makeRng(seed), t: 0, tick: 0, duration: opts.duration || 600, mode: 'dead', players: [], teams: [], events: [], pass: null, shot: null, restart: null, corner: null, wall: null, path: [], icpt: [], icptTick: -9, poss: -1, lastTeam: -1, holder: -1, possSince: 0, playT: 0, count: {}, random: !!opts.random, halftime: opts.halftime !== false, half: false, moodOn: opts.mood !== false };
   addGauss(m);
   const names = NAMES.slice();
   for (let i = names.length - 1; i > 0; i--) { const j = Math.floor(m.rng() * (i + 1)); const t = names[i]; names[i] = names[j]; names[j] = t; }
@@ -743,10 +802,10 @@ function createMatch(opts) {
   const squads = [0, 1].map(t => opts.teams && opts.teams[t] ? readTeam(opts.teams[t]) : null);
   for (let t = 0; t < 2; t++) {
     const T = { id: t, name: t === 0 ? 'Bleus' : 'Rouges', club: squads[t] ? String(opts.teams[t].nom || opts.teams[t].id || '') : '', color: t === 0 ? '#2f6fdf' : '#d8423a', dir: t === 0 ? 1 : -1, score: 0, phase: 0.5, refX: 0, refY: 0, line: -30, offLine: 0, spread: 46, players: [],
-      tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0, switch: 0 },
+      tac: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0, switch: 0 }, order: { passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0, switch: 0 }, mood: 0, moodLead: false,
       stats: { possT: 0, passes: 0, passesOk: 0, shots: 0, onTarget: 0, goals: 0, xg: 0, tackles: 0, interceptions: 0, blocks: 0, fouls: 0, corners: 0, offsides: 0, saves: 0,
         // mesures du style de jeu : elles servent à voir l'effet des consignes
-        miscontrols: 0, passLen: 0, passLenN: 0, longBalls: 0, through: 0, crosses: 0, ballT: 0, touches: 0, widthSum: 0, widthN: 0, lineSum: 0, lineN: 0, recov: 0, recovHigh: 0, passFollow: 0, passDefy: 0 } };
+        miscontrols: 0, passLen: 0, passLenN: 0, longBalls: 0, through: 0, crosses: 0, ballT: 0, touches: 0, widthSum: 0, widthN: 0, lineSum: 0, lineN: 0, recov: 0, recovHigh: 0, passFollow: 0, passDefy: 0, run: 0 } };
     for (let i = 0; i < 11; i++) { const p = makePlayer(m, T, i, names[t * 11 + i], squads[t] && squads[t][i]); T.players.push(p); m.players.push(p); }
     // effectif : les onze titulaires, puis les remplaçants (équipe standard : cinq remplaçants à 14)
     const bench = squads[t] ? readBench(opts.teams[t]) : ['G', 'DC', 'MC', 'MD', 'AT'].map((nat, k) => { const a = {}; for (const q of QUALITIES) a[q[0]] = LEVEL; return { name: names[22 + t * 5 + k], num: 12 + k, a, nat }; });
@@ -948,7 +1007,7 @@ function setIntent(m, p, type, label, tx, ty, urg) {
   it.type = type; it.label = label; it.tx = tx; it.ty = ty; it.urg = urg; it.note = null; it.hunt = false; it.cover = null; it.contain = 0; it.hard = 0;
 }
 // ce que la fiche du joueur affichera : il suit une consigne de son entraîneur, ou il s'en écarte
-function note(p, key, v, against) { p.intent.note = (against ? 'Malgré la consigne : ' : 'Consigne : ') + tacNote(key, v); }
+function note(p, key, v, against) { p.intent.note = (against ? 'Malgré la consigne : ' : p.mood && MOOD_LEAD[key] ? p.mood + ' : ' : 'Consigne : ') + tacNote(key, v); }
 // les joueurs ne réagissent pas tous au même instant : chacun a son temps de réaction
 function react(m, quick) {
   for (const p of m.players) { const r = (0.10 + 0.28 * (1 - p.a.anticipation)) * (0.6 + 0.8 * m.rng()) * (p === quick ? 0.4 : 1); if (p.nextThink > m.t + r) p.nextThink = m.t + r; }
@@ -1742,7 +1801,8 @@ function resolveTackles(m) {
     const T = m.teams[o.team], keeper = o.role === 'GK' && inOwnBox(T, o.x, o.y);
     const rx = o.x - c.x, ry = o.y - c.y, closing = (c.vx * rx + c.vy * ry) / (hyp(rx, ry) || 1);
     const lam = closing > 2.5 || (keeper && o.intent.type === 'claim') ? 5 : (o.intent.type === 'press' || keeper ? 0.6 : 0.25) * (0.6 + 0.8 * o.a.aggression) * (hyp(c.x + P.HL * T.dir, c.y) < 25 ? 2.2 : 1) * (o.intent.type === 'press' ? 1 + 0.5 * T.tac.press : 1) * (1 - 0.7 * (o.intent.contain || 0)) * (1 + 0.3 * (o.intent.hard || 0));      // « défendre la surface » : il temporise, se jette rarement
-    if (rng() > lam * DT) continue;
+    const stale = clamp((m.t - c.gotBallAt - 4) / 4, 0, 1) * (hyp(c.vx, c.vy) < 1 ? 1 : 0);      // un porteur planté sur place depuis plus de 4 s finit par être attaqué, même par un défenseur qui temporise
+    if (rng() > lam * (1 + 4 * stale) * DT) continue;
     const front = (rx * Math.cos(c.face) + ry * Math.sin(c.face)) / (hyp(rx, ry) || 1);      // 1 : de face, −1 : dans le dos
     const pWin = clamp(0.46 * (0.8 + 0.2 * o.stam) + 0.55 * (duelDef(o) - duelAtt(c)) + 0.12 * front + (m.t < c.controlReadyAt ? 0.5 * (1 - c.a.firstTouch) : 0) + (keeper ? 0.2 : 0), 0.12, 0.85);      // pendant son contrôle, il est d'autant plus vulnérable que sa prise de balle est faible
     const pFoul = (0.09 + 0.13 * o.a.aggression) * (front < -0.2 ? 1.6 : 1) * (keeper ? 0.4 : 1) * (inOwnBox(T, c.x, c.y) ? 0.1 : 1);      // dans sa surface, on se retient
@@ -1955,7 +2015,7 @@ function act(m, p) {
   if (!(owner && ns <= 1.4 && !p.plan && !shield)) p.face += clamp(angDiff(fa, p.face), -8 * DT, 8 * DT);
   // fatigue
   const r = ns / p.top; p.stam = Math.max(0.3, p.stam - 0.00075 * r * r * r * (1.3 - 0.5 * p.a.stamina) * (it.type === 'press' ? 4.5 : it.hunt ? 3 : 1) * DT);      // presser et harceler coûtent bien plus cher que courir (accélérations, changements de direction)      // la fraîcheur ne revient pas : un quart perdu en 90 minutes en moyenne, davantage si l'on sprinte beaucoup
-  p.dist += ns * DT;
+  p.dist += ns * DT; m.teams[p.team].stats.run += ns * DT;      // distance de l'équipe, joueurs sortis compris (un remplaçant repart de zéro)
 }
 function separate(m) {
   const ps = m.players;
@@ -2003,6 +2063,7 @@ function step(m) {
   if (b.owner) b.dip = 0;
   if (!b.owner && m.mode === 'play') predict(m);
   updateContext(m);
+  if (m.tick % 20 === 0) updateMood(m);
   if (m.mode === 'dead') { const R = m.restart; if (R && !R.autoDone) { R.autoDone = true; for (const T of m.teams) if (T.auto) autoSub(m, T); } runRestart(m); }
   if (b.owner && b.owner.plan && m.t >= b.owner.plan.at) executePlan(m, b.owner);
   for (const p of m.players) if (m.t >= p.nextThink) think(m, p);
@@ -2054,7 +2115,7 @@ function shootout(snap) {
 }
 
 // restart : met en scène un arrêt de jeu (penalty, coup franc, corner…), pour les outils de mesure
-return { createMatch, step, snapshot, restore, shootout, setTactics, setFormation, setLineup, formationPlaces, MAX_SUBS, FORMATIONS, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt };
+return { createMatch, step, snapshot, restore, shootout, setTactics, setFormation, setLineup, formationPlaces, MAX_SUBS, FORMATIONS, restart: setRestart, readTeam, TACTICS, PRESETS, QUALITIES, PLACES, DT, PITCH: P, valueAt, dose, shown, NOTE_DOSE, MOOD };
 });
 </script>
 <script>
@@ -2351,6 +2412,173 @@ return { drawSummary, SUMMARY: { W: CW, H: CH }, drawMatch, drawPitch, toWorld, 
 });
 </script>
 <script>
+/* Vue 3D du match (demande de Frédéric, n° 120) : le même match que la vue de dessus, dessiné autrement.
+   Le moteur ne change pas : on lit les positions des joueurs et du ballon (hauteur comprise) et on les pose dans une scène three.js.
+   Caméra télé : en hauteur, sur le côté du terrain, elle suit le ballon. Besoin de three.js (r128, global THREE). */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.MatchRender3D = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+'use strict';
+
+const HL = 52.5, HW = 34, MX = 4.5, MY = 3.5;
+const KEEPER = ['#f2a33a', '#26282c'];
+const SKIN = ['#e9c39b', '#c99a6e', '#8d5a3b', '#f1d0b0', '#6b4128'];
+const LIB = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+
+// charge three.js une seule fois (depuis internet) ; rappelle cb(erreur)
+let loading = null;
+function load(cb) {
+  if (typeof THREE !== 'undefined') return cb(null);
+  if (!loading) {
+    loading = [];
+    const s = document.createElement('script'); s.src = LIB; s.async = true;
+    s.onload = () => { const l = loading; loading = null; l.forEach(f => f(typeof THREE !== 'undefined' ? null : new Error('three.js absent'))); };
+    s.onerror = () => { const l = loading; loading = null; l.forEach(f => f(new Error('Impossible de charger la bibliothèque 3D (pas de connexion internet ?)'))); };
+    document.head.appendChild(s);
+  }
+  loading.push(cb);
+}
+
+// la pelouse : on reprend le dessin de la vue de dessus (render.js), à 16 pixels par mètre
+function pitchTexture(R2) {
+  const k = 16, c = document.createElement('canvas');
+  c.width = Math.round(2 * (HL + MX) * k); c.height = Math.round(2 * (HW + MY) * k);
+  R2.drawPitch(c.getContext('2d'), c.width, c.height);
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 8; return t;
+}
+// une tribune : des petits points de couleur pour la foule
+function crowdTexture() {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 128; const g = c.getContext('2d');
+  g.fillStyle = '#20262e'; g.fillRect(0, 0, 512, 128);
+  const cols = ['#c9d3de', '#3a5f9e', '#9e3a3a', '#d8c45a', '#5a5a5a', '#e8e8e8', '#2f6fdf', '#d8423a'];
+  for (let i = 0; i < 2600; i++) { g.fillStyle = cols[(i * 7919) % cols.length]; const x = (i * 97.13) % 512, y = (i * 53.71) % 128; g.fillRect(x, y, 2.4, 3); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.repeat.set(6, 1); return t;
+}
+
+function create(canvas, R2) {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color('#0d1117'); scene.fog = new THREE.Fog('#0d1117', 140, 260);
+  const camera = new THREE.PerspectiveCamera(32, 2, 1, 600);
+  scene.add(new THREE.HemisphereLight('#ffffff', '#3a5a3a', 0.6));
+  const sun = new THREE.DirectionalLight('#ffffff', 0.7); sun.position.set(-30, 80, 40); scene.add(sun);
+
+  // terrain, sol autour, tribunes
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(260, 200), new THREE.MeshLambertMaterial({ color: '#25552d' }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; scene.add(ground);
+  const pitch = new THREE.Mesh(new THREE.PlaneGeometry(2 * (HL + MX), 2 * (HW + MY)), new THREE.MeshLambertMaterial({ map: pitchTexture(R2) }));
+  pitch.rotation.x = -Math.PI / 2; scene.add(pitch);
+  const crowd = new THREE.MeshLambertMaterial({ map: crowdTexture() });
+  const stand = (w, x, z, ry) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, 9, 14), crowd); m.position.set(x, 4, z); m.rotation.y = ry; scene.add(m); };
+  stand(130, 0, -(HW + MY + 12), 0); stand(90, -(HL + MX + 12), 0, Math.PI / 2); stand(90, HL + MX + 12, 0, Math.PI / 2);
+
+  // les buts : poteaux, barre, filet
+  const white = new THREE.MeshLambertMaterial({ color: '#ffffff' });
+  for (const d of [-1, 1]) {
+    const gx = d * HL;
+    for (const z of [-3.66, 3.66]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.44, 10), white); p.position.set(gx, 1.22, z); scene.add(p); }
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 7.32, 10), white); bar.rotation.x = Math.PI / 2; bar.position.set(gx, 2.44, 0); scene.add(bar);
+    const net = new THREE.Mesh(new THREE.BoxGeometry(2, 2.44, 7.32), new THREE.MeshBasicMaterial({ color: '#ffffff', wireframe: true, transparent: true, opacity: 0.25 }));
+    net.position.set(gx + d * 1, 1.22, 0); scene.add(net);
+  }
+
+  // ballon et son ombre
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12), new THREE.MeshLambertMaterial({ color: '#ffffff' }));
+  scene.add(ball);
+  const shade = new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: 0.3, depthWrite: false });
+  const ballShadow = new THREE.Mesh(new THREE.CircleGeometry(0.34, 16), shade); ballShadow.rotation.x = -Math.PI / 2; scene.add(ballShadow);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.75, 0.95, 28), new THREE.MeshBasicMaterial({ color: '#ffe45c', transparent: true, opacity: 0.95, depthWrite: false }));
+  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; ring.visible = false; scene.add(ring);
+
+  // un joueur : jambes, short, maillot, bras, tête ; il regarde vers +x (son « face »)
+  const mats = {}, mat = c => mats[c] || (mats[c] = new THREE.MeshLambertMaterial({ color: c }));
+  const legG = new THREE.CylinderGeometry(0.085, 0.07, 0.86, 8), armG = new THREE.CylinderGeometry(0.055, 0.05, 0.6, 6), torsoG = new THREE.CylinderGeometry(0.21, 0.17, 0.62, 10),
+    shortsG = new THREE.CylinderGeometry(0.18, 0.2, 0.26, 10), headG = new THREE.SphereGeometry(0.13, 12, 10), shadowG = new THREE.CircleGeometry(0.42, 16);
+  function limb(geo, material, len) { const g = new THREE.Group(), m = new THREE.Mesh(geo, material); m.position.y = -len / 2; g.add(m); return g; }
+  function makePlayer(shirt, shorts, skin) {
+    const g = new THREE.Group();
+    const L = limb(legG, mat('#1b1f24'), 0.86), Rl = limb(legG, mat('#1b1f24'), 0.86); L.position.set(0, 0.88, 0.1); Rl.position.set(0, 0.88, -0.1);
+    const sh = new THREE.Mesh(shortsG, mat(shorts)); sh.position.y = 0.92;
+    const to = new THREE.Mesh(torsoG, mat(shirt)); to.position.y = 1.36;
+    const aL = limb(armG, mat(shirt), 0.6), aR = limb(armG, mat(shirt), 0.6); aL.position.set(0, 1.62, 0.26); aR.position.set(0, 1.62, -0.26);
+    const he = new THREE.Mesh(headG, mat(skin)); he.position.y = 1.82;
+    const sd = new THREE.Mesh(shadowG, shade); sd.rotation.x = -Math.PI / 2; sd.position.y = 0.02;
+    g.add(L, Rl, sh, to, aL, aR, he, sd);
+    g.userData = { L, R: Rl, aL, aR, phase: 0, x: null };
+    scene.add(g); return g;
+  }
+  const figs = new Map();      // joueur (id) → silhouette
+  function figFor(p, m) {
+    const shirt = p.role === 'GK' ? KEEPER[p.team] : m.teams[p.team].color, key = p.id;
+    let f = figs.get(key);
+    if (!f || f.userData.shirt !== shirt) {
+      if (f) scene.remove(f);
+      f = makePlayer(shirt, p.team === 0 ? '#ffffff' : '#1b1f24', SKIN[(p.num * 7 + p.team * 3) % SKIN.length]);
+      f.userData.shirt = shirt; figs.set(key, f);
+    }
+    return f;
+  }
+
+  // caméra télé : en tribune principale, en hauteur ; elle suit le ballon de gauche à droite, en douceur
+  const cam = { x: 0, z: 0, ready: false };
+  let W = 1, H = 1, last = 0;
+  function resize(w, h) { W = w; H = h; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  function placeCamera(bx, bz, dt) {
+    const tx = Math.max(-HL + 16, Math.min(HL - 16, bx)), tz = Math.max(-12, Math.min(12, bz * 0.5));
+    if (!cam.ready || dt > 1) { cam.x = tx; cam.z = tz; cam.ready = true; }
+    else { const k = Math.min(1, dt * 1.6); cam.x += (tx - cam.x) * k; cam.z += (tz - cam.z) * k * 0.6; }
+    const narrow = camera.aspect < 1.3 ? 1.25 : 1;      // écran étroit : on recule un peu
+    camera.position.set(cam.x * 0.82, 34 * narrow, HW + 42 * narrow);
+    camera.lookAt(cam.x, 0, cam.z + 5);
+  }
+
+  /* m : la vue du match (comme pour la vue de dessus) ; alpha : interpolation entre deux pas ;
+     opts.selected : joueur choisi (-1 sinon) ; opts.big : joueurs grossis (petit écran). Renvoie l'endroit, à l'écran, où écrire le nom du joueur choisi. */
+  function draw(m, alpha, opts) {
+    opts = opts || {};
+    const now = performance.now(), dt = last ? Math.min(0.25, (now - last) / 1000) : 0; last = now;
+    const Lp = (a, b) => a + (b - a) * alpha, big = opts.big || 1;
+    const seen = new Set();
+    for (const p of m.players) {
+      const f = figFor(p, m), u = f.userData, x = Lp(p.px, p.x), z = Lp(p.py, p.y);
+      seen.add(p.id);
+      const sp = u.x === null ? 0 : Math.hypot(x - u.x, z - u.z) / Math.max(dt, 1e-3);
+      u.sp = u.x === null ? 0 : u.sp + (Math.min(sp, 10) - u.sp) * Math.min(1, dt * 8);      // vitesse lissée (la lecture peut sauter dans le temps)
+      if (u.x !== null && Math.hypot(x - u.x, z - u.z) > 3) u.sp = 0;
+      u.x = x; u.z = z;
+      u.phase += dt * (2.2 + u.sp * 1.15);
+      const sw = Math.min(0.85, u.sp * 0.13) * Math.sin(u.phase * Math.PI);
+      u.L.rotation.z = sw; u.R.rotation.z = -sw; u.aL.rotation.z = -sw * 0.8; u.aR.rotation.z = sw * 0.8;
+      f.position.set(x, 0, z); f.rotation.y = -p.face; f.scale.setScalar(1.3 * big);
+      f.visible = true;
+    }
+    for (const [id, f] of figs) if (!seen.has(id)) f.visible = false;
+    const b = m.ball, bx = Lp(b.px, b.x), bz = Lp(b.py, b.y), by = Math.max(0, Lp(b.pz, b.z));
+    ball.position.set(bx, by + 0.3, bz); ballShadow.position.set(bx, 0.025, bz); ballShadow.scale.setScalar(1 / (1 + by * 0.15));
+    const sel = opts.selected >= 0 ? m.players.find(p => p.id === opts.selected) : null;
+    ring.visible = !!sel; if (sel) ring.position.set(Lp(sel.px, sel.x), 0.03, Lp(sel.py, sel.y));
+    placeCamera(bx, bz, dt);
+    renderer.render(scene, camera);
+    return sel ? project(Lp(sel.px, sel.x), 2.6 * big, Lp(sel.py, sel.y)) : null;
+  }
+  const v3 = () => new THREE.Vector3();
+  function project(x, y, z) { const v = v3().set(x, y, z).project(camera); return { x: (v.x + 1) / 2 * W, y: (1 - v.y) / 2 * H, front: v.z < 1 }; }
+  // le joueur le plus proche d'un clic (en pixels), ou -1
+  function pick(m, px, py) {
+    let best = -1, bd = 30;
+    for (const p of m.players) { const q = project(p.x, 1.1, p.y), d = Math.hypot(q.x - px, q.y - py); if (q.front && d < bd) { bd = d; best = p.id; } }
+    return best;
+  }
+  function reset() { cam.ready = false; for (const f of figs.values()) f.userData.x = null; }
+  return { draw, resize, pick, reset };
+}
+
+return { load, create, LIB };
+});
+</script>
+<script>
 /* Statistiques : additionne un ou plusieurs matchs et en tire les lignes affichées (page, sim.js, outils).
    Aucune influence sur le moteur. */
 (function (root, factory) {
@@ -2367,7 +2595,8 @@ function add(acc, m) {
   for (let t = 0; t < 2; t++) {
     const S = m.teams[t].stats, A = acc.teams[t];
     for (const k in S) A[k] = (A[k] || 0) + S[k];
-    for (const p of m.teams[t].players) { A.dist += p.dist; if (p.role !== 'GK') A.fresh += p.stam; }
+    A.dist += S.run != null ? S.run : m.teams[t].players.reduce((d, p) => d + p.dist, 0);      // toute l'équipe, joueurs sortis compris
+    for (const p of m.teams[t].players) if (p.role !== 'GK') A.fresh += p.stam;
   }
   const a = m.teams[0].score, b = m.teams[1].score;
   if (a > b) acc.teams[0].wins++; else if (b > a) acc.teams[1].wins++; else acc.draws++;
@@ -2538,7 +2767,7 @@ return { create, add, rows, rowsOf, highlights };
     }
     r.B[f * 4] = b.x; r.B[f * 4 + 1] = b.y; r.B[f * 4 + 2] = b.z; r.B[f * 4 + 3] = b.owner ? b.owner.id : -1;
     r.D[f] = m.mode === 'dead' ? 1 : 0;                      // arrêt de jeu : la lecture pourra l'accélérer
-    if (f % 10 === 0) r.stats[f / 10] = m.teams.map(T => { const s = Object.assign({ dist: 0, fresh: 0 }, T.stats); for (const p of T.players) { s.dist += p.dist; if (p.role !== 'GK') s.fresh += p.stam; } return s; });
+    if (f % 10 === 0) r.stats[f / 10] = m.teams.map(T => { const s = Object.assign({ dist: T.stats.run, fresh: 0 }, T.stats); for (const p of T.players) if (p.role !== 'GK') s.fresh += p.stam; return s; });
   }
   // calcule jusqu'à l'image « until », ou jusqu'à ce que « ms » millisecondes soient passées (0 : pas de limite)
   function advance(J, until, ms) {
@@ -2637,7 +2866,25 @@ return { create, add, rows, rowsOf, highlights };
     const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
     W = r.width; H = r.height; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    size3d();
   }
+
+  // ---------- vue 3D (n° 120) : même match, caméra télé ; three.js est chargé depuis internet la première fois ----------
+  const R3 = window.MatchRender3D; let v3d = null, want3d = false;
+  function size3d() { if (v3d) { const r = cv.getBoundingClientRect(); v3d.resize(Math.max(1, r.width), Math.max(1, r.height)); } }
+  function viewButtons(k) { document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === k)); if ($('miniView')) $('miniView').textContent = k === '3d' ? '2D' : '3D'; }
+  function setView(k) {
+    want3d = k === '3d'; viewButtons(k); nextHud = 0;
+    try { localStorage.setItem('vue', k); } catch (e) {}
+    if (!want3d || v3d) return;
+    document.body.dataset.vue3d = 'chargement';
+    R3.load(err => {
+      if (!err) try { v3d = R3.create($('pitch3d'), R); size3d(); } catch (e) { err = new Error('La 3D ne marche pas dans ce navigateur (WebGL absent).'); }
+      document.body.dataset.vue3d = err ? 'erreur' : 'prete';
+      if (err) { want3d = false; viewButtons('2d'); $('player').className = ''; $('player').textContent = err.message; }
+    });
+  }
+  document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => setView(b.dataset.view));
 
   const ATTRS = [['pace', 'Vitesse'], ['passing', 'Passe'], ['firstTouch', 'Prise de balle'], ['vision', 'Vision du jeu'], ['dribbling', 'Dribble'], ['finishing', 'Finition'], ['tackling', 'Tacle'], ['positioning', 'Placement'], ['decisions', 'Lucidité'], ['workRate', 'Volume de course'], ['heading', 'Jeu de tête'], ['longShots', 'Frappe de loin']];
   const attrsOf = p => p.role !== 'GK' ? ATTRS : ATTRS.map(k => k[0] === 'dribbling' ? ['reflexes', 'Réflexes'] : k[0] === 'finishing' ? ['handling', 'Jeu de mains'] : k);      // gardien : ses deux qualités propres
@@ -2674,7 +2921,7 @@ return { create, add, rows, rowsOf, highlights };
         + '<div class="muted">' + p.poste + ' · ' + T.name + (T.club ? ' (' + esc(T.club) + ')' : '') + '</div>'
         + (coach() ? '' : '<div class="doing">' + esc(p.intent.label) + (p.intent.note ? '<span class="note">' + esc(p.intent.note) + '</span>' : '') + '</div>')
         + '<div class="muted" style="margin-bottom:8px">' + (p.v * 3.6).toFixed(0) + ' km/h · fraîcheur ' + Math.round(100 * p.stam) + ' % · ' + (p.dist / 1000).toFixed(2) + ' km parcourus</div>'
-        + '<div class="attrs">' + attrsOf(p).map(k => '<div class="attr"><span>' + k[1] + '</span><b>' + Math.round(p.a[k[0]] * 100) + '</b></div>').join('') + '</div>';
+        + '<div class="attrs">' + attrsOf(p).map(k => '<div class="attr"><span>' + k[1] + '</span><b>' + Math.round(E.shown(p.a[k[0]]) * 100) + '</b></div>').join('') + '</div>';
     }
     const over = !pending && cur >= end - 1e-6 && !scrub;
     if (over) { $('endText').textContent = view.teams[0].name + ' ' + s0 + ' – ' + s1 + ' ' + view.teams[1].name; if (cardOf !== rec) { cardOf = rec; drawCard(); } }
@@ -2683,7 +2930,7 @@ return { create, add, rows, rowsOf, highlights };
     tvSync();
     $('play').textContent = pending ? (PHONE ? '▶ Lancer' : 'Lancer le match') : playing ? (PHONE ? '⏸ Pause' : 'Pause') : (PHONE ? '▶ Lecture' : 'Lecture');
     keepAwake(playing && !pending);
-    if (PHONE) { $('miniPlay').textContent = playing && !pending ? '⏸' : '▶'; $('pmini').classList.toggle('hide', tab !== 'match' || !$('end').hidden); }
+    if (PHONE) { $('miniPlay').textContent = playing && !pending ? '⏸' : '▶'; $('pmini').classList.toggle('hide', tab === 'tac' || !$('end').hidden); }
   }
 
   // ---------- coupe : résultat rendu à coupe.html, séance de tirs au but montrée tir par tir ----------
@@ -2919,6 +3166,7 @@ return { create, add, rows, rowsOf, highlights };
     tab = t; $('tabMatch').classList.toggle('on', t === 'match'); $('tabStats').classList.toggle('on', t === 'stats'); $('tabTac').classList.toggle('on', t === 'tac');
     $('tacView').hidden = t !== 'tac'; document.querySelector('.stage').classList.toggle('tac', t === 'tac');
     if (t === 'tac' && rec) { playing = false; tv.look = null; tv.msg = ''; tvLoad(); tvDraw(); }
+    if (PHONE) $('miniStats').textContent = t === 'stats' ? 'Match' : 'Stats';
     $('statsCtl').hidden = t !== 'stats'; $('statsNote').hidden = t !== 'stats'; document.querySelector('.stage').classList.toggle('stats', t === 'stats');
     $('tip').hidden = true; hoverNode = -1; stKey = ''; nextHud = 0;
     if (t === 'stats') fillPlayers();
@@ -2958,10 +3206,22 @@ return { create, add, rows, rowsOf, highlights };
       else rate = speed;
       $('ff').hidden = !(weak && playing && tab === 'match');
       if (!pending && cur > live) live = cur;                        // le direct avance avec la lecture
+      if (tab !== 'match') $('pitch3d').hidden = $('clock3d').hidden = $('label3d').hidden = true;
       if (tab === 'stats') drawStats(ts);
       else {
       const stopped = !!rec.D[Math.min(Math.floor(cur / DT), rec.n - 1)];
-      R.drawMatch(ctx, W, H, view, show(cur), { intents: !coach() && $('intents').checked, labels: !coach() && $('labels').checked, hideMind: coach(), big: PHONE ? 1.4 : 1, selected, clock: { time: mmss(cur), score: $('goals').textContent, teams: PHONE ? view.teams.map((t, k) => squad[k] && squad[k].court || short(t.club || t.name)) : null, dead: stopped && cur > 0 && cur < end } });
+      const clock = { time: mmss(cur), score: $('goals').textContent, teams: PHONE ? view.teams.map((t, k) => squad[k] && squad[k].court || short(t.club || t.name)) : null, dead: stopped && cur > 0 && cur < end };
+      const use3d = want3d && v3d && tab === 'match';
+      $('pitch3d').hidden = $('clock3d').hidden = !use3d;
+      if (use3d) {
+        const lab = v3d.draw(view, show(cur), { selected, big: PHONE ? 1.3 : 1 }), sel = selected >= 0 && view.players[selected];
+        $('clock3d').textContent = clock.time + '   ' + (clock.teams ? clock.teams[0] + ' ' + clock.score + ' ' + clock.teams[1] : clock.score) + (clock.dead ? '   Arrêt de jeu' : '');
+        $('label3d').hidden = !(lab && lab.front && sel);
+        if (lab && sel) { $('label3d').style.left = lab.x + 'px'; $('label3d').style.top = lab.y + 'px'; $('label3d').textContent = sel.name + (coach() ? '' : ' · ' + sel.intent.label); }
+      } else {
+        $('label3d').hidden = true;
+        R.drawMatch(ctx, W, H, view, show(cur), { intents: !coach() && $('intents').checked, labels: !coach() && $('labels').checked, hideMind: coach(), big: PHONE ? 1.4 : 1, selected, clock });
+      }
       }
       if (ts >= nextHud) { hud(); nextHud = ts + 150; }
     }
@@ -3143,7 +3403,7 @@ return { create, add, rows, rowsOf, highlights };
     $('tacHint').textContent = coach() && !pending ? 'Ce que vous validez s\'applique au prochain arrêt de jeu après le direct (' + mmss(live) + '), même si vous revoyez une action plus ancienne.'
       : pending ? (coach() ? 'Avant le coup d\'envoi : réglez votre équipe. L\'adversaire joue ' + (squad[1] && squad[1].consignes ? 'avec le style de son entraîneur.' : 'avec des consignes neutres.') : 'Avant le coup d\'envoi : ce que vous validez vaut dès le début du match.')
       : tv.base.tick <= 0 ? 'Au coup d\'envoi : un changement vaut pour tout le match.' : 'Ce que vous validez s\'applique au prochain arrêt de jeu après ' + mmss(cur) + ' et réécrit la suite du match.';
-    $('tvSubs').textContent = pending ? '· avant le coup d\'envoi : titulaires au choix' : '· remplacements ' + subsUsed() + ' / ' + E.MAX_SUBS;
+    $('tvSubs').textContent = PHONE ? (pending ? 'titulaires au choix' : subsUsed() + ' / ' + E.MAX_SUBS + ' changements') : pending ? '· avant le coup d\'envoi : titulaires au choix' : '· remplacements ' + subsUsed() + ' / ' + E.MAX_SUBS;
     // ce qui est en préparation
     const lines = [];
     if (tv.form !== tv.base.form) lines.push('Formation : ' + E.FORMATIONS.find(f => f.id === tv.form).name);
@@ -3170,7 +3430,7 @@ return { create, add, rows, rowsOf, highlights };
       const i = tv.rids.indexOf(e.rid), pl = i >= 0 ? pls[i] : null, fr = tvFresh(e.rid), off = pl && !accepte(pl).includes(e.nat);
       $('tvLook').innerHTML = '<b>n°' + e.num + ' ' + esc(e.name) + '</b><div class="small muted">' + NAT_NAME[e.nat] + ' · ' + (pl ? esc(pl.label) + (off ? ' <span style="color:#ff9a3c">(hors poste)</span>' : '') : fr == null ? 'sorti' : 'remplaçant') + (fr == null ? '' : ' · fraîcheur ' + Math.round(100 * fr) + ' %') + '</div>'
         + (fr == null ? '' : '<div class="row" style="margin:6px 0">' + (tv.sel === e.rid ? '<span class="small" style="color:var(--accent)">Touchez le joueur à échanger.</span> <button id="tvSwapCancel">Annuler</button>' : '<button id="tvSwap">Échanger ce joueur</button>') + '</div>')
-        + '<div class="attrs">' + E.QUALITIES.filter(q => e.nat === 'G' || (q[0] !== 'reflexes' && q[0] !== 'handling')).map(q => '<div class="attr"><span>' + q[2] + '</span><b>' + Math.round(e.a[q[0]] * 100) + '</b></div>').join('') + '</div>';
+        + '<div class="attrs">' + E.QUALITIES.filter(q => e.nat === 'G' || (q[0] !== 'reflexes' && q[0] !== 'handling')).map(q => '<div class="attr"><span>' + q[2] + '</span><b>' + Math.round(E.shown(e.a[q[0]]) * 100) + '</b></div>').join('') + '</div>';
     }
   }
   // échange deux emplacements : « p3 » = place n° 3, « b14 » = remplaçant n° 14 de l'effectif
@@ -3310,9 +3570,13 @@ return { create, add, rows, rowsOf, highlights };
     }
     let best = -1, bd = 3;
     for (const p of view.players) { const d = Math.hypot(p.x - w.x, p.y - w.y); if (d < bd) { bd = d; best = p.id; } }
+    pickPlayer(best);
+  };
+  function pickPlayer(best) {
     selected = best === selected ? -1 : best; nextHud = 0;
     if (selected < 0) { $('player').className = 'muted'; $('player').textContent = 'Cliquez sur un joueur pour voir ce qu\'il est en train de faire.'; }
-  };
+  }
+  $('pitch3d').onclick = ev => { if (!v3d || !rec) return; const r = $('pitch3d').getBoundingClientRect(); pickPlayer(v3d.pick(view, ev.clientX - r.left, ev.clientY - r.top)); };
   document.addEventListener('keydown', ev => {
     const tag = ev.target.tagName, field = (tag === 'INPUT' && ev.target !== time && ev.target.type !== 'checkbox') || tag === 'SELECT';
     if (field) return;
@@ -3392,15 +3656,18 @@ return { create, add, rows, rowsOf, highlights };
     const speeds = document.querySelector('[data-speed]').parentNode; speeds.className = 'pspeed';
     const close = document.createElement('button'); close.id = 'pclose'; close.textContent = 'Masquer ›';
     P.append(close, box('pctl', $('back'), $('play'), $('fwd')), document.querySelector('.timeline'), speeds,
-      box('ptabs', $('tabMatch'), $('tabStats'), $('tabTac')), head('Joueur'), $('player'), head('Fil du match'), $('log'), document.querySelector('.homelink'));
-    $('tabStats').textContent = 'Stats';
+      box('ptabs', $('tabMatch'), $('tabStats'), $('tabTac')), $('views'), head('Joueur'), $('player'), head('Fil du match'), $('log'), document.querySelector('.homelink'));
+    $('tabStats').textContent = 'Stats'; $('tvBack').textContent = '← Match';
     // colonne rétractable (remarque de Frédéric : trop large) : fermée, le terrain prend tout l'écran, avec trois boutons par-dessus
     const menu = open => { document.body.classList.toggle('pclosed', !open); try { localStorage.setItem('menuFerme', open ? '' : '1'); } catch (e) {} resize(); nextHud = 0; };
     close.onclick = () => menu(false); $('miniMenu').onclick = () => menu(true);
     $('miniPlay').onclick = () => $('play').click(); $('miniTac').onclick = () => setTab('tac');
+    $('miniStats').onclick = () => setTab(tab === 'stats' ? 'match' : 'stats');
+    $('miniView').onclick = () => setView(want3d ? '2d' : '3d');
     try { if (localStorage.getItem('menuFerme')) document.body.classList.add('pclosed'); } catch (e) {}
   }
   newMatch(CUP ? CUP.seed : randomSeed());
+  try { if (localStorage.getItem('vue') === '3d') setView('3d'); } catch (e) {}      // la vue choisie la dernière fois
   if (CUP) {
     let run = null; try { run = JSON.parse(localStorage.getItem('coupe-en-cours') || 'null'); } catch (e) {}
     if (run && run.id === CUP.id) {      // match déjà lancé puis quitté (page rechargée) : défaite par forfait
