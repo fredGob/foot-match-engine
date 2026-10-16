@@ -2574,7 +2574,7 @@ function create(canvas, R2, opt) {
   }
 
   // ballon
-  const BR = 0.24;
+  const BR = 0.14;      // rayon du ballon : 0,11 m en vrai, un peu plus ici comme les joueurs (×1,15)
   const ball = new THREE.Mesh(new THREE.SphereGeometry(BR, 20, 14), std('#ffffff', 0.45, { map: ballTexture() })); ball.castShadow = true; scene.add(ball);
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.75, 0.95, 32), new THREE.MeshBasicMaterial({ color: '#ffe45c', transparent: true, opacity: 0.95, depthWrite: false }));
   ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; ring.visible = false; scene.add(ring);
