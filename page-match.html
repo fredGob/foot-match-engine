@@ -48,6 +48,10 @@
   .ttok .nm { margin-top: 2px; max-width: 78px; padding: 0 4px; border-radius: 4px; background: rgba(10,14,18,.75); font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ttok .fr { width: 34px; height: 4px; margin-top: 2px; border-radius: 2px; background: rgba(10,14,18,.75); overflow: hidden; }
   .ttok .fr b { display: block; height: 100%; }
+  .ttok .ball u { position: absolute; left: -7px; top: -6px; width: 16px; height: 16px; border-radius: 50%; background: #a98bff; color: #1a1a1a; text-decoration: none; font-size: 10px; line-height: 16px; text-align: center; font-weight: 800; }      /* consignes individuelles */
+  .ordrow { display: grid; grid-template-columns: 92px 1fr; gap: 4px 8px; align-items: center; margin-top: 6px; font-size: 12.5px; }
+  .ordrow .seg { display: flex; } .ordrow .seg button { flex: 1; padding: 4px 2px; font-size: 12px; border-radius: 0; margin-left: -1px; } .ordrow .seg button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; } .ordrow .seg button:last-child { border-radius: 0 6px 6px 0; }
+  .ordrow .seg button.on { background: #3b2f66; border-color: #a98bff; color: #fff; }
   .ttok.off .ball { border-color: #ff9a3c; }
   .ttok.new .ball { box-shadow: 0 0 0 3px rgba(92,201,138,.7); }
   .ttok.look .nm { outline: 1px solid var(--accent); }
@@ -443,7 +447,7 @@
   // un match avec ces réglages : formations, consignes, titulaires choisis avant le coup d'envoi ; l'adversaire (Rouges) fait ses remplacements tout seul
   function startMatch(sd, dur, tac, sq) {
     const m = E.createMatch({ seed: sd, duration: dur, tactics: tac, teams: teamsOf(sq), formations: tac.map(t => t.formation || '442'), autoSubs: [false, true] });
-    for (let t = 0; t < 2; t++) if (tac[t].lineup) E.setLineup(m, t, tac[t].lineup, true);
+    for (let t = 0; t < 2; t++) { if (tac[t].lineup) E.setLineup(m, t, tac[t].lineup, true); if (tac[t].orders) E.setOrders(m, t, tac[t].orders); }
     return m;
   }
 
@@ -501,6 +505,7 @@
           const c = due[i];
           if (c.key === 'formation') E.setFormation(m, c.team, c.v);
           else if (c.key === 'lineup') { if (!E.setLineup(m, c.team, c.v)) { wait.push(c); continue; } }      // le tireur est concerné : arrêt suivant
+          else if (c.key === 'orders') E.setOrders(m, c.team, c.v);
           else if (c.preset) { const grp = {}; let j = i; for (; j < due.length && due[j].tick === c.tick && due[j].team === c.team && due[j].preset === c.preset; j++) { grp[due[j].key] = due[j].v; due[j].at = m.tick; } E.setTactics(m, c.team, grp, c.preset); i = j - 1; continue; }
           else E.setTactics(m, c.team, { [c.key]: c.v });
           c.at = m.tick;
@@ -1002,7 +1007,7 @@
     const tick = Math.min(tickOf(coach() ? live : cur), rec.n - 1), now = tacAt(tick), keys = Object.keys(obj).filter(k => JSON.stringify(now[team][k]) !== JSON.stringify(obj[k]));
     if (!keys.length) return;
     if (tick <= 0) { for (const k of keys) tac0[team][k] = obj[k]; changes = []; }
-    else for (const k of keys) { changes = changes.filter(c => c.tick < tick || (c.tick === tick && !(c.team === team && c.key === k))); changes.push({ tick, team, key: k, v: obj[k], preset: k === 'formation' || k === 'lineup' ? undefined : preset }); }
+    else for (const k of keys) { changes = changes.filter(c => c.tick < tick || (c.tick === tick && !(c.team === team && c.key === k))); changes.push({ tick, team, key: k, v: obj[k], preset: k === 'formation' || k === 'lineup' || k === 'orders' ? undefined : preset }); }
     rebuild(tick);
   }
 
@@ -1066,11 +1071,17 @@
   function tvState(team) {
     const tick = pending ? 0 : nowTick(), t = tacAt(tick)[team], L = lineupAt(tick);
     const tac = {}; for (const c of TAC) tac[c.key] = t[c.key];
-    return { tick, form: t.formation || '442', rids: (t.lineup || L.rids[team]).slice(), tac, applied: L.rids[team], out: L.out[team], subs: L.subs[team] };
+    return { tick, form: t.formation || '442', rids: (t.lineup || L.rids[team]).slice(), tac, ord: ordList(t.orders), applied: L.rids[team], out: L.out[team], subs: L.subs[team] };
   }
-  function tvLoad() { if (coach()) tv.team = 0; tv.base = tvState(tv.team); tv.form = tv.base.form; tv.rids = tv.base.rids.slice(); tv.tac = Object.assign({}, tv.base.tac); tv.sel = null; tv.key = JSON.stringify(tv.base); }
+  // consignes individuelles (n° 121) : une par place (0 à 10), { dribble, attack, longshot } de −1 à +1
+  const ORD = E.ORDERS || [];
+  const ordList = a => Array.from({ length: 11 }, (_, i) => { const o = {}; for (const c of ORD) o[c.key] = (a && a[i] && a[i][c.key]) || 0; return o; });
+  const ordOn = o => o && ORD.some(c => o[c.key]);
+  const ordText = o => ORD.filter(c => o[c.key]).map(c => c.notes[o[c.key] + 1]).join(', ');
+  function tvLoad() { if (coach()) tv.team = 0; tv.base = tvState(tv.team); tv.form = tv.base.form; tv.rids = tv.base.rids.slice(); tv.tac = Object.assign({}, tv.base.tac); tv.ord = ordList(tv.base.ord); tv.sel = null; tv.key = JSON.stringify(tv.base); }
+  const ordDiff = () => tv.ord.map((o, i) => i).filter(i => ORD.some(c => tv.ord[i][c.key] !== tv.base.ord[i][c.key]));
   const tacDiff = () => TAC.filter(c => tv.tac[c.key] !== tv.base.tac[c.key]);
-  const tvDirty = () => tv.base && (tv.form !== tv.base.form || tv.rids.some((r, i) => r !== tv.base.rids[i]) || tacDiff().length > 0);
+  const tvDirty = () => tv.base && (tv.form !== tv.base.form || tv.rids.some((r, i) => r !== tv.base.rids[i]) || tacDiff().length > 0 || ordDiff().length > 0);
   const newcomers = () => pending ? [] : tv.rids.filter(r => !tv.base.applied.includes(r));
   const subsUsed = () => pending ? 0 : tv.base.subs + newcomers().length;
   function tvSync() {           // la barre de temps a bougé, un changement a été fait : on recharge, sauf brouillon en cours
@@ -1096,11 +1107,11 @@
   const tvXY = pl => ({ left: (37 + pl.x) / 74 * 100, top: (L0 - (pl.role === 'GK' ? 7 : 20 + 1.3 * pl.d)) / 74 * 100 });
   const frCol = v => v > 0.75 ? '#5cc98a' : v > 0.55 ? '#e8c547' : '#ff6b5e';
   const shortName = n => { const w = String(n).split(' '); return w.length > 1 ? w[0][0] + '. ' + w.slice(1).join(' ') : n; };
-  function ttok(rid, pl) {
+  function ttok(rid, pl, pi) {
     const T = view.teams[tv.team], e = T.roster[rid], fr = tvFresh(rid), gone = !pl && tv.base.out.includes(rid);
     const off = pl && !accepte(pl).includes(e.nat), isNew = pl && !pending && !tv.base.applied.includes(rid), leaving = !pl && !pending && tv.base.applied.includes(rid);
     return '<div class="ttok' + (off ? ' off' : '') + (isNew ? ' new' : '') + (gone ? ' gone' : '') + (leaving ? ' leaving' : '') + (tv.look === rid ? ' look' : '') + (tv.sel === rid ? ' sel' : '') + '" data-rid="' + rid + '" title="' + esc(e.name) + ' — ' + NAT_NAME[e.nat] + (pl ? ', ' + esc(pl.label) + (off ? ' (hors poste)' : '') : gone ? ' (sorti)' : ' (remplaçant)') + '">'
-      + '<div class="ball" style="background:' + (pl ? T.color : '#3a4a5e') + '">' + e.num + (off ? '<i>!</i>' : '') + '</div><div class="nm">' + esc(shortName(e.name)) + '</div>'
+      + '<div class="ball" style="background:' + (pl ? T.color : '#3a4a5e') + '">' + e.num + (off ? '<i>!</i>' : '') + (pl && ordOn(tv.ord[pi]) ? '<u title="Consignes individuelles : ' + esc(ordText(tv.ord[pi])) + '">C</u>' : '') + '</div><div class="nm">' + esc(shortName(e.name)) + '</div>'
       + (leaving ? '<div class="nm" style="font-weight:400;color:#ff9a3c">sortira</div>' : '') + (fr == null ? '<div class="nm" style="font-weight:400">sorti</div>' : '<div class="fr" title="Fraîcheur ' + Math.round(100 * fr) + ' %"><b style="width:' + Math.round(100 * fr) + '%;background:' + frCol(fr) + '"></b></div>') + '</div>';
   }
   function tvDraw() {
@@ -1109,7 +1120,7 @@
     document.querySelectorAll('[data-tv-team]').forEach(b => b.classList.toggle('on', +b.dataset.tvTeam === tv.team));
     $('tvForms').innerHTML = E.FORMATIONS.map(f => '<button data-tv-form="' + f.id + '" class="' + (f.id === tv.form ? 'on' : '') + '">' + f.name + '</button>').join('');
     let h = tvPitchSvg();
-    pls.forEach((pl, i) => { const q = tvXY(pl); h += '<div class="tspot tdrop" data-tdrop="p' + i + '" style="left:' + q.left.toFixed(2) + '%;top:' + q.top.toFixed(2) + '%">' + ttok(tv.rids[i], pl) + '</div>'; });
+    pls.forEach((pl, i) => { const q = tvXY(pl); h += '<div class="tspot tdrop" data-tdrop="p' + i + '" style="left:' + q.left.toFixed(2) + '%;top:' + q.top.toFixed(2) + '%">' + ttok(tv.rids[i], pl, i) + '</div>'; });
     $('tvPitch').innerHTML = h;
     const bench = R.filter(e => !tv.rids.includes(e.rid));
     $('tvBench').innerHTML = bench.length ? bench.map(e => '<div class="tdrop" data-tdrop="b' + e.rid + '">' + ttok(e.rid, null) + '</div>').join('') : '<span class="muted small">Pas de remplaçant.</span>';
@@ -1134,12 +1145,13 @@
       if (!was.includes(r)) lines.push((pending ? 'Titulaire : ' : 'Entre : ') + nm(r) + (was[i] != null && !tv.rids.includes(was[i]) ? (pending ? ' à la place de ' : ' pour ') + nm(was[i]) : '') + ' (' + esc(pls[i].label) + ')');
       else lines.push(nm(r) + ' → ' + esc(pls[i].label));
     }
+    for (const i of ordDiff()) { const r = tv.rids[i], t = ordText(tv.ord[i]); lines.push('Consignes de ' + nm(r) + ' (' + esc(pls[i].label) + ') : ' + (t ? esc(t) : 'neutres')); }
     $('tvDraft').innerHTML = lines.length ? lines.map(x => '<div>' + x + '</div>').join('') : '<span class="muted">Aucun changement en préparation.</span>';
     $('tvApply').disabled = !lines.length; $('tvReset').disabled = !lines.length;
     $('tvApply').textContent = pending ? 'Valider' : 'Valider (prochain arrêt de jeu)';
     // demandes pas encore faites (on attend un arrêt de jeu)
     const tk = tv.base.tick, wait = pending ? [] : changes.filter(c => c.team === tv.team && c.tick <= tk && !(c.at <= tk));
-    const desc = c => c.key === 'lineup' ? 'composition' : c.key === 'formation' ? 'formation ' + E.FORMATIONS.find(f => f.id === c.v).name : (TAC.find(x => x.key === c.key) || { label: c.key }).label.toLowerCase();
+    const desc = c => c.key === 'lineup' ? 'composition' : c.key === 'orders' ? 'consignes individuelles' : c.key === 'formation' ? 'formation ' + E.FORMATIONS.find(f => f.id === c.v).name : (TAC.find(x => x.key === c.key) || { label: c.key }).label.toLowerCase();
     $('tvPending').innerHTML = (tv.msg ? '<div style="color:var(--accent)">' + esc(tv.msg) + '</div>' : '') + (wait.length ? 'En attente du prochain arrêt de jeu : ' + esc([...new Set(wait.map(desc))].join(', ')) + '.' : '');
     // fiche du joueur cliqué
     const e = tv.look != null && R[tv.look];
@@ -1148,6 +1160,7 @@
       const i = tv.rids.indexOf(e.rid), pl = i >= 0 ? pls[i] : null, fr = tvFresh(e.rid), off = pl && !accepte(pl).includes(e.nat);
       $('tvLook').innerHTML = '<b>n°' + e.num + ' ' + esc(e.name) + '</b><div class="small muted">' + NAT_NAME[e.nat] + ' · ' + (pl ? esc(pl.label) + (off ? ' <span style="color:#ff9a3c">(hors poste)</span>' : '') : fr == null ? 'sorti' : 'remplaçant') + (fr == null ? '' : ' · fraîcheur ' + Math.round(100 * fr) + ' %') + '</div>'
         + (fr == null ? '' : '<div class="row" style="margin:6px 0">' + (tv.sel === e.rid ? '<span class="small" style="color:var(--accent)">Touchez le joueur à échanger.</span> <button id="tvSwapCancel">Annuler</button>' : '<button id="tvSwap">Échanger ce joueur</button>') + '</div>')
+        + (pl && pl.role !== 'GK' && !(coach() && tv.team) ? '<div class="small muted" style="margin-top:8px">Consignes individuelles (pour cette place)</div>' + ORD.map(c => '<div class="ordrow"><span title="' + esc(c.help) + '">' + esc(c.label) + '</span><span class="seg">' + [-1, 0, 1].map(v => '<button data-ord="' + c.key + '" data-ord-v="' + v + '" data-ord-i="' + i + '" class="' + (tv.ord[i][c.key] === v ? 'on' : '') + '">' + esc(c.options[v + 1]) + '</button>').join('') + '</span></div>').join('') : '')
         + '<div class="attrs">' + E.QUALITIES.filter(q => e.nat === 'G' || (q[0] !== 'reflexes' && q[0] !== 'handling')).map(q => '<div class="attr"><span>' + q[2] + '</span><b>' + Math.round(E.shown(e.a[q[0]]) * 100) + '</b></div>').join('') + '</div>';
     }
   }
@@ -1168,6 +1181,7 @@
     const obj = {};
     if (tv.form !== tv.base.form) obj.formation = tv.form;
     if (tv.rids.some((r, i) => r !== tv.base.rids[i])) obj.lineup = tv.rids.slice();
+    if (ordDiff().length) obj.orders = tv.ord.map(o => Object.assign({}, o));
     const td = tacDiff(), pid = presetOf(tv.tac), P = td.length > 1 && pid ? PRE.find(P => P.id === pid) : null;
     for (const c of td) obj[c.key] = tv.tac[c.key];
     const at = pending ? 0 : tv.base.tick * DT;
@@ -1192,6 +1206,7 @@
     else if (b.dataset.tvTeam) { tv.team = +b.dataset.tvTeam; tv.look = null; tv.msg = ''; tvLoad(); tvDraw(); }
     else if (b.id === 'tvSwap') { tv.sel = tv.look; tvDraw(); }
     else if (b.id === 'tvSwapCancel') { tv.sel = null; tvDraw(); }
+    else if (b.dataset.ord) { tv.ord[+b.dataset.ordI][b.dataset.ord] = +b.dataset.ordV; tv.msg = ''; tvDraw(); }
   });
   // glisser-déposer à la souris ou au doigt ; un clic montre la fiche ; après « Échanger ce joueur », le clic suivant fait l'échange
   const TD = { rid: null, from: null, x0: 0, y0: 0, on: false, ghost: null, over: null, el: null };

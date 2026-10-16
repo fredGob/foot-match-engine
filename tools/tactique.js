@@ -89,6 +89,21 @@ const url = 'file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURICo
   check(/pressing/.test(await page.textContent('#tvPending')) || /Consigne des Bleus : pressing/.test(await logOf()), 'consigne validée : en attente du prochain arrêt de jeu, ou déjà faite', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
   check(!(await page.$('#tactics')), 'plus de cadre « Consignes » dans la colonne de droite');
 
+  console.log('Consignes individuelles');
+  await page.click('#tvPitch [data-tdrop="p10"] .ttok'); await page.waitForTimeout(100);
+  check((await page.$$('#tvLook .ordrow')).length === 3, 'fiche d\'un joueur de champ : trois consignes individuelles (avec le ballon, projection, tirs de loin)');
+  await page.click('#tvLook [data-ord="dribble"][data-ord-v="1"]'); await page.click('#tvLook [data-ord="longshot"][data-ord-v="1"]'); await page.waitForTimeout(100);
+  check(/Consignes de .*dribbler, tirer de loin/.test(await page.textContent('#tvDraft')) && !!(await page.$('#tvPitch [data-tdrop="p10"] .ttok .ball u')), 'en préparation, et repère « C » sur le joueur', (await page.textContent('#tvDraft')).replace(/\s+/g, ' '));
+  await page.evaluate(() => { document.getElementById('tacView').scrollTop = 0; });
+  await page.screenshot({ path: path.join(DOCS, 'consignes-individuelles.png') }); console.log('        capture : docs/consignes-individuelles.png');
+  await page.click('#tvApply'); await ready();
+  check(/consignes individuelles/.test(await page.textContent('#tvPending')) || /Consignes individuelles des Bleus/.test(await logOf()), 'validées : au prochain arrêt de jeu, notées dans le fil du match', (await page.textContent('#tvPending')).replace(/\s+/g, ' ') + ' | ' + ((await logOf()).match(/Consignes individuelles[^\n]{0,80}/) || [''])[0]);
+  await page.click('#tabMatch'); await page.waitForTimeout(100); await page.click('#tabTac'); await page.waitForTimeout(100);
+  await page.click('#tvPitch [data-tdrop="p10"] .ttok'); await page.waitForTimeout(100);
+  check(await page.$eval('#tvLook [data-ord="dribble"][data-ord-v="1"]', e => e.classList.contains('on')), 'elles restent réglées quand on revient dans l\'onglet Tactique');
+  await page.click('#tvPitch [data-tdrop="p0"] .ttok'); await page.waitForTimeout(100);
+  check((await page.$$('#tvLook .ordrow')).length === 0, 'pas de consigne individuelle pour le gardien');
+
   console.log('Téléphone couché (844 × 390)');
   const pp = await (await browser.newContext({ viewport: { width: 844, height: 390 }, screen: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true })).newPage();
   pp.on('pageerror', e => errors.push(String(e)));

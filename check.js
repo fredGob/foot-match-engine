@@ -14,9 +14,15 @@ function randomTactics(seed, salt) {
   for (const c of E.TACTICS) { a = (Math.imul(a, 1664525) + 1013904223) >>> 0; t[c.key] = (a >>> 16) % 3 - 1; }
   return t;
 }
+// consignes individuelles au hasard (n° 121) : une place sur deux en reçoit
+function randomOrders(seed, salt) {
+  let a = (seed * 2246822519 + salt * 3266489917) >>> 0; const r = () => (a = (Math.imul(a, 1664525) + 1013904223) >>> 0) >>> 16;
+  return Array.from({ length: 11 }, () => { const o = {}; if (r() % 2) for (const c of E.ORDERS) o[c.key] = r() % 3 - 1; return o; });
+}
 function run(seed, watch, tactical, squads) {
   const teams = squads ? [Eq.list[seed % Eq.list.length], Eq.list[(seed * 7 + 3) % Eq.list.length]] : null;      // toutes les affiches reviennent, dans les deux sens
   const m = E.createMatch({ seed, duration, tactics: tactical ? [randomTactics(seed, 1), randomTactics(seed, 2)] : null, teams, autoSubs: squads ? [true, true] : null });
+  if (tactical) for (let t = 0; t < 2; t++) E.setOrders(m, t, randomOrders(seed, t + 1));
   const tag = seed + (squads ? ' (' + teams.map(T => T.nom).join(' contre ') + ')' : '') + (tactical ? ' (consignes ' + m.teams.map(T => E.TACTICS.map(c => T.tac[c.key]).join(',')).join(' / ') + ')' : '');
   let lastOwner = null, lastChange = 0, deadSince = 0, changed = false, swapped = !tactical || squads, sawDead = 0, wasDead = false;
   while (m.mode !== 'over') {
