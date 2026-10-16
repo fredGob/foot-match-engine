@@ -330,7 +330,7 @@ function create(canvas, R2, opt) {
       const k = (q.num * 7 + q.team * 3 + i) >>> 0, gk = q.role === 'GK', shirt = gk ? KEEPER[q.team] : c.teams[q.team].color;
       const shorts = q.team === 0 ? '#f2f4f7' : '#1b1f24', socks = gk ? shirt : q.team === 0 ? '#2f6fdf' : '#d8423a';
       if (P3()) {      // vrais mouvements (n° 129)
-        const f = P3().make({ shirt: lin(shirt), shorts: lin(shorts), socks: lin(socks), skin: lin(SKIN[k % SKIN.length]), hair: lin(HAIR[(k >> 2) % HAIR.length]), boots: lin('#141619'), hands: lin(gk ? '#f2f2f2' : SKIN[k % SKIN.length]) }, { num: q.num, name: q.name, ink: gk ? '#11151a' : '#ffffff', shadow: true });
+        const f = P3().make({ shirt: lin(shirt), shorts: lin(shorts), socks: lin(socks), skin: lin(SKIN[k % SKIN.length]), hair: lin(HAIR[(k >> 2) % HAIR.length]), boots: lin('#141619'), hands: lin(gk ? '#f2f2f2' : SKIN[k % SKIN.length]) }, { num: q.num, name: q.name, ink: gk ? '#11151a' : '#ffffff', shadow: !opt.small });
         f.rotation.order = 'YXZ'; f.userData.sp = 0; scene.add(f); figs.push(f);
       } else figs.push(makePlayer(q, shirt, shorts, socks, SKIN[k % SKIN.length], HAIR[(k >> 2) % HAIR.length], gk));
     });

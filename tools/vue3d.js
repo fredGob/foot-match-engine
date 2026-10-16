@@ -16,7 +16,9 @@ let fails = 0; const check = (ok, what, info) => { if (!ok) fails++; console.log
 (async () => {
   const browser = await pw.chromium.launch({ args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });
   const errors = [];
-  const serve = async ctx => { await ctx.route(R3.LIB, r => r.fulfill({ status: 200, contentType: 'application/javascript', body: fs.readFileSync(LIBF) })); for (const [u, f] of P3F) await ctx.route(u, r => r.fulfill({ status: 200, contentType: /\.glb$/.test(u) ? 'model/gltf-binary' : 'application/javascript', body: fs.readFileSync(f) })); };
+  // model = false : sans le mannequin animé (joueurs faits main). Ici, sans carte graphique, 22 corps animés ne font qu'une image par seconde :
+// les longs parcours se font donc avec les joueurs faits main, et un essai court vérifie les joueurs animés.
+const serve = async (ctx, model = true) => { await ctx.route(R3.LIB, r => r.fulfill({ status: 200, contentType: 'application/javascript', body: fs.readFileSync(LIBF) })); for (const [u, f] of P3F) await ctx.route(u, r => !model && /\.glb$/.test(u) ? r.abort() : r.fulfill({ status: 200, contentType: /\.glb$/.test(u) ? 'model/gltf-binary' : 'application/javascript', body: fs.readFileSync(f) })); };
 
   console.log('Ordinateur');
   const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } }); await serve(ctx);
@@ -52,7 +54,7 @@ let fails = 0; const check = (ok, what, info) => { if (!ok) fails++; console.log
   check(await page.evaluate(() => document.querySelector('[data-view="3d"]').classList.contains('on')), 'la vue 3D est retenue d\'une fois sur l\'autre');
 
   console.log('Téléphone couché (844 × 390)');
-  const tel = await browser.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }); await serve(tel);
+  const tel = await browser.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }); await serve(tel, false);
   const ph = await tel.newPage(); ph.on('pageerror', e => errors.push(String(e)));
   await ph.goto(url); await ph.evaluate(() => { localStorage.setItem('vue', '3d'); localStorage.removeItem('menuFerme'); }); await ph.reload();
   await ph.waitForFunction(() => document.body.dataset.vue3d === 'prete', null, { timeout: 60000 });

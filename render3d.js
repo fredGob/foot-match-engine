@@ -185,7 +185,7 @@ function create(canvas, R2, opt) {
       const k = (p.num * 7 + p.team * 3 + p.id) >>> 0, shorts = p.team === 0 ? '#f2f4f7' : '#1b1f24', socks = p.role === 'GK' ? shirt : p.team === 0 ? '#2f6fdf' : '#d8423a';
       if (P3() && P3().ready()) {      // vrais mouvements (n° 129)
         const C = c => new THREE.Color(c);
-        f = P3().make({ shirt: C(shirt), shorts: C(shorts), socks: C(socks), skin: C(SKIN[k % SKIN.length]), hair: C(HAIR[(k >> 2) % HAIR.length]), boots: C('#141619'), hands: C(p.role === 'GK' ? '#f2f2f2' : SKIN[k % SKIN.length]) }, { num: p.num, ink: '#ffffff', shadow: true });
+        f = P3().make({ shirt: C(shirt), shorts: C(shorts), socks: C(socks), skin: C(SKIN[k % SKIN.length]), hair: C(HAIR[(k >> 2) % HAIR.length]), boots: C('#141619'), hands: C(p.role === 'GK' ? '#f2f2f2' : SKIN[k % SKIN.length]) }, { num: p.num, ink: '#ffffff', shadow: !opt.small });      // sur téléphone, pas d'ombre sous les joueurs (plus léger)
         f.userData.x = null; f.userData.lean = 0; scene.add(f);
       } else f = makePlayer(shirt, shorts, socks, SKIN[k % SKIN.length], HAIR[(k >> 2) % HAIR.length], p.num, '#ffffff');
       f.userData.key = key + shirt; figs.set(p.id, f);
