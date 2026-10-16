@@ -282,6 +282,8 @@ const PLACE_GAP = 0.3;      // placement au-dessus de 14 : en défense, il refer
 const RUN_WAIT = 0.3;       // appels au-dessus de 14 : il part au bon moment, quand le porteur est libre de donner (pression sous 0,4 à 18 au lieu de 0,7)
 const RUN_EARLY = 3;
 const RUN_SOON = 0.7;       // appels sous 14 : un receveur lancé, à moins de 5 m de la ligne, part trop tôt et se fait prendre hors-jeu (7 fois sur 10 à 10)        // appels sous 14 : il traîne jusqu'à 3 m en position de hors-jeu (à 10)
+const PRESS_CAP = 2;       // hors « harceler », au plus deux joueurs sur le porteur (un presse, un ferme ou aide) ; les autres couvrent (n° 126)
+const CB_STEP = 8;         // un défenseur central ne sort pas sur un porteur à plus de 8 m devant sa ligne, loin de son but (n° 126)
 const AXIS_D = 35;         // à moins de 35 m du but, un défenseur ferme l'axe ballon-but s'il est ouvert
 const READ = 1.2;          // lecture de la passe : allonge la portée de 18 % à 17, la réduit de 36 % à 8
 const LUCID = 2;           // lucidité : prudence face à une passe risquée (+30 % à 17, −60 % à 8)
@@ -704,11 +706,25 @@ function wantsChase(m, p) {
   return better === 0 || (better === 1 && me.x * T.dir < -25);
 }
 
+// de combien de mètres le porteur est devant la ligne des défenseurs de q (vers le but adverse)
+function aheadOfLine(m, q, th) {
+  const T = m.teams[q.team]; let s = 0, k = 0;
+  for (const r of T.players) if (r.role === 'DEF') { s += r.x; k++; }
+  return k ? (th.x - s / k) * T.dir : 0;
+}
+// l'axe ballon-but est-il ouvert ? (personne de l'équipe, sauf p et le gardien, entre le porteur et le but)
+function axisOpen(T, p, th, gx) {
+  const dG = hyp(gx - th.x, th.y) || 1, ux = (gx - th.x) / dG, uy = -th.y / dG;
+  return !T.players.some(q => { if (q === p || q.role === 'GK') return false; const rx = q.x - th.x, ry = q.y - th.y, s = rx * ux + ry * uy; return s > 0.3 && s < Math.min(12, dG) && Math.abs(rx * uy - ry * ux) < 1.5 + 0.25 * s; });
+}
+// combien de coéquipiers sont déjà sur le porteur
+const onBall = (T, p) => { let k = 0; for (const q of T.players) if (q !== p && q.intent.type === 'press') k++; return k; };
 function pressCost(m, q, th, gx) {
   let ux = gx - th.x, uy = -th.y; const n = hyp(ux, uy) || 1; ux /= n; uy /= n;
   const tx = th.x + ux * 1.5, ty = th.y + uy * 1.5;
   let c = timeToCover(m, q, hyp(tx - q.x, ty - q.y), tx, ty);
   if (q.role === 'DEF' && q.side === 0 && n > 30) c += 1.0;      // un central ne sort pas au milieu de terrain
+  if (q.role === 'DEF' && q.side === 0 && n > 25 && aheadOfLine(m, q, th) > CB_STEP) c += 2.5;      // ni sur un porteur loin devant sa ligne : les milieux s'en chargent (n° 126)
   if (q.role === 'GK') c += 99;
   if (q.intent.type === 'press') c -= 0.4;
   // « harceler » + bloc haut : un porteur excentré chez lui est pris par le joueur de côté de son couloir ; les attaquants axiaux gardent l'axe
@@ -732,6 +748,8 @@ function thinkDefend(m, p, noPress) {
     const k = T.tac.press, spare = q => k < 0 && q.role === 'FWD' && hyp(th.x - q.x, th.y - q.y) > 4;      // « attendre » : les attaquants ne courent pas après le ballon, ils gardent leurs forces
     for (const q of T.players) if (q !== p && !spare(q) && pressCost(m, q, th, gx) + 0.1 * m.gauss() < mine) rank++;
     const dAnch = hyp(th.x - p.ax, th.y - p.ay), dMe = hyp(th.x - p.x, th.y - p.y);
+    const axisFree = k <= 0 && b.owner === c && dGoalTh < AXIS_D && axisOpen(T, p, th, gx);      // chemin du but ouvert : priorité à celui qui le ferme, pas à un troisième presseur
+    const room = k > 0 || onBall(T, p) < PRESS_CAP;      // un presse, un ferme ou aide ; pas plus (sauf « harceler ») : le reste du bloc garde sa place
     // consigne « pressing » : la zone où l'on sort sur le porteur grandit ou rétrécit, surtout pour les attaquants
     const own = k < 0 ? clamp((th.x * d + 5) / 25, 0, 1) : 1;       // « attendre » : on laisse l'adversaire tranquille chez lui, on défend normalement chez soi
     const reach = (1 + (p.role === 'DEF' ? 0.3 : p.role === 'FWD' ? 0.8 : 0.5) * k * own) * (0.6 + 0.4 * p.stam);      // fatigué, on sort moins loin
@@ -747,16 +765,23 @@ function thinkDefend(m, p, noPress) {
     }
     // contre-pressing : juste après la perte du ballon, un joueur qui court et lit le jeu (au-dessus de 14) saute sur le porteur
     const cpq = clamp(((p.a.workRate + p.a.anticipation) / 2 - LEVEL) / 0.15, 0, 1) * (0.5 + 0.5 * p.stam);
-    if (cpq > 0 && rank <= 1 && m.holder === 1 - p.team && m.t - m.possSince < 2 + 3 * cpq && dMe < 8 + 8 * cpq && !spare(p))
-      return setIntent(m, p, 'press', 'Contre-presse le n°' + c.num, th.x, th.y, 1);
+    if (cpq > 0 && rank <= 1 && m.holder === 1 - p.team && m.t - m.possSince < 2 + 3 * cpq && dMe < 8 + 8 * cpq && !spare(p)) {
+      if (room && !(axisFree && th.x * d < -20)) return setIntent(m, p, 'press', 'Contre-presse le n°' + c.num, th.x, th.y, 1);
+      if (th.x * d < -20) { const ux = gx - th.x, uy = -th.y, n = hyp(ux, uy) || 1; return setIntent(m, p, 'position', 'Couvre derrière le presseur', th.x + ux / n * 5, th.y + uy / n * 5, 0.95); }      // près de son but : il couvre (n° 126)
+    }
     if (rank === 0 && !tooFar && !spare(p) && (dAnch < zone || deep || dMe < 5 * (1 + 0.4 * k * own))) {
       setIntent(m, p, 'press', 'Presse le n°' + c.num, th.x, th.y, 1);
       if (k > 0 && !(dAnch < zone0 || deep || dMe < 5)) note(p, 'press', k);     // sans la consigne, il serait resté à son poste
       return;
     }
     if (rank === 0 && k < 0 && (dAnch < zone0 || dMe < 5)) held = true;            // sans la consigne, il serait sorti
-    if (rank === 1 && deep && dMe < 12 && !spare(p) && T.players.some(q => q.intent.type === 'press' && m.t - q.intent.since > 2.5)) return setIntent(m, p, 'press', 'Vient aider sur le n°' + c.num, th.x, th.y, 1);
-    if (rank === 1 && k > 0 && dMe < 14 * k && dAnch < zone) { setIntent(m, p, 'press', 'Presse à deux le n°' + c.num, th.x, th.y, 1); note(p, 'press', k); return; }      // « harceler » : un deuxième joueur sort aussi
+    if (rank === 1 && deep && dMe < 12 && !spare(p) && T.players.some(q => q.intent.type === 'press' && m.t - q.intent.since > 2.5)) {
+      if (room && !axisFree) return setIntent(m, p, 'press', 'Vient aider sur le n°' + c.num, th.x, th.y, 1);
+      // déjà assez de monde sur le porteur, ou chemin du but ouvert : il couvre de près, côté but, au lieu de se jeter (n° 126)
+      const ux = gx - th.x, uy = -th.y, n = hyp(ux, uy) || 1;
+      return setIntent(m, p, 'position', 'Couvre derrière le presseur', th.x + ux / n * 5, th.y + uy / n * 5, 0.95);
+    }
+    if (rank === 1 && room && k > 0 && dMe < 14 * k && dAnch < zone) { setIntent(m, p, 'press', 'Presse à deux le n°' + c.num, th.x, th.y, 1); note(p, 'press', k); return; }      // « harceler » : un deuxième joueur sort aussi
     if (rank === 1 && dGoalTh < 42 && dAnch < zone + 6) {
       const ux = gx - th.x, uy = -th.y, n = hyp(ux, uy) || 1;
       return setIntent(m, p, 'position', 'Couvre son coéquipier', lerp(ax, th.x + ux / n * 6.5, 0.6), lerp(ay, th.y + uy / n * 6.5, 0.6), 0.75);
@@ -770,7 +795,7 @@ function thinkDefend(m, p, noPress) {
     if (!T.players.some(q => q !== p && q.role !== 'GK' && guards(q))) {
       const kx = th.x + ux * 3, ky = th.y + uy * 3, mine = timeToCover(m, p, hyp(kx - p.x, ky - p.y), kx, ky);
       if (!T.players.some(q => q !== p && q.role === 'DEF' && q.intent.type !== 'press' && (q.x - th.x) * ux + (q.y - th.y) * uy > 0 && timeToCover(m, q, hyp(kx - q.x, ky - q.y), kx, ky) < mine))      // seuls comptent les coéquipiers libres et devant le ballon
-        return setIntent(m, p, 'press', 'Ferme l\'axe du but face au n°' + c.num, th.x, th.y, 1);
+        { setIntent(m, p, 'press', 'Ferme l\'axe du but face au n°' + c.num, th.x, th.y, 1); p.intent.contain = clamp((dGoalTh - 18) / 12, 0, 0.5); return; }      // loin du but il couvre côté but sans se jeter ; sous 18 m, il va au duel (n° 126)
     }
   }
   // ombre de l'attaquant : l'adversaire construit chez lui ; l'attaquant qui ne presse pas se place entre le porteur et le milieu adverse libre le plus proche

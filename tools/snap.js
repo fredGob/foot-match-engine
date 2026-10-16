@@ -1,6 +1,6 @@
 // Rend des images du match à des instants donnés, avec le même code de dessin que le navigateur.
 // Usage : node snap.js <graine> <sortie.png> <t1,t2,...> [intents|-] [consignes des Bleus] [consignes des Rouges]
-// Consignes : « clé=valeur » séparées par des virgules, par exemple line=1,press=1 (voir sim.js)
+// Consignes : « clé=valeur » séparées par des virgules, par exemple line=1,press=1 (voir sim.js) ; ou une équipe : equipe=psg,press=1
 const path = require('path');
 const { createCanvas } = require('@napi-rs/canvas');
 const ROOT = path.join(__dirname, '..');
@@ -10,7 +10,9 @@ const times = (process.argv[4] || '5,30,60').split(',').map(Number), intents = p
 const W = 880, H = 580, cols = Math.min(2, times.length), rows = Math.ceil(times.length / cols);
 const sheet = createCanvas(W * cols, H * rows), sctx = sheet.getContext('2d');
 const parse = s => { const t = {}; for (const kv of (s || '').split(',')) { const [k, v] = kv.split('='); if (k) t[k] = +v; } return t; };
-const m = E.createMatch({ seed, tactics: [parse(process.argv[6]), parse(process.argv[7])] });
+// un camp peut aussi nommer une équipe du fichier : « equipe=psg,press=1 »
+const Q = require(path.join(ROOT, 'equipes.js')), sides = [6, 7].map(k => /equipe=|formation=|tactique=/.test(process.argv[k] || '') ? Q.side(process.argv[k]) : { team: null, tactics: parse(process.argv[k]), formation: null });
+const m = E.createMatch({ seed, duration: 5400, teams: sides.map(x => x.team), tactics: sides.map(x => x.tactics), formations: sides.map(x => x.formation) });
 times.forEach((t, i) => {
   while (m.t < t && m.mode !== 'over') E.step(m);
   const c = createCanvas(W, H), ctx = c.getContext('2d');
