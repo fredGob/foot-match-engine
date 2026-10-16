@@ -55,7 +55,7 @@ const COUPE = 'file://' + path.join(ROOT, 'coupe.html');
   const D = await page.evaluate(() => window.CoupeData);
   const raw = D.clubs.concat(D.petits).find(T => T.id === opp0);
   check(P.adversaire.joueurs[3].notes.passe === Math.min(100, raw.joueurs[3].notes.passe + 10), 'difficulté « difficile » : 10 points de plus sur les notes de l\'adversaire');
-  const page2 = await ctx.newPage(); page2.on('pageerror', e => errors.push(String(e)));
+  let page2 = await ctx.newPage(); page2.on('pageerror', e => errors.push(String(e)));
   let tied = null;
   for (const seed of [1, 2, 3, 4, 5, 6]) {
     P.coupe.seed = seed; P.coupe.duree = 120;
@@ -82,6 +82,15 @@ const COUPE = 'file://' + path.join(ROOT, 'coupe.html');
     check(await page2.isHidden('#tab') && await page2.isVisible('#card'), '« Voir le résumé » montre la carte de fin de match');
     check(/Retour à la coupe/.test(await page2.textContent('#again')), 'bouton « Retour à la coupe »');
   }
+  // résultat direct : tout le match (90 minutes) d'un coup, la feuille de match, et le résultat rendu à la coupe
+  await page2.evaluate(() => { localStorage.removeItem('coupe-resultat'); localStorage.removeItem('coupe-en-cours'); });
+  P.coupe.seed = 7; delete P.coupe.duree;
+  await page2.close(); page2 = await ctx.newPage(); page2.on('pageerror', e => errors.push(String(e)));
+  await page2.goto('file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURIComponent(JSON.stringify(P))); await page2.waitForTimeout(400);
+  await page2.click('#instant');
+  await page2.waitForFunction(() => !document.getElementById('end').hidden || !document.getElementById('tab').hidden, null, { timeout: 60000 });
+  const rd = await page2.evaluate(() => ({ r: JSON.parse(localStorage.getItem('coupe-resultat')), run: localStorage.getItem('coupe-en-cours') }));
+  check(rd.r && rd.r.id === P.coupe.id && !rd.run && /^90:00/.test(await page2.textContent('#clock')), '« Résultat direct » en coupe : feuille de match, résultat rendu à la coupe, pas de forfait', rd.r && rd.r.score.join('-') + (rd.r.tab ? ', t.a.b. ' + rd.r.tab.join('-') : ''));
   await page2.close();
 
   console.log('Retour à la coupe');

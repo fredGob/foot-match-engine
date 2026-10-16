@@ -111,7 +111,7 @@
   .pre > div { padding: 4px 14px; border-radius: 6px; background: rgba(10, 14, 18, 0.78); }
   .pre button { font-size: 18px; padding: 10px 26px; }
   .pre > div.row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding: 0; background: none; }
-  .pre #preTac { font-size: 15px; padding: 8px 18px; }
+  .pre #preTac, .pre #instant { font-size: 15px; padding: 8px 18px; }
   .busy { font-size: 18px; font-weight: 500; }
   .spin { width: 46px; height: 46px; border-radius: 50%; border: 5px solid rgba(255, 255, 255, 0.15); border-top-color: var(--accent); animation: tourne-rond 0.8s linear infinite; }      /* tourne même quand la page calcule */
   @keyframes tourne-rond { to { transform: rotate(360deg); } }
@@ -295,7 +295,7 @@
       <canvas id="pitch"></canvas>
       <canvas id="pitch3d" hidden></canvas><div class="clock3d" id="clock3d" hidden></div><div class="label3d" id="label3d" hidden></div>
       <div class="end" id="end" hidden><canvas id="card" width="2400" height="1350" aria-label="Résumé du match"></canvas><div id="endText" hidden></div><div class="tab" id="tab" hidden></div><div class="row"><button id="saveCard" class="main">Enregistrer l'image</button><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
-      <div class="pre" id="pre" hidden><div>Choisissez le mode, réglez votre tactique (onglet Tactique), puis donnez le coup d'envoi.</div><div class="row"><button id="preTac">Régler la tactique</button><button id="kick" class="main">Lancer le match</button></div></div>
+      <div class="pre" id="pre" hidden><div>Choisissez le mode, réglez votre tactique (onglet Tactique), puis donnez le coup d'envoi.</div><div class="row"><button id="preTac">Régler la tactique</button><button id="kick" class="main">Lancer le match</button><button id="instant" title="Le match est joué d'un coup, sans le regarder : on arrive directement à la feuille de match">Résultat direct ⏭</button></div></div>
       <div class="busy" id="busy" hidden><div class="spin" aria-hidden="true"></div><span>Calcul du match…</span></div>
       <div class="tip" id="tip" hidden></div>
       <div class="ff" id="ff" hidden>⏩ temps faible ×10</div>
@@ -998,6 +998,16 @@
     const d = document.documentElement;
     try { const p = d.requestFullscreen && !document.fullscreenElement && d.requestFullscreen({ navigationUI: 'hide' }); if (p) p.then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')).catch(() => {}); } catch (e) {}
   }
+  // résultat direct : le coup d'envoi, puis tout le match calculé d'un coup, sans le regarder ; on arrive sur la feuille de match
+  function instant() {
+    if (!pending || forfeited) return;
+    $('busy').hidden = false;
+    setTimeout(() => {      // laisse le rond s'afficher avant le calcul
+      launch(); playing = false;
+      advance(job, job.cap - 1, 0); refresh(job);
+      cur = live = end; $('busy').hidden = true; nextHud = 0;
+    }, 30);
+  }
   function launch() { if (!pending || forfeited) return; if (PHONE) fullscreen(); pending = false; lockMode(); cur = 0; live = 0; marked = -1; playing = true; if (tab === 'tac') setTab('match'); rebuild(0); }
   // plusieurs consignes d'un coup (tactique prédéfinie) : un seul recalcul
   function setTactics(team, obj, preset) {
@@ -1242,7 +1252,7 @@
   document.addEventListener('pointercancel', e => tvEnd(e, true));
 
   $('play').onclick = () => { if (pending) return launch(); if (cur >= end - 1e-6) cur = 0; playing = !playing; nextHud = 0; };
-  $('kick').onclick = launch;
+  $('kick').onclick = launch; $('instant').onclick = instant;
   $('back').onclick = () => seek(cur - 10);
   $('fwd').onclick = () => seek(cur + 10);
   $('rewatch').onclick = () => { cur = 0; playing = true; nextHud = 0; };
@@ -1407,7 +1417,7 @@
       forfeit();
       const msg = document.createElement('div'); msg.id = 'forfait';
       msg.innerHTML = '<b>Match abandonné : défaite par forfait (0-3).</b><br>Dans la Coupe en carton, un match lancé doit être joué jusqu\'au bout.';
-      $('pre').prepend(msg); $('kick').style.display = 'none'; $('preTac').style.display = 'none';
+      $('pre').prepend(msg); $('kick').style.display = 'none'; $('preTac').style.display = 'none'; $('instant').style.display = 'none';
       const back = document.createElement('button'); back.className = 'main'; back.textContent = 'Retour à la coupe →'; back.onclick = () => { location.href = 'coupe.html'; };
       $('kick').parentNode.append(back);
     }

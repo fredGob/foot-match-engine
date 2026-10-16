@@ -54,8 +54,21 @@ const secs = s => { const m = /^(\d+):(\d+)/.exec(s); return 60 * +m[1] + +m[2];
   const file = path.join(require('os').tmpdir(), dl.suggestedFilename()); await dl.saveAs(file);
   const head = fs.readFileSync(file).slice(0, 8).toString('hex');
   check(/^match-rclentilles-olympiquedemarsupilami-12\.png$/.test(dl.suggestedFilename()) && head === '89504e470d0a1a0a' && fs.statSync(file).size > 30000, '« Enregistrer l\'image » télécharge une image PNG', dl.suggestedFilename() + ', ' + Math.round(fs.statSync(file).size / 1024) + ' ko');
+  const played = await page.textContent('#endText');
   await page.click('#rewatch'); await page.waitForTimeout(300);
   check(await page.isHidden('#end'), '« Revoir depuis le début » ferme la carte');
+
+  console.log('Résultat direct');
+  await page.goto(url); await page.waitForTimeout(400);
+  await page.fill('#seed', '12'); await page.click('#load'); await page.waitForTimeout(200);
+  check(await page.isVisible('#instant'), 'bouton « Résultat direct » à l\'avant-match');
+  const t0 = Date.now(); await page.click('#instant');
+  await page.waitForFunction(() => !document.getElementById('end').hidden, null, { timeout: 60000 });
+  check(await page.isVisible('#card'), 'la feuille de match s\'affiche tout de suite', ((Date.now() - t0) / 1000).toFixed(1) + ' s');
+  check(await page.textContent('#endText') === played, 'même résultat que le match regardé (même numéro, mêmes consignes)', await page.textContent('#endText'));
+  check(/^90:00/.test(await page.textContent('#clock')) && /Lecture/.test(await page.textContent('#play')), 'on est au coup de sifflet final, à l\'arrêt', await page.textContent('#clock'));
+  await page.click('#rewatch'); await page.waitForTimeout(300); await page.click('#play'); await page.waitForTimeout(1500);
+  check(await page.isHidden('#end') && secs(await page.textContent('#clock')) > 0, '« Revoir depuis le début » : on peut quand même regarder le match');
 
   check(errors.length === 0, 'aucune erreur JavaScript', errors.join(' | '));
   await browser.close();
