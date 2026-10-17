@@ -1095,10 +1095,18 @@ function thinkKeeper(m, p) {
   setIntent(m, p, 'position', 'Se place', p.ax, p.ay, 0.7);
 }
 
+/* Où regarde le tireur d'un coup de pied arrêté. Touche, corner, sortie de but : vers le centre du terrain (dos à la touche).
+   Coup franc (remarque de Frédéric, n° 132 : « le tireur se met dos au but ») : dans le camp adverse, face au but adverse ;
+   dans son camp, face au jeu, vers l'avant. Avant, il regardait toujours le rond central, donc dos au but sur un coup franc offensif. */
+function restartAim(m, R) {
+  if (R.type !== 'freekick') return { x: 0, y: 0 };
+  const d = m.teams[R.team].dir;
+  return R.x * d > 0 ? { x: d * P.HL, y: 0 } : { x: R.x + d * 30, y: R.y * 0.5 };
+}
 function thinkRestart(m, p) {
   const R = m.restart, T = m.teams[p.team];
   if (p === R.taker) {
-    const n = hyp(R.x, R.y) || 1, ux = R.x / n, uy = R.y / n;        // se place derrière le ballon, dos à la touche
+    const A = restartAim(m, R), n = hyp(R.x - A.x, R.y - A.y) || 1, ux = (R.x - A.x) / n, uy = (R.y - A.y) / n;        // se place derrière le ballon, face à là où il veut jouer
     const off = R.type === 'kickoff' ? 0 : 0.5;
     const tx = R.type === 'kickoff' ? -0.5 * T.dir : R.x + ux * off, ty = R.type === 'kickoff' ? 0 : R.y + uy * off;
     return setIntent(m, p, 'toBall', 'Va jouer le ballon', tx, ty, 0.7);
@@ -1719,7 +1727,7 @@ function runRestart(m) {
   if (!near) { k.x = b.x; k.y = b.y; k.vx = k.vy = 0; }
   m.mode = 'play'; b.owner = k; b.lastTouch = k;
   k.setPiece = R.type; k.protectedUntil = m.t + 8; k.controlReadyAt = m.t + 0.4 + 0.5 * m.rng(); k.gotBallAt = -9; k.firstTime = false; k.hands = false; k.plan = null; k.nextThink = m.t;
-  k.face = Math.atan2(-k.y, -k.x || m.teams[k.team].dir);
+  { const A = restartAim(m, R); k.face = Math.atan2(A.y - k.y, (A.x - k.x) || m.teams[k.team].dir); }
   m.restart = null;
 }
 // Après un tir, on note si un attaquant a retouché le ballon (le tir n'est plus à l'origine d'un but éventuel).
