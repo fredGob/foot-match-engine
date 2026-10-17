@@ -60,7 +60,7 @@ for (let i = 0; i < n; i++) {
       if (touched && (b.lastTouch === w.p || b.owner === w.p)) return false;
       if (m.t - w.t < 0.3) return true;
       F.pass++;
-      const why = w.why || (touched ? 'un autre joueur l\'a pris' : w.dd > 0.85 ? 'hors de portée (0,85 m)' : w.sp > 15 ? 'ballon rapide, portée 0,65 m' : 'à portée mais pas touché');
+      const why = w.why || (touched ? 'un autre joueur l\'a pris' : w.dd > 1.05 ? 'hors de portée (1,05 m)' : w.sp > 15 ? 'ballon rapide, portée 0,85 m' : 'à portée mais pas touché');
       F.by[why] = (F.by[why] || 0) + 1;
       const band = w.dd < 0.65 ? '< 0,65 m' : w.dd < 0.85 ? '0,65 à 0,85 m' : w.dd < 1.2 ? '0,85 à 1,2 m' : '1,2 à 1,5 m';
       F.dd[band] = (F.dd[band] || 0) + 1;
@@ -69,7 +69,7 @@ for (let i = 0; i < n; i++) {
     });
   }
 }
-console.log(n + ' matchs de 90 minutes · ' + (sides[0].label || 'standard') + ' contre ' + (sides[1].label || 'standard'));
+console.log(n + ' matchs de 90 minutes · ' + (sides[0].team ? sides[0].team.nom : 'standard') + ' contre ' + (sides[1].team ? sides[1].team.nom : 'standard'));
 console.log('\n1) Quand l\'adversaire attaque : joueurs de champ derrière le ballon ou à moins de 30 m');
 console.log('   marchent (< 2 m/s) : ' + pct(W.walk, W.n) + ' du temps, dont loin (> 2 m) de là où ils veulent aller : ' + pct(W.walkFar, W.n));
 console.log('   écart moyen entre un défenseur et sa cible : ' + (W.lag / W.lagN).toFixed(1) + ' m');
