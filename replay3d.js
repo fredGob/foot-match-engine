@@ -296,7 +296,8 @@ function create(canvas, R2, opt) {
 
   // ---------- le replay ----------
   const figs = [];
-  let clip = null, hooks = null, segs = [], si = 0, t = 0, raf = 0, last = 0, cam = null, ballLast = null, kickLeg = 0, diveSide = 0, diveDir = 0, diveReach = 0, diveAmt = 0, W = 1, H = 1;
+  const gest = {};      // les gestes de chaque joueur (index → liste), préparés pour l'action en cours
+  let clip = null, hooks = null, segs = [], si = 0, t = 0, raf = 0, last = 0, cam = null, ballLast = null, hasGest = false, keeperTouchedLast = false, kickLeg = 0, diveSide = 0, diveDir = 0, diveReach = 0, diveAmt = 0, W = 1, H = 1;
   function resize(w, h) { W = w; H = h; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
   // les mêmes gestes pour les joueurs animés (players3d.js) : on tourne les os du squelette par-dessus le mouvement enregistré
   function kickR(u, r, leg) {
@@ -323,6 +324,135 @@ function create(canvas, R2, opt) {
     B.lArm.rotation.z += 2.6 * k; B.rArm.rotation.z -= 2.6 * k;      // bras tendus au-dessus de la tête
     B.lLeg.rotation.x += 0.3 * k; B.rLeg.rotation.x += 0.3 * k;
   }
+  /* ---------- Les gestes de foot (n° 133, choix de Frédéric : faits à la main, dans le replay seulement) ----------
+     Le moteur note chaque touche de l'action (clip.touches : instant, joueur, geste, hauteur du ballon). Pour chaque joueur, on joue le geste
+     de la touche la plus proche dans le temps, par-dessus la course enregistrée : on tourne les os (hanche, genou, buste, bras), et pour
+     les gestes au sol (tacle glissé, plongeon) on bascule tout le corps. r : temps depuis la touche (négatif avant). Rotation des os :
+     cuisse x > 0 = jambe en arrière, x < 0 = jambe en avant ; genou x > 0 = genou plié ; buste x > 0 = penché en avant ;
+     bras gauche z > 0 (droit z < 0) = bras levé. Corps entier : pitch > 0 = basculé en arrière, roll = sur le côté. */
+  const WIN = { pass: [-0.34, 0.36], lob: [-0.46, 0.5], clear: [-0.46, 0.5], shot: [-0.5, 0.6], punt: [-0.55, 0.55], throw: [-0.9, 0.4], ctrl: [-0.28, 0.32],
+    head: [-0.45, 0.5], block: [-0.3, 0.5], tackle: [-0.32, 1.0], miss: [-0.32, 1.0], save: [-0.25, 1.4], catch: [-0.3, 0.8] };
+  const env = (r, w) => smooth(w[0], w[0] + 0.14, r) * (1 - smooth(w[1] - 0.22, w[1], r));
+  const legBones = (B, leg) => leg === 0 ? [B.rUp, B.rLeg, B.lUp, B.lLeg] : [B.lUp, B.lLeg, B.rUp, B.rLeg];
+  // frappe du pied : élan (jambe armée), frappe, accompagnement ; amp : ampleur (passe courte < centre < tir), lean : buste en arrière
+  function strike(B, r, leg, w, amp, lean) {
+    const [up, kn, up2, kn2] = legBones(B, leg), t0 = -0.3 * amp - 0.05, t1 = 0.04;
+    let hip, knee;
+    if (r < -0.1) { const k = smooth(t0, -0.1, r); hip = lerp(0, 0.95 * amp, k); knee = lerp(0.3, 1.25 + 0.5 * amp, k); }
+    else if (r < t1) { const k = smooth(-0.1, t1, r); hip = lerp(0.95 * amp, -1.3 * amp, k); knee = lerp(1.25 + 0.5 * amp, 0.1, k); }
+    else { const k = smooth(t1, 0.3, r); hip = lerp(-1.3 * amp, -1.5 * amp, k); knee = lerp(0.1, 0.45, k); }
+    up.rotation.x += hip * w; kn.rotation.x += knee * w;
+    up2.rotation.x += -0.15 * w; kn2.rotation.x += 0.35 * w;      // jambe d'appui fléchie
+    B.lArm.rotation.z += (0.45 + 0.4 * amp) * w; B.rArm.rotation.z -= (0.45 + 0.4 * amp) * w;      // bras écartés pour l'équilibre
+    B.spine.rotation.x -= lean * w;
+  }
+  // passe courte de l'intérieur du pied : petite élan, jambe tournée vers l'extérieur
+  function sidefoot(B, r, leg, w) {
+    const [up, kn] = legBones(B, leg);
+    strike(B, r, leg, w, 0.5, 0.05);
+    up.rotation.y += (leg === 0 ? -0.55 : 0.55) * w; kn.rotation.x += 0.15 * w;
+  }
+  function control(B, r, leg, w, z) {
+    const [up, kn, up2, kn2] = legBones(B, leg), k = smooth(-0.22, 0, r) * (1 - smooth(0.05, 0.3, r));
+    if (z > 1.15) { B.spine.rotation.x -= 0.4 * k * w; B.lArm.rotation.z += 0.7 * k * w; B.rArm.rotation.z -= 0.7 * k * w; B.head.rotation.x += 0.35 * k * w; }      // poitrine
+    else if (z > 0.45) { up.rotation.x -= 1.15 * k * w; kn.rotation.x += 1.2 * k * w; kn2.rotation.x += 0.25 * k * w; }      // cuisse
+    else { up.rotation.x -= 0.4 * k * w; kn.rotation.x += 0.55 * k * w; up.rotation.y += (leg === 0 ? -0.45 : 0.45) * k * w; kn2.rotation.x += 0.3 * k * w; B.spine.rotation.x += 0.12 * k * w; }      // pied, amorti
+    B.head.rotation.x += 0.3 * k * w;      // il regarde le ballon
+  }
+  function headGest(u, B, r, w, z) {
+    const jump = clamp((z - 1.6) / 0.7, 0, 1) * 0.5;
+    u.body.position.y = jump * w * Math.max(0, Math.cos(r * 3.4));
+    B.spine.rotation.x += (r < 0 ? lerp(-0.4, 0.5, smooth(-0.3, 0, r)) : 0.5) * w;      // il se cambre, puis donne le coup de tête
+    B.lLeg.rotation.x += 0.7 * w * (jump > 0.1 ? 1 : 0.3); B.rLeg.rotation.x += 0.9 * w * (jump > 0.1 ? 1 : 0.3);
+    B.lArm.rotation.z += 1.0 * w; B.rArm.rotation.z -= 1.0 * w;
+  }
+  function throwIn(B, r, w) {
+    const up = smooth(-0.85, -0.35, r), fwd = smooth(-0.12, 0.1, r);
+    const arm = lerp(2.7, 1.9, fwd) * up;
+    B.lArm.rotation.z += arm * w; B.rArm.rotation.z -= arm * w;
+    B.lFore.rotation.z += 0.9 * up * (1 - fwd) * w; B.rFore.rotation.z -= 0.9 * up * (1 - fwd) * w;      // coudes pliés derrière la tête, puis bras tendus
+    B.spine.rotation.x += lerp(-0.45 * up, 0.35, fwd) * w;
+  }
+  function blockGest(B, r, leg, w) {
+    const [up, kn, , kn2] = legBones(B, leg);
+    up.rotation.x -= 0.85 * w; kn.rotation.x += 0.15 * w; up.rotation.z += (leg === 0 ? -0.35 : 0.35) * w; kn2.rotation.x += 0.45 * w;
+    B.spine.rotation.x += 0.15 * w; B.lArm.rotation.z += 0.3 * w; B.rArm.rotation.z -= 0.3 * w;
+  }
+  // tacle : glissé si le défenseur arrive lancé, sinon debout (la jambe tendue vers le ballon)
+  function tackleGest(B, r, leg, w, slide, T) {
+    const [up, kn, up2, kn2] = legBones(B, leg);
+    if (!slide) {
+      const k = smooth(-0.3, -0.02, r) * (1 - smooth(0.25, 0.55, r));
+      up.rotation.x -= 1.05 * k * w; kn.rotation.x += 0.1 * k * w; kn2.rotation.x += 0.55 * k * w; up2.rotation.x += 0.2 * k * w;
+      B.spine.rotation.x += 0.3 * k * w; B.lArm.rotation.z += 0.5 * k * w; B.rArm.rotation.z -= 0.5 * k * w;
+      return;
+    }
+    const k = smooth(-0.3, -0.04, r) * (1 - smooth(0.55, 0.95, r));      // il se jette, glisse, puis se relève
+    up.rotation.x -= 1.25 * k * w; kn.rotation.x += 0.05 * k * w;      // jambe du tacle, tendue devant
+    up2.rotation.x -= 0.2 * k * w; kn2.rotation.x += 1.6 * k * w;      // l'autre repliée dessous
+    B.spine.rotation.x += 0.35 * k * w;
+    (leg === 0 ? B.lArm : B.rArm).rotation.z += (leg === 0 ? -1 : 1) * 0.6 * k * w;      // une main vers le sol
+    T.pitch += 1.05 * k * w; T.lift -= 0.08 * k * w; T.fwd += 0.55 * k * w;
+  }
+  // gardien : plongeon si le ballon est loin de lui sur le côté, sinon il le prend face à lui (haut, poitrine, ou au sol)
+  function keeperGest(B, r, w, g, T) {
+    if (g.dive) {
+      const k = smooth(-0.22, 0.02, r) * (1 - smooth(0.9, 1.4, r));
+      B.lArm.rotation.z += 2.6 * k * w; B.rArm.rotation.z -= 2.6 * k * w; B.lLeg.rotation.x += 0.35 * k * w; B.rLeg.rotation.x += 0.35 * k * w;
+      T.roll += g.side * 1.35 * g.amt * k * w; T.lift += 0.42 * g.amt * Math.sin(Math.PI * Math.min(1, smooth(-0.22, 0.25, r))) * w; T.lat += g.dir * g.reach * k * w;
+      return;
+    }
+    const k = smooth(-0.25, 0, r) * (1 - smooth(0.4, 0.8, r));
+    if (g.z > 1.5) { B.lArm.rotation.z += 2.4 * k * w; B.rArm.rotation.z -= 2.4 * k * w; }
+    else if (g.z > 0.5) { B.lArm.rotation.z += 0.9 * k * w; B.rArm.rotation.z -= 0.9 * k * w; B.spine.rotation.x += 0.35 * k * w; B.lFore.rotation.z += 0.8 * k * w; B.rFore.rotation.z -= 0.8 * k * w; }
+    else { B.spine.rotation.x += 0.75 * k * w; B.lLeg.rotation.x += 0.7 * k * w; B.rLeg.rotation.x += 0.7 * k * w; B.lUp.rotation.x -= 0.5 * k * w; B.rUp.rotation.x -= 0.5 * k * w; }
+  }
+  // le geste du joueur i à l'instant tt (le plus proche), appliqué au squelette ; renvoie la bascule du corps entier
+  function pick(i, tt) {
+    const L = gest[i]; if (!L) return null;
+    let g = null, best = 9;
+    for (const x of L) { const r = tt - x.t, w = WIN[x.k]; if (r >= w[0] && r <= w[1] && Math.abs(r) < best) { best = Math.abs(r); g = x; } }
+    return g;
+  }
+  // pendant une frappe ou un contrôle, la foulée ralentit (le pied d'appui se pose) : on joue la course d'un joueur plus lent
+  const CALM = { pass: 0.65, lob: 0.75, clear: 0.75, shot: 0.75, punt: 0.9, throw: 1, ctrl: 0.55, head: 0.6, block: 0.6, tackle: 0.5, miss: 0.5, save: 0.9, catch: 0.9 };
+  function calmSpeed(g, tt, v) { return g ? v * (1 - CALM[g.k] * env(tt - g.t, WIN[g.k])) : v; }
+  function gesture(g, u, tt) {
+    const T = { pitch: 0, roll: 0, lift: 0, fwd: 0, lat: 0 };
+    if (!g) return T;
+    const r = tt - g.t, w = env(r, WIN[g.k]), B = u.bones;
+    switch (g.k) {
+      case 'pass': sidefoot(B, r, g.leg, w); break;
+      case 'lob': case 'clear': strike(B, r, g.leg, w, 0.85, 0.3); break;
+      case 'shot': strike(B, r, g.leg, w, 1, 0.2); break;
+      case 'punt': strike(B, r, g.leg, w, 1, 0.35); break;
+      case 'throw': throwIn(B, r, w); break;
+      case 'ctrl': control(B, r, g.leg, w, g.z); break;
+      case 'head': headGest(u, B, r, w, g.z); break;
+      case 'block': blockGest(B, r, g.leg, w); break;
+      case 'tackle': case 'miss': tackleGest(B, r, g.leg, w, g.slide, T); break;
+      case 'save': case 'catch': keeperGest(B, r, w, g, T); break;
+    }
+    return T;
+  }
+  // prépare les gestes de l'action : la jambe (côté du ballon), le tacle glissé ou non, le plongeon du gardien
+  function prepareGestures(c) {
+    for (const k in gest) delete gest[k];
+    if (!c.touches) return false;
+    for (const [t, i, k, z] of c.touches) {
+      if (t < c.t0 - 1 || t > c.t1 || !c.players[i]) continue;
+      const S = c.at(t), p = S.players[i], A = c.at(t - 0.25).players[i];
+      const lz = (S.ball.x - p.x) * -Math.sin(p.face) + (S.ball.y - p.y) * Math.cos(p.face);
+      const g = { t, k, z, leg: lz >= 0 ? 0 : 1, slide: (k === 'tackle' || k === 'miss') && Math.max(p.v, A.v) > 3.6 };
+      if (k === 'save' || k === 'catch') {
+        const B2 = c.at(t + 0.02).ball, dy = B2.y - p.y, side = Math.cos(p.face) >= 0 ? 1 : -1;
+        g.dive = Math.abs(dy) > 0.85 || (k === 'save' && Math.abs(dy) > 0.5);
+        g.dir = Math.sign(dy || 1); g.side = g.dir * side; g.reach = clamp(Math.abs(dy) - 0.6, 0, 1.8); g.amt = clamp(Math.abs(dy) / 1.6, 0.35, 1);
+      }
+      (gest[i] || (gest[i] = [])).push(g);
+    }
+    return true;
+  }
   const P3 = () => (typeof self !== 'undefined' && self.Players3D && self.Players3D.ready()) ? self.Players3D : null;
   function setup(c) {
     for (const f of figs) scene.remove(f); figs.length = 0;
@@ -343,6 +473,9 @@ function create(canvas, R2, opt) {
       const dy = Gf.ball.y - k0.y, side = Math.cos(k0.face) >= 0 ? 1 : -1;
       diveDir = Math.sign(dy || 1); diveSide = diveDir * side; diveReach = clamp(Math.abs(dy) - 0.5, 0, 2.2); diveAmt = clamp(Math.abs(dy) / 1.6, 0.25, 1);
     }
+    // les gestes de toute l'action (n° 133) ; le gardien qui n'a pas touché le dernier tir plonge quand même (ci-dessous)
+    hasGest = prepareGestures(c);
+    if (hasGest && c.keeper >= 0) keeperTouchedLast = (gest[c.keeper] || []).some(g => c.shotT != null && g.t >= c.shotT - 0.05);
     for (const N of nets) { N.s = 0; N.vs = 0; updateNet(N); }
   }
   // vitesse du ralenti selon le moment de l'action
@@ -368,16 +501,27 @@ function create(canvas, R2, opt) {
     S.players.forEach((p, i) => {
       const f = figs[i], u = f.userData;
       if (!gdt) u.sp = p.v; else u.sp += (Math.min(p.v, 10) - u.sp) * Math.min(1, gdt * 10);
-      if (u.rigged) { u.body.position.y = 0; P3().animate(f, u.sp, gdt); } else gait(u, u.sp, gdt);
-      let x = p.x, z = p.y, roll = 0, lift = 0;
-      if (i === c.scorer && c.shotT != null && !c.own) { if (c.head) (u.rigged ? headerR : header)(u, tt - c.shotT); else (u.rigged ? kickR : kick)(u, tt - c.shotT, kickLeg); }
-      if (i === c.keeper && c.shotT != null) {
+      const g = u.rigged && hasGest ? pick(i, tt) : null;
+      if (u.rigged) { u.body.position.y = 0; P3().animate(f, calmSpeed(g, tt, u.sp), gdt); } else gait(u, u.sp, gdt);
+      let x = p.x, z = p.y, roll = 0, lift = 0, pitch = 0;
+      if (u.rigged && hasGest) {      // les gestes de toute l'action (n° 133)
+        const G = gesture(g, u, tt);
+        roll = G.roll; lift = G.lift; pitch = G.pitch; z += G.lat;
+        x += Math.cos(p.face) * G.fwd; z += Math.sin(p.face) * G.fwd;
+        if (i === c.keeper && c.shotT != null && !keeperTouchedLast) {      // le but : il plonge sans toucher le ballon
+          const k = smooth(c.shotT + 0.06, c.shotT + 0.06 + Math.max(0.3, (c.goalT - c.shotT) * 0.9), tt) * (1 - smooth(c.goalT + 1.4, c.goalT + 2.2, tt));
+          diveR(u, k);
+          roll += diveSide * 1.3 * diveAmt * k; lift += 0.45 * diveAmt * Math.sin(Math.PI * Math.min(1, k)) * (tt < c.goalT + 0.3 ? 1 : 0.4);
+          z += diveDir * diveReach * k;
+        }
+      } else if (i === c.scorer && c.shotT != null && !c.own) { if (c.head) (u.rigged ? headerR : header)(u, tt - c.shotT); else (u.rigged ? kickR : kick)(u, tt - c.shotT, kickLeg); }
+      if (i === c.keeper && c.shotT != null && !(u.rigged && hasGest)) {
         const k = smooth(c.shotT + 0.06, c.shotT + 0.06 + Math.max(0.3, (c.goalT - c.shotT) * 0.9), tt) * (1 - smooth(c.goalT + 1.4, c.goalT + 2.2, tt));
         (u.rigged ? diveR : dive)(u, k);
         roll = diveSide * 1.3 * diveAmt * k; lift = 0.45 * diveAmt * Math.sin(Math.PI * Math.min(1, k)) * (tt < c.goalT + 0.3 ? 1 : 0.4);
         z += diveDir * diveReach * k;      // il s'étire vers le ballon, au-delà de ce que le moteur lui fait parcourir
       }
-      f.position.set(x, lift, z); f.rotation.set(roll, -p.face, 0); f.scale.setScalar(u.rigged ? 1.03 : 1.12);
+      f.position.set(x, lift, z); f.rotation.set(roll, -p.face, pitch); f.scale.setScalar(u.rigged ? 1.03 : 1.12);
     });
     // le ballon : dans le but, il s'arrête dans le filet, qui se creuse
     let bx = S.ball.x, by = Math.max(0, S.ball.z), bz = S.ball.y;
@@ -399,7 +543,10 @@ function create(canvas, R2, opt) {
   function placeCamera(kind, S, bx, by, bz, dt) {
     const c = clip, gx = c.side * HL, k = cam ? 1 - Math.exp(-dt * (kind === 'buteur' ? 5 : 3)) : 1;
     let pos, look, fov;
-    if (kind === 'buteur') {
+    if (kind === 'pres') {      // gros plan de côté sur un joueur (essais et captures des gestes)
+      const p = S.players[c.focus], sx = -Math.sin(p.face), sz = Math.cos(p.face);
+      pos = [p.x + sx * 4.2 + Math.cos(p.face) * 1.6, 1.5, p.y + sz * 4.2 + Math.sin(p.face) * 1.6]; look = [p.x, 0.75, p.y]; fov = 38;
+    } else if (kind === 'buteur') {
       const p = S.players[c.scorer], dx = gx - p.x, dy = -p.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
       const after = smooth(c.shotT - 0.1, c.shotT + 0.4, t);
       pos = [p.x - ux * 4.6 - uy * 1.2, 2.0, p.y - uy * 4.6 + ux * 1.2];
@@ -417,11 +564,12 @@ function create(canvas, R2, opt) {
     for (let i = 0; i < 3; i++) { cam.pos[i] += (pos[i] - cam.pos[i]) * k; cam.look[i] += (look[i] - cam.look[i]) * k; }
     if (camera.fov !== fov) { camera.fov = fov; camera.updateProjectionMatrix(); }
     camera.position.set(cam.pos[0], cam.pos[1], cam.pos[2]); camera.lookAt(cam.look[0], cam.look[1], cam.look[2]);
-    figs.forEach((f, i) => { f.visible = i === c.scorer || Math.hypot(f.position.x - cam.pos[0], f.position.z - cam.pos[2]) > 3; });      // pas de joueur collé à l'objectif
+    figs.forEach((f, i) => { f.visible = i === c.scorer || (kind === 'pres' && i === c.focus) || Math.hypot(f.position.x - cam.pos[0], f.position.z - cam.pos[2]) > 3; });      // pas de joueur collé à l'objectif
     sun.position.set(cam.look[0] - 30, 55, cam.look[2] + 38); sun.target.position.set(cam.look[0], 0, cam.look[2]);
   }
   /* clip : { t0, t1, shotT, goalT, side (but en x = side × 52,5), scorer, keeper (index des joueurs, -1 sinon), own (contre son camp), head,
              teams: [{ color }], players: [{ team, role, num, name }], at(t) → { players: [{ x, y, face, v }], ball: { x, y, z } } }
+     touches (n° 133, facultatif) : [[instant, joueur, geste, hauteur du ballon], ...] (journal du moteur, voir engine.js noteTouch)
      hooks : { onAngle(nom), onEnd() } */
   function play(c, h) {
     stop(); clip = c; hooks = h || {};
@@ -434,7 +582,7 @@ function create(canvas, R2, opt) {
   }
   function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; }
   // une seule image, à l'instant tt, avec la caméra « nom » (pour les essais et les captures)
-  function still(c, tt, kind) { stop(); clip = c; hooks = {}; setup(c); t = tt; cam = null; ballLast = null; render(tt, 0, 0, { cam: kind }); }
+  function still(c, tt, kind, focus) { stop(); clip = c; c.focus = focus; hooks = {}; setup(c); t = tt; cam = null; ballLast = null; render(tt, 0, 0, { cam: kind }); }
   return { play, stop, resize, still, playing: () => !!raf };
 }
 

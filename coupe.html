@@ -610,6 +610,15 @@ function createMatch(opts) {
 }
 
 function log(m, kind, team, text) { m.events.push({ t: m.t, kind, team, text }); }
+/* Journal des touches (n° 133) : qui touche le ballon, comment et quand, pour les gestes du replay des buts (frappe, contrôle, tête,
+   tacle, arrêt…). On ne garde que les 12 dernières secondes ; chaque but en emporte une copie. Aucun effet sur le match (pas de hasard tiré).
+   Une touche : [instant, joueur, geste, hauteur du ballon]. Gestes : pass, lob, shot, clear, throw, punt, ctrl, head, block, save, catch, tackle, miss. */
+const TOUCH_KEEP = 12;
+function noteTouch(m, p, k, z) {
+  const L = m.touches || (m.touches = []);
+  L.push([Math.round(m.t * 100) / 100, p.id, k, Math.round((z || 0) * 100) / 100]);
+  while (L.length && L[0][0] < m.t - TOUCH_KEEP) L.shift();
+}
 function cnt(m, k, v) { m.count[k] = (m.count[k] || 0) + (v == null ? 1 : v); }
 function passEnd(m, how) { const q = m.pass; if (q && q.kind === 'pass' && !q.ended) { q.ended = true; q.how = how; cnt(m, how + '.' + q.type); } }      // how : issue de la passe (pour la carte des passes)
 function topSpeed(p) { return p.top * (0.76 + 0.24 * p.stam); }      // un joueur à 50 % de fraîcheur perd 12 % de vitesse de pointe
@@ -1431,6 +1440,7 @@ function executePlan(m, p) {
     const v = 24 + 4 * rng(), e = 38 * Math.PI / 180; ang = pl.ang; vh = v * Math.cos(e); vz = v * Math.sin(e);
   }
   if (m.wall && sp === 'freekick') m.wall.until = m.t + 0.5;                       // le mur se défait une fois le ballon parti
+  noteTouch(m, p, sp === 'throwin' ? 'throw' : p.hands ? 'punt' : pl.kind === 'shot' ? 'shot' : pl.kind === 'pass' ? (pl.lofted ? 'lob' : 'pass') : 'clear', b.z);
   b.owner = null; b.dip = pl.kind === 'shot' && m.shot.masked ? DIP : 0;
   b.x = p.x + Math.cos(ang) * 0.6; b.y = p.y + Math.sin(ang) * 0.6; b.z = 0;
   b.vx = Math.cos(ang) * vh; b.vy = Math.sin(ang) * vh; b.vz = vz; b.lastTouch = p;
@@ -1466,6 +1476,7 @@ function deflect(m, p, keepFrac, spread) {
   const b = m.ball, sp = hyp(b.vx, b.vy), ang = Math.atan2(b.vy, b.vx) + spread * m.gauss(), v = sp * keepFrac + 1 + 2 * m.rng();
   b.vx = Math.cos(ang) * v + p.vx * 0.3; b.vy = Math.sin(ang) * v + p.vy * 0.3; b.vz = b.z > 0.3 ? Math.abs(b.vz) * 0.3 : 1.5 * m.rng();
   if (m.pass) passEnd(m, m.pass.from.team === p.team ? 'rate_partenaire' : 'devie');
+  noteTouch(m, p, p.role === 'GK' ? 'save' : 'block', b.z);
   b.lastTouch = p; p.noControlUntil = m.t + 0.45; m.pass = null;
   react(m, null);
 }
@@ -1484,6 +1495,7 @@ function gainControl(m, p, z, pr) {
   if (m.shot && !m.shot.done) m.shot.done = true;
   const sb = hyp(b.vx, b.vy), sr = hyp(p.vx, p.vy);
   p.onRun = sr > 4 && sb > 2 && (b.vx * p.vx + b.vy * p.vy) / (sb * sr) > 0.6;      // il court dans le sens du ballon : il le prend dans sa foulée
+  noteTouch(m, p, 'ctrl', b.z);
   b.owner = p; b.z = 0; b.vz = 0; b.lastTouch = p;
   let delay = 0.18 + 0.34 * (1 - a.firstTouch) + (z > 0.4 ? 0.15 : 0);
   const pressed = oppDist(m.teams[1 - p.team], p.x, p.y) < 3;
@@ -1501,6 +1513,7 @@ function catchBall(m, p) {
   const b = m.ball;
   if (m.pass && m.pass.kind === 'pass' && m.pass.from.team !== p.team) { m.teams[p.team].stats.interceptions++; passEnd(m, 'gardien'); }
   if (m.shot && !m.shot.done) m.shot.done = true;
+  noteTouch(m, p, 'catch', b.z);
   b.owner = p; b.lastTouch = p; p.hands = true; p.plan = null; p.setPiece = null;
   p.holdUntil = m.t + 2.5 + 2.5 * m.rng(); p.protectedUntil = p.holdUntil + 4; p.controlReadyAt = m.t; p.nextThink = m.t;
   m.pass = null;
@@ -1514,6 +1527,7 @@ function keeperSave(m, p, z, stretch, sp3) {
   shot.done = true; shot.onT = true; m.teams[shot.team].stats.onTarget++; T.stats.saves++;
   if (sp3 < 15 || rng() < 0.2 + 0.5 * a.handling - 0.35 * stretch) { log(m, 'save', p.team, 'Tir de ' + shot.by.name + ', arrêt de ' + p.name); return catchBall(m, p); }
   log(m, 'save', p.team, 'Tir de ' + shot.by.name + ', parade de ' + p.name);
+  noteTouch(m, p, 'save', b.z);
   const sgn = b.y >= p.y ? 1 : -1, ang = Math.atan2(sgn * (0.6 + 0.9 * rng()), T.dir * (-0.3 + 1.2 * rng())), v = 5 + 0.25 * sp3 + 3 * rng();
   b.vx = Math.cos(ang) * v; b.vy = Math.sin(ang) * v; b.vz = 1 + 3 * rng(); b.dip = 0; b.lastTouch = p; p.noControlUntil = m.t + 0.7; m.pass = null;
   react(m, null);
@@ -1530,6 +1544,7 @@ function header(m, p0, z) {
   if (offsideCheck(m, p)) return;
   const T = m.teams[p.team], d = T.dir, a = p.a, gx = P.HL * d, dGoal = hyp(gx - p.x, p.y), rx = p.x * d;
   if (pass && pass.kind === 'pass') { if (pass.from.team === p.team) T.stats.passesOk++; else T.stats.interceptions++; passEnd(m, pass.from.team === p.team ? 'ok' : 'interceptee'); }
+  noteTouch(m, p, 'head', b.z);
   b.lastTouch = p; p.noControlUntil = m.t + 0.6;
   let ang, v, vz, kind = 'clear', to = null;
   if (dGoal < 15 && rx > 36) {                                            // tête au but
@@ -1634,6 +1649,7 @@ function resolveTackles(m) {
     const r = rng();
     o.tackleReadyAt = m.t + 1.0 + 0.6 * rng();
     cnt(m, 'tacle.tente');
+    if (!keeper) noteTouch(m, o, r < pFoul + pWin ? 'tackle' : 'miss', 0);
     if (r < pFoul) {
       T.stats.fouls++;
       const pen = inOwnBox(T, c.x, c.y);
@@ -1751,6 +1767,7 @@ function goal(m, att) {
   log(m, 'goal', att, scorer && scorer.team !== att ? 'But contre son camp de ' + scorer.name + sc : 'BUT pour les ' + T.name + ' ! ' + (scorer ? scorer.name : '') + sc);
   const ev = m.events[m.events.length - 1];      // pour le replay du but (page) : le buteur, l'instant du tir, tête ou coup de pied arrêté
   ev.by = scorer ? scorer.id : -1; ev.shotT = fromShot ? s.t0 : null; ev.head = !!(s && s.head); ev.sp = s && s.sp || null;
+  ev.touches = (m.touches || []).slice();      // les gestes de l'action, pour le replay
   setRestart(m, 'kickoff', 1 - att, 0, 0, STOP.kickoff);
   m.restart.ballAt = m.t + 3;
 }
