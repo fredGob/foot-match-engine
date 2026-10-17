@@ -159,6 +159,17 @@ const P = { HL: 52.5, HW: 34, GOAL_HW: 3.66, GOAL_H: 2.44, BOX_D: 16.5, BOX_HW: 
 const DT = 0.05, G = 9.81;
 const ROLL_A = 0.9, ROLL_B = 0.16, AIR_K = 0.012;      // frottement au sol (a + b·v), traînée en l'air
 const WALK = 1.7, JOG = 3.3, RUN = 5.3;
+/* Portée (n° 134, remarque de Frédéric : « des joueurs passent à côté du ballon sans le toucher ») : un joueur touche un ballon bas
+   qui passe à 1,05 m de lui (0,85 m avant), 0,85 m si le ballon va très vite (0,65 avant). Au bout de la jambe (au-delà de
+   l'ancienne portée), le contact est moins sûr : contrôle plus souvent raté, tir moins souvent contré. */
+const REACH = 1.05, REACH_FAST = 0.85, REACH_PLAN = 0.85, EDGE_CTRL = 0.3;
+const edgeOf = st => clamp((st - 0.78) / 0.22, 0, 1);      // 0 : ballon à portée normale ; 1 : au bout de la jambe
+/* Suivre une cible qui bouge (n° 134, remarque de Frédéric : « des défenseurs marchent alors qu'il faut défendre ») : le point où un
+   joueur doit être (sa place dans le bloc, l'homme qu'il marque) se déplace avec le ballon. Avant, il réglait sa vitesse sur la seule
+   distance à ce point : un point qui recule à 5 m/s était suivi en trottinant, toujours en retard. Quand son équipe défend, il prend
+   maintenant la vitesse de ce point, plus de quoi rattraper son retard (poursuite) : il court pour se replier (le point recule vers son
+   but), trottine pour coulisser (le point glisse sur le côté), sprinte s'il y a urgence. */
+const TRACK_TAU = 2.2, TRACK_LEAD = 0.4, TRACK_MIN = 1.8;      // retard rattrapé en 2,2 s sans urgence ; suivi seulement si le point bouge à plus de 1,8 m/s
 
 // ---------- utilitaires ----------
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -781,7 +792,7 @@ function predict(m) {
 }
 function intercept(m, p) {
   const path = m.path, keeper = p.role === 'GK' && inOwnBox(m.teams[p.team], p.x, p.y);
-  const reach = keeper ? 1.1 : 0.7, zMax = keeper ? 2.6 : 2.3, vmax = topSpeed(p);
+  const reach = keeper ? 1.1 : REACH_PLAN, zMax = keeper ? 2.6 : 2.3, vmax = topSpeed(p);
   for (let i = 0; i < path.length; i++) {
     const q = path[i]; if (q.z > zMax) continue;
     const dd = hyp(q.x - p.x, q.y - p.y) - reach;
@@ -1573,7 +1584,7 @@ function touch(m, p, z, stretch) {
   if (shot && !shot.done && shot.team !== p.team) {                       // tir adverse
     if (keeper) return keeperSave(m, p, z, stretch, sp3);
     const inWall = m.wall && m.wall.spots[p.id] && m.t < m.wall.until + 1;
-    if (rng() < (inWall ? 0.95 : 0.72)) { shot.done = true; T.stats.blocks++; log(m, 'block', p.team, inWall ? 'Coup franc de ' + shot.by.name + ' dans le mur' : 'Tir de ' + shot.by.name + ' contré par ' + p.name); deflect(m, p, 0.5, 1.0); }
+    if (rng() < (inWall ? 0.95 : 0.72 * (1 - 0.45 * edgeOf(stretch)))) { shot.done = true; T.stats.blocks++; log(m, 'block', p.team, inWall ? 'Coup franc de ' + shot.by.name + ' dans le mur' : 'Tir de ' + shot.by.name + ' contré par ' + p.name); deflect(m, p, 0.5, 1.0); }
     else p.noControlUntil = m.t + 0.3;
     return;
   }
@@ -1599,7 +1610,7 @@ function touch(m, p, z, stretch) {
   // une passe mal ajustée (à côté du pied, trop molle ou trop appuyée) est plus dure à contrôler, surtout pressé
   const bad = fromMate && pass.to === p ? clamp((pass.lat - BAD_LAT) / 2.5, 0, 1) + clamp((pass.dose - 0.06) / 0.12, 0, 1) : 0;
   const miss = CTRL * pr * pr * Math.pow(1 - a.firstTouch, 1.3) * (z > 0.45 ? 1.5 : 1) + BAD_PASS * bad * (1.3 - a.firstTouch) * (0.3 + 0.7 * pr);
-  const pc = 1 - clamp((vrel - vOk) / 14, 0, 0.92) - 0.002 - 0.004 * (1 - a.firstTouch) - (z > 0.45 ? 0.08 : 0) - miss;
+  const pc = 1 - clamp((vrel - vOk) / 14, 0, 0.92) - EDGE_CTRL * edgeOf(stretch) - 0.002 - 0.004 * (1 - a.firstTouch) - (z > 0.45 ? 0.08 : 0) - miss;
   const ok = rng() < pc;
   if (mine) cnt(m, 'ctrl.' + p.team + (pr > 0.5 ? '.presse.' : pr > 0.05 ? '.gene.' : '.libre.') + (ok ? 'ok' : 'rate'));
   if (ok) return gainControl(m, p, z, pr);
@@ -1614,7 +1625,7 @@ function resolveFreeBall(m) {
     if (p.stunUntil > m.t || p.noControlUntil > m.t) continue;
     const keeper = p.role === 'GK' && inOwnBox(m.teams[p.team], p.x, p.y);
     const reads = m.pass && m.pass.from.team !== p.team ? 1 + READ * (p.a.anticipation - LEVEL) : 1;      // il lit la passe adverse : il la coupe d'un peu plus loin
-    const R = (keeper ? 1.3 : fast ? 0.65 : 0.85) * (keeper ? 1 : reads), zMax = keeper ? 2.6 : 2.3;
+    const R = (keeper ? 1.3 : fast ? REACH_FAST : REACH) * (keeper ? 1 : reads), zMax = keeper ? 2.6 : 2.3;
     const u = L2 > 1e-9 ? clamp(((p.x - b.px) * sx + (p.y - b.py) * sy) / L2, 0, 1) : 0;
     const dd = hyp(p.x - b.px - sx * u, p.y - b.py - sy * u), z = b.pz + (b.z - b.pz) * u;
     if (dd > R || z > zMax) continue;
@@ -1852,7 +1863,28 @@ function act(m, p) {
     case 'control': { const v = hyp(p.vx, p.vy); tx = p.x + p.vx; ty = p.y + p.vy; sp = p.onRun ? Math.max(2.5, Math.min(v, top * 0.9)) : Math.min(v, 2.5); brake = false; break; }
     case 'kick': tx = p.x + Math.cos(p.face); ty = p.y + Math.sin(p.face); sp = Math.min(hyp(p.vx, p.vy), 1.5); brake = false; break;
     case 'hold': tx = p.x; ty = p.y; break;
-    default: sp = speedFor(p, hyp(tx - p.x, ty - p.y), it.urg);
+    default: {
+      // vitesse du point visé : mesurée entre deux décisions (il est recalculé toutes les 0,2 à 0,4 s), oubliée s'il ne bouge plus
+      let g = p.tgt;
+      if (!g || g.type !== it.type) g = p.tgt = { type: it.type, x: tx, y: ty, t: m.t, vx: 0, vy: 0 };
+      else if (tx !== g.x || ty !== g.y) {
+        const dt = m.t - g.t;
+        if (dt > 0.04 && dt < 1) { const rx = (tx - g.x) / dt, ry = (ty - g.y) / dt, k = hyp(rx, ry) > 12 ? 0 : 0.6; g.vx += (rx - g.vx) * k; g.vy += (ry - g.vy) * k; }
+        g.x = tx; g.y = ty; g.t = m.t;
+      }
+      const fade = clamp(1 - (m.t - g.t - 0.45) / 0.3, 0, 1), gvx = g.vx * fade, gvy = g.vy * fade, gv = hyp(gvx, gvy);
+      sp = speedFor(p, hyp(tx - p.x, ty - p.y), it.urg);
+      const defending = b.owner ? b.owner.team !== p.team : b.x * d < 0;      // l'adversaire a le ballon, ou ballon libre dans notre moitié
+      if (defending && gv > TRACK_MIN) {
+        const e = clamp(it.urg * (0.8 + 0.4 * p.a.workRate), 0, 1), tau = lerp(TRACK_TAU, 0.6, e);
+        const lx = tx + gvx * TRACK_LEAD, ly = ty + gvy * TRACK_LEAD;      // il vise un peu devant le point, là où il sera
+        const wx = gvx + (lx - p.x) / tau, wy = gvy + (ly - p.y) / tau;      // poursuite : la vitesse du point, plus de quoi combler son retard
+        tx = p.x + wx; ty = p.y + wy;
+        const back = -(gvx * d) / gv;      // 1 : le point recule tout droit vers notre but ; 0 : il glisse sur le côté
+        const capV = e > 0.8 ? top : lerp(JOG, RUN * (0.9 + 0.2 * p.a.pace), clamp(back, 0, 1));      // sans urgence : il court pour se replier, trottine pour coulisser
+        sp = Math.max(sp, Math.min(hyp(wx, wy), capV)); brake = false;
+      }
+    }
   }
   const dx = tx - p.x, dy = ty - p.y, dist = hyp(dx, dy);
   let vdx = 0, vdy = 0;
