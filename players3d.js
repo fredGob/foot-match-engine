@@ -28,9 +28,179 @@ function load(cb) {
   (THREE.GLTFLoader ? Promise.resolve() : script(LIBS[0]))
     .then(() => THREE.SkeletonUtils ? null : script(LIBS[1]))
     .then(() => new Promise((ok, ko) => new THREE.GLTFLoader().load(MODEL, ok, undefined, () => ko(new Error('mannequin 3D introuvable')))))
-    .then(g => { gltf = g; done(null); }, e => done(e));
+    .then(g => { try { g.built = swapBody(g.scene); } catch (e) { console.warn('corps de footballeur : ' + e.message); } gltf = g; done(null); }, e => done(e));
 }
 const ready = () => !!gltf;
+
+/* Le corps de footballeur (n° 131, demande de Frédéric : « on dirait des filles avec des tailles très fines », il veut « la qualité de PES6 »).
+   Le mannequin téléchargé ne sert plus que pour son squelette et ses mouvements enregistrés : son corps (taille de guêpe, hanches larges,
+   boules aux articulations) est remplacé par un corps d'homme sportif modelé ici, lié au même squelette. Le corps est fait de tubes : chaque
+   tube est une suite d'anneaux (centre, largeur, épaisseur), et chaque point suit un ou plusieurs os (mélange aux articulations, sans cassure).
+   La tenue est en vraies pièces : maillot à manches courtes avec col et poignets, short ample, chaussettes montantes, crampons.
+   Mesures en mètres, dans la pose de départ du mannequin : debout, bras tendus à l'horizontale, x vers sa gauche, z vers l'avant. */
+const PART = { skin: 0, shirt: 1, shorts: 2, socks: 3, boots: 4, hair: 5, hands: 6, trim: 7, eyes: 8 };
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+function buildBody(sk, segs) {
+  const V = THREE.Vector3, BI = {}, BP = {};
+  sk.bones.forEach((b, i) => { const n = b.name.replace(/^mixamorig:?/, ''); BI[n] = i; BP[n] = new V().setFromMatrixPosition(sk.boneInverses[i].clone().invert()); });
+  for (const n of ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', 'LeftShoulder', 'LeftArm', 'LeftForeArm', 'LeftHand', 'LeftUpLeg', 'LeftLeg', 'LeftFoot', 'RightShoulder', 'RightArm', 'RightForeArm', 'RightHand', 'RightUpLeg', 'RightLeg', 'RightFoot']) if (!BP[n]) throw new Error('os absent : ' + n);
+  const pos = [], ski = [], skw = [], part = [], hairy = [], idx = [];
+  const vert = (p, pt, w) => {      // les cheveux du crâne sont une couleur à part (« hairy ») : la limite peau-cheveux ne crée pas de bande parasite      // w : { os: poids } ; on garde les quatre plus forts
+    const l = Object.entries(w).filter(e => e[1] > 1e-3 && BI[e[0]] != null).sort((a, b) => b[1] - a[1]).slice(0, 4);
+    const t = l.reduce((a, e) => a + e[1], 0) || 1; while (l.length < 4) l.push([null, 0]);
+    pos.push(p.x, p.y, p.z); part.push(pt < 0 ? PART.skin : pt); hairy.push(pt < 0 ? 1 : 0);
+    l.forEach(e => { ski.push(e[0] ? BI[e[0]] : 0); skw.push(e[1] / t); });
+    return pos.length / 3 - 1;
+  };
+  /* un tube : rings = [{ c: centre, a, b (demi-largeur sur u, demi-épaisseur sur v), part }], u et v : les deux axes de l'anneau,
+     n : forme (2 = ovale, plus grand = plus carré), w(point, anneau) : les os qui le portent, cap0 / cap1 : fermer les bouts ; partOf(point) facultatif */
+  const tube = (rings, u, v, n, w, cap0, cap1, partOf, N) => {
+    N = N || segs; const first = [];
+    // sens des faces : vers l'extérieur du tube quel que soit le sens de parcours
+    const d = rings[rings.length - 1].c.clone().sub(rings[0].c), out = d.clone().cross(v).dot(u) > 0;
+    rings.forEach((r, i) => {
+      const row = [];
+      for (let k = 0; k < N; k++) {
+        const t = k / N * Math.PI * 2, c = Math.cos(t), s = Math.sin(t);
+        const p = r.c.clone().addScaledVector(u, r.a * Math.sign(c) * Math.pow(Math.abs(c), 2 / n)).addScaledVector(v, r.b * Math.sign(s) * Math.pow(Math.abs(s), 2 / n));
+        row.push(vert(p, partOf ? partOf(p, r) : r.part, w(p, r)));
+      }
+      first.push(row);
+    });
+    for (let i = 0; i + 1 < first.length; i++) for (let k = 0; k < N; k++) {
+      const a = first[i][k], b = first[i][(k + 1) % N], c = first[i + 1][k], d = first[i + 1][(k + 1) % N];
+      if (out) idx.push(a, c, b, b, c, d); else idx.push(a, b, c, b, d, c);
+    }
+    const cap = (row, r, flip) => {
+      const ctr = vert(r.c, partOf ? partOf(r.c, r) : r.part, w(r.c, r));
+      for (let k = 0; k < N; k++) { const a = row[k], b = row[(k + 1) % N]; if (flip === out) idx.push(ctr, b, a); else idx.push(ctr, a, b); }
+    };
+    if (cap0) cap(first[0], rings[0], false);
+    if (cap1) cap(first[first.length - 1], rings[rings.length - 1], true);
+  };
+  const X = new V(1, 0, 0), Y = new V(0, 1, 0), Z = new V(0, 0, 1);
+  // mélange le long d'une chaîne d'os, selon une coordonnée (hauteur ou écartement)
+  const chain = (list, x) => {      // list : [[os, coordonnée de l'os], ...] dans l'ordre croissant
+    if (x <= list[0][1]) return { [list[0][0]]: 1 };
+    for (let i = 0; i + 1 < list.length; i++) if (x <= list[i + 1][1]) { const t = (x - list[i][1]) / (list[i + 1][1] - list[i][1]); return { [list[i][0]]: 1 - t, [list[i + 1][0]]: t }; }
+    return { [list[list.length - 1][0]]: 1 };
+  };
+  const spine = [['Hips', BP.Hips.y], ['Spine', BP.Spine.y], ['Spine1', BP.Spine1.y], ['Spine2', BP.Spine2.y], ['Neck', BP.Neck.y]];
+
+  /* le buste et le bassin : hauteur, demi-largeur, demi-épaisseur, avancée ; maillot au-dessus de 1,01 m, short en dessous */
+  const T = [[0.90, 0.120, 0.090, 0.01], [0.93, 0.168, 0.112, 0.012], [0.985, 0.172, 0.112, 0.012], [1.005, 0.170, 0.110, 0.012], [1.012, 0.166, 0.108, 0.012],
+    [1.06, 0.160, 0.104, 0.012], [1.12, 0.156, 0.102, 0.014], [1.19, 0.162, 0.108, 0.018], [1.26, 0.174, 0.116, 0.022], [1.32, 0.184, 0.118, 0.022],
+    [1.37, 0.192, 0.112, 0.016], [1.41, 0.194, 0.100, 0.006], [1.445, 0.176, 0.086, -0.004], [1.47, 0.140, 0.074, -0.010], [1.49, 0.096, 0.066, -0.014], [1.50, 0.070, 0.060, -0.016]];
+  const torsoW = p => {
+    const w = chain(spine, p.y), ax = Math.abs(p.x), side = p.x > 0 ? 'Left' : 'Right';
+    const sh = smooth(0.09, 0.19, ax) * smooth(1.30, 1.42, p.y);      // le haut des épaules suit un peu les bras
+    if (sh > 0) { for (const n in w) w[n] *= 1 - 0.55 * sh; w[side + 'Shoulder'] = 0.4 * sh; w[side + 'Arm'] = 0.15 * sh; }
+    const lg = smooth(0.02, 0.10, ax) * smooth(1.0, 0.92, p.y);      // le bas du short suit un peu les cuisses
+    if (lg > 0) { for (const n in w) w[n] *= 1 - 0.45 * lg; w[side + 'UpLeg'] = 0.45 * lg; }
+    return w;
+  };
+  tube(T.map(r => ({ c: new V(0, r[0], r[3]), a: r[1], b: r[2], part: r[0] < 1.009 ? PART.shorts : PART.shirt })), X, Z, 2.6, torsoW, true, false);
+  // le col : un petit anneau autour du bas du cou
+  tube([[1.47, 0.084, 0.072], [1.495, 0.078, 0.066], [1.512, 0.072, 0.062], [1.514, 0.064, 0.054]].map(r => ({ c: new V(0, r[0], -0.018), a: r[1], b: r[2], part: PART.trim })), X, Z, 2, p => chain(spine, p.y), false, false);
+
+  for (const sd of [1, -1]) {
+    const S = sd > 0 ? 'Left' : 'Right', lx = BP[S + 'UpLeg'].x, kneeY = BP[S + 'Leg'].y, ank = BP[S + 'Foot'];
+    /* la jambe : hauteur, demi-largeur, demi-épaisseur, avancée ; peau, puis chaussette sous le genou */
+    const L = [[1.00, 0.088, 0.092, 0.012], [0.92, 0.088, 0.090, 0.016], [0.82, 0.082, 0.084, 0.016], [0.72, 0.072, 0.074, 0.014], [0.62, 0.060, 0.062, 0.010],
+      [0.56, 0.052, 0.056, 0.012], [0.52, 0.050, 0.054, 0.010], [0.47, 0.052, 0.058, -0.004], [0.469, 0.054, 0.060, -0.004], [0.42, 0.058, 0.066, -0.014], [0.36, 0.057, 0.064, -0.014],
+      [0.28, 0.048, 0.052, -0.008], [0.20, 0.038, 0.040, -0.004], [0.13, 0.032, 0.034, -0.008], [0.09, 0.034, 0.040, -0.012]];
+    const legW = p => { const w = chain([[S + 'Foot', 0.085], [S + 'Leg', 0.13], [S + 'Leg', kneeY - 0.035], [S + 'UpLeg', kneeY + 0.04], [S + 'UpLeg', 0.95], ['Hips', 1.06]], p.y); if (p.y > 0.95) { w[S + 'UpLeg'] = (w[S + 'UpLeg'] || 0) + (w.Hips || 0) * 0.5; w.Hips = (w.Hips || 0) * 0.5; } return w; };
+    tube(L.map(r => ({ c: new V(lx + sd * 0.004, r[0], r[3]), a: r[1], b: r[2], part: r[0] < 0.4695 ? PART.socks : PART.skin })), X, Z, 2.1, legW, false, false);
+    // la jambe du short : ample, elle descend à mi-cuisse
+    const SH = [[1.02, 0.100, 0.112], [0.99, 0.106, 0.116], [0.90, 0.106, 0.112], [0.80, 0.104, 0.108], [0.752, 0.103, 0.106], [0.745, 0.098, 0.100]];
+    tube(SH.map(r => ({ c: new V(lx + sd * 0.012, r[0], 0.014), a: r[1], b: r[2], part: PART.shorts })), X, Z, 2.2, p => ({ [S + 'UpLeg']: 0.5 + 0.5 * smooth(1.0, 0.80, p.y), Hips: 0.5 * smooth(0.80, 1.0, p.y) }), false, false);
+    /* le crampon : du talon à la pointe (z), demi-largeur, demi-hauteur, hauteur du centre */
+    const F = [[-0.075, 0.026, 0.030, 0.058], [-0.06, 0.036, 0.046, 0.056], [-0.02, 0.040, 0.052, 0.054], [0.03, 0.042, 0.040, 0.042], [0.08, 0.045, 0.031, 0.033], [0.13, 0.042, 0.024, 0.027], [0.165, 0.032, 0.018, 0.022], [0.185, 0.016, 0.010, 0.020]];
+    const toeZ = BP[S + 'ToeBase'] ? BP[S + 'ToeBase'].z : 0.085;
+    tube(F.map(r => ({ c: new V(ank.x, r[3], r[0]), a: r[1], b: r[2], part: PART.boots })), X, Y, 2.4, p => chain([[S + 'Foot', toeZ - 0.03], [S + 'ToeBase', toeZ + 0.03]], p.z), true, true);
+
+    /* le bras (le long de x) : écartement, demi-hauteur, demi-épaisseur ; manche courte jusqu'à 0,32 m, puis peau */
+    const arm = BP[S + 'Arm'], fore = BP[S + 'ForeArm'], hand = BP[S + 'Hand'];
+    const ay = arm.y, az = arm.z, ex = Math.abs(fore.x), wx = Math.abs(hand.x);
+    const A = [[0.20, 0.058, 0.060], [0.21, 0.064, 0.064],      // le haut du bras est caché par la manche : le tube commence dessous [0.27, 0.054, 0.056], [0.33, 0.050, 0.052], [0.39, 0.045, 0.046],
+      [ex, 0.042, 0.042], [ex + 0.06, 0.044, 0.046], [ex + 0.14, 0.038, 0.040], [wx - 0.03, 0.030, 0.033], [wx, 0.028, 0.032]];
+    const armW = p => chain([[S + 'Shoulder', 0.10], [S + 'Arm', 0.19], [S + 'Arm', ex - 0.035], [S + 'ForeArm', ex + 0.035], [S + 'ForeArm', wx - 0.04], [S + 'Hand', wx + 0.01]], Math.abs(p.x));
+    tube(A.map(r => ({ c: new V(sd * r[0], ay - 0.004, az), a: r[1], b: r[2], part: PART.skin })), Y, Z, 2, armW, true, false);
+    // la manche (un peu plus large que le bras) et son poignet
+    const M = [[0.09, 0.074, 0.076, PART.shirt], [0.12, 0.080, 0.080, PART.shirt], [0.19, 0.080, 0.080, PART.shirt], [0.26, 0.072, 0.072, PART.shirt], [0.305, 0.068, 0.068, PART.shirt], [0.306, 0.068, 0.068, PART.trim], [0.325, 0.066, 0.066, PART.trim], [0.326, 0.060, 0.060, PART.trim]];
+    tube(M.map(r => ({ c: new V(sd * r[0], ay - 0.002, az), a: r[1], b: r[2], part: r[3] })), Y, Z, 2, armW, true, false);
+    // la main, paume vers le bas
+    const H = [[wx - 0.005, 0.028, 0.034], [wx + 0.03, 0.032, 0.046], [wx + 0.075, 0.030, 0.046], [wx + 0.11, 0.024, 0.040], [wx + 0.135, 0.012, 0.024]];
+    tube(H.map(r => ({ c: new V(sd * r[0], ay - 0.008, az + 0.004), a: r[1], b: r[2], part: PART.hands })), Y, Z, 2.2, () => ({ [S + 'Hand']: 1 }), false, true);
+    // l'oreille, l'œil, le sourcil
+    const hd = BP.Head;
+    tube([[0.074, 0.006, 0.022], [0.083, 0.024, 0.026], [0.088, 0.020, 0.022], [0.090, 0.004, 0.006]].map(r => ({ c: new V(sd * r[0], hd.y + 0.095, hd.z - 0.005), a: r[1], b: r[2], part: PART.skin })), Y, Z, 2, () => ({ Head: 1 }), false, true, null, 8);
+    tube([[0, 0.009, 0.006], [0.004, 0.009, 0.006], [0.006, 0.001, 0.001]].map(r => ({ c: new V(sd * 0.032, hd.y + 0.112, hd.z + 0.088 + r[0]), a: r[1], b: r[2], part: PART.eyes })), X, Y, 2, () => ({ Head: 1 }), false, true, null, 8);
+    tube([[0, 0.018, 0.004], [0.004, 0.018, 0.004], [0.006, 0.002, 0.001]].map(r => ({ c: new V(sd * 0.033, hd.y + 0.128, hd.z + 0.086 + r[0]), a: r[1], b: r[2], part: PART.hair })), X, Y, 2, () => ({ Head: 1 }), false, true, null, 8);
+  }
+
+  // le cou
+  const neckW = p => chain([['Spine2', 1.45], ['Neck', 1.53], ['Neck', 1.57], ['Head', 1.62]], p.y);
+  tube([[1.46, 0.068, 0.062], [1.51, 0.064, 0.060], [1.56, 0.060, 0.058], [1.61, 0.056, 0.056]].map(r => ({ c: new V(0, r[0], -0.012), a: r[1], b: r[2], part: PART.skin })), X, Z, 2, neckW, false, false);
+  /* la tête : hauteur au-dessus de l'os de la tête, demi-largeur, demi-profondeur, avancée ; cheveux courts sur le dessus et l'arrière */
+  const hd = BP.Head;
+  const Hd = [[-0.014, 0.034, 0.030, 0.060], [0.0, 0.056, 0.064, 0.038], [0.025, 0.070, 0.086, 0.022], [0.06, 0.078, 0.098, 0.012], [0.10, 0.082, 0.102, 0.008],
+    [0.135, 0.083, 0.104, 0.004], [0.165, 0.080, 0.101, 0.0], [0.195, 0.070, 0.090, -0.004], [0.215, 0.052, 0.068, -0.006], [0.23, 0.022, 0.032, -0.006]];
+  const hairOf = p => (p.y > hd.y + 0.168 || (p.y > hd.y + 0.07 && p.z < hd.z - 0.02) || (p.y > hd.y + 0.14 && Math.abs(p.x) > 0.06)) ? -1 : PART.skin;
+  tube(Hd.map(r => ({ c: new V(0, hd.y + r[0], hd.z + r[3]), a: r[1], b: r[2], part: PART.skin })), X, Z, 2.1, () => ({ Head: 1 }), true, true, hairOf);
+  // le nez
+  tube([[0.0, 0.010, 0.006], [0.012, 0.012, 0.012], [0.022, 0.006, 0.008]].map(r => ({ c: new V(0, hd.y + 0.085 + r[0] * 0.3, hd.z + 0.104 + r[0] * 0.6), a: r[1], b: r[2], part: PART.skin })), X, Y, 2, () => ({ Head: 1 }), true, true, null, 8);
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(ski, 4));
+  geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(skw, 4));
+  geo.setAttribute('part', new THREE.Float32BufferAttribute(part, 1));
+  geo.setAttribute('hairy', new THREE.Float32BufferAttribute(hairy, 1));
+  geo.setIndex(idx); geo.computeVertexNormals(); geo.computeBoundingSphere();
+  return geo;
+}
+// remplace le corps du mannequin par le corps de footballeur ; renvoie la hauteur du dos pour le numéro
+function swapBody(scene) {
+  scene.updateMatrixWorld(true);
+  const old = []; scene.traverse(o => { if (o.isSkinnedMesh) old.push(o); });
+  if (!old.length) throw new Error('mannequin sans corps');
+  const src = old[0];
+  const mk = segs => {
+    const m = new THREE.SkinnedMesh(buildBody(src.skeleton, segs), new THREE.MeshStandardMaterial({ skinning: true }));
+    m.name = 'Footballeur' + segs; m.position.copy(src.position); m.quaternion.copy(src.quaternion); m.scale.copy(src.scale);
+    src.parent.add(m); m.bind(src.skeleton, src.bindMatrix); m.bindMatrixInverse.copy(src.bindMatrixInverse);
+    return m;
+  };
+  const hi = mk(18), lo = mk(10);      // deux finesses : 18 côtés par anneau sur ordinateur, 10 sur téléphone
+  old.forEach(o => o.parent.remove(o));
+  return { tris: [hi, lo].map(m => m.geometry.index.count / 3) };
+}
+
+/* La tenue du corps de footballeur : chaque point porte sa pièce (attribut « part ») ; le col et les poignets prennent la couleur du short,
+   ou une couleur plus sombre du maillot si le short est de la même couleur. La peau est un peu plus brillante que le tissu. */
+function bodyMaterial(kit) {
+  const m = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0, skinning: true });
+  const trim = kit.shorts.clone(); if (Math.abs(trim.r - kit.shirt.r) + Math.abs(trim.g - kit.shirt.g) + Math.abs(trim.b - kit.shirt.b) < 0.15) trim.copy(kit.shirt).multiplyScalar(0.55);
+  const U = { k_trim: { value: trim }, k_eyes: { value: new THREE.Color(0x15110e) } };
+  for (const k of ['shirt', 'shorts', 'socks', 'skin', 'hair', 'boots', 'hands']) U['k_' + k] = { value: kit[k].clone() };
+  m.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, U);
+    sh.vertexShader = 'attribute float part, hairy;\nvarying float vPart, vHairy;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vPart = part; vHairy = hairy;');
+    sh.fragmentShader = 'varying float vPart, vHairy;\nuniform vec3 k_shirt, k_shorts, k_socks, k_skin, k_hair, k_boots, k_hands, k_trim, k_eyes;\n' + sh.fragmentShader
+      .replace('#include <color_fragment>', `#include <color_fragment>
+      int pt = int(vPart + 0.5);
+      vec3 c = pt == 1 ? k_shirt : pt == 2 ? k_shorts : pt == 3 ? k_socks : pt == 4 ? k_boots : pt == 5 ? k_hair : pt == 6 ? k_hands : pt == 7 ? k_trim : pt == 8 ? k_eyes : k_skin;
+      if (vHairy > 0.5) c = k_hair;
+      diffuseColor.rgb = c;`)
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+      int pr = int(vPart + 0.5);
+      if (vHairy > 0.5) pr = 5;
+      roughnessFactor = pr == 0 ? 0.55 : pr == 4 ? 0.35 : pr == 5 ? 0.9 : 0.78;`);
+  };
+  m.customProgramCacheKey = () => 'corps';
+  return m;
+}
 
 /* La tenue : le mannequin est d'une seule pièce ; on le colorie selon la hauteur et l'écartement de chaque point dans sa pose de départ
    (debout, bras tendus à l'horizontale, 1,80 m) : chaussures, chaussettes, genoux, short, maillot et manches, avant-bras et mains, cou, tête, cheveux. */
@@ -69,18 +239,23 @@ function backTexture(name, num, ink) {
 function make(kit, opts) {
   opts = opts || {};
   const body = THREE.SkeletonUtils.clone(gltf.scene);
+  const small = opts.small != null ? opts.small : opts.shadow === false, drop = [];
   body.traverse(o => {
     if (!o.isSkinnedMesh) return;
-    o.material = kitMaterial(kit, /Joints/.test(o.name) ? 0.82 : 1);
+    if (/^Footballeur/.test(o.name)) { if (o.name !== 'Footballeur' + (small ? 10 : 18)) { drop.push(o); return; } o.material = bodyMaterial(kit); }
+    else o.material = kitMaterial(kit, /Joints/.test(o.name) ? 0.82 : 1);
     o.castShadow = opts.shadow !== false; o.receiveShadow = false; o.frustumCulled = false;
   });
+  drop.forEach(o => o.parent.remove(o));
   body.rotation.y = Math.PI / 2;      // le mannequin regarde vers +z ; on le tourne vers +x
   const g = new THREE.Group(); g.add(body);
   // numéro dans le dos, accroché au haut du dos (il suit le buste)
   const spine = body.getObjectByName('mixamorigSpine2') || body.getObjectByName('mixamorig:Spine2');
   if (spine && opts.num != null) {
     const plate = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshBasicMaterial({ map: backTexture(opts.name, opts.num, opts.ink || '#ffffff'), transparent: true, depthWrite: false }));
-    plate.position.set(0, 6, -14.5); plate.rotation.y = Math.PI; spine.add(plate);      // le squelette est en centimètres
+    if (gltf.built) { plate.scale.setScalar(0.85); plate.position.set(0, 3, -10.2); }      // collé au dos du corps de footballeur
+    else plate.position.set(0, 6, -14.5);
+    plate.rotation.y = Math.PI; spine.add(plate);      // le squelette est en centimètres
   }
   const mixer = new THREE.AnimationMixer(body), clip = n => gltf.animations.find(a => a.name === n);
   const A = { idle: mixer.clipAction(clip('idle')), walk: mixer.clipAction(clip('walk')), run: mixer.clipAction(clip('run')) };
