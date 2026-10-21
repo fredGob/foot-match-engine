@@ -77,6 +77,7 @@ const serve = async (ctx, model = true) => { await ctx.route(R3.LIB, r => r.fulf
   const tel = await browser.newContext({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }); await serve(tel, false);
   const ph = await tel.newPage(); ph.on('pageerror', e => errors.push(String(e)));
   await ph.goto(url); await ph.evaluate(() => { localStorage.setItem('menuFerme', '1'); localStorage.removeItem('vue'); }); await start(ph);
+  if (await ph.isVisible('#tacView')) await ph.tap('#tvBack');      // la tactique s'ouvre d'abord : « ▶ Jouer »
   await ph.tap('#kick'); await ph.evaluate(() => document.querySelector('[data-speed="2"]').click());
   await ph.waitForFunction(() => document.body.dataset.replay === 'tele', null, { timeout: 120000 });
   await ph.waitForTimeout(2500);

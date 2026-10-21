@@ -27,7 +27,7 @@
   .tabs .group button:first-child { border-radius: 7px 0 0 7px; margin-left: 0; }
   .tabs .group button:last-child { border-radius: 0 7px 7px 0; }
   #statsCtl { display: flex; flex-basis: 100%; flex-wrap: wrap; align-items: center; gap: 8px 14px; }      /* toujours sur sa propre ligne, sous Match / Statistiques */
-  .tabs [hidden], #statsCtl[hidden] { display: none; }
+  .tabs [hidden], #statsCtl[hidden], #statsCtl [hidden] { display: none; }
   .tip { position: absolute; pointer-events: none; padding: 6px 10px; border-radius: 6px; background: rgba(12, 16, 20, 0.92); border: 1px solid var(--line); font-size: 13px; white-space: nowrap; }
   .tip[hidden] { display: none; }
   .stage.stats .pre, .stage.stats .end { display: none; }
@@ -181,7 +181,15 @@
   body.phone .ppanel #pclose { align-self: flex-end; padding: 4px 10px; font-size: 13px; }
   body.phone .app { display: block; max-width: none; padding: 0; }
   body.phone main { position: fixed; left: 0; top: 0; bottom: 0; right: var(--pw); z-index: 10; }      /* au-dessus de la colonne : l'écran Tactique couvre tout */
-  body.phone .tabs, body.phone .bar, body.phone .series, body.phone aside, body.phone .statsnote, body.phone .legend, body.phone .score { display: none !important; }
+  body.phone .tabs, body.phone .bar, body.phone .series, body.phone aside, body.phone main > .statsnote, body.phone .legend, body.phone .score { display: none !important; }
+  /* téléphone : les cartes comme sur ordinateur (demande de Frédéric) ; la barre de choix au-dessus de la carte, l'explication dans la colonne */
+  body.phone #statsCtl { position: absolute; top: 0; left: 0; right: 0; height: 42px; z-index: 3; padding: 4px 8px; flex-wrap: nowrap; gap: 6px; overflow-x: auto; background: var(--panel); font-size: 13px; }
+  body.phone #statsCtl button { padding: 5px 9px; font-size: 13px; white-space: nowrap; }
+  body.phone #statsCtl select { padding: 4px 6px; font-size: 13px; max-width: 150px; }
+  body.phone #statsCtl .heatkey { white-space: nowrap; font-size: 11px; } body.phone #statsCtl .heatkey i { width: 40px; }
+  body.phone .stage.stats #pitch { position: absolute; left: 0; top: 42px; height: calc(100% - 42px); }
+  body.phone .stage.stats .numbers { top: 42px; }
+  body.phone .ppanel .statsnote { margin: 0; font-size: 12px; }
   body.phone .stage { height: 100%; }
   body.phone #pitch { width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; }
   body.phone .numbers, body.phone .end, body.phone .busy { border-radius: 0; }
@@ -215,6 +223,7 @@
   body.phone .tvhead { grid-column: 1 / -1; flex-wrap: nowrap; gap: 6px; margin-bottom: 6px; }
   body.phone #tvBack { padding: 4px 8px; font-size: 13px; white-space: nowrap; }
   body.phone .tvforms { flex-wrap: nowrap; gap: 3px; }
+  body.phone #tvTeams button { padding: 4px 7px; font-size: 12px; white-space: nowrap; }
   body.phone .tvforms button { padding: 3px 5px; font-size: 12px; }
   body.phone .tpitch { grid-row: 2 / 4; width: min(calc(100dvh - 56px), calc(100vw - 410px)); max-width: none; margin: 0; }
   body.phone .tvbt { grid-column: 2; margin: 0 0 4px; max-width: none; font-size: 10px; text-align: center; }
@@ -325,13 +334,13 @@
       <canvas id="pitch3d" hidden></canvas><div class="clock3d" id="clock3d" hidden></div><div class="label3d" id="label3d" hidden></div>
       <div class="end" id="end" hidden><canvas id="card" width="2400" height="1350" aria-label="Résumé du match"></canvas><div id="endText" hidden></div><div class="row" id="endGoals"></div><div class="tab" id="tab" hidden></div><div class="row"><button id="saveCard" class="main">Enregistrer l'image</button><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
       <div class="replay" id="replay" hidden><canvas id="replayCv"></canvas><div class="rpVig"></div><div class="rpTag">REPLAY</div><div class="rpAngle" id="rpAngle"></div><div class="rpBand" id="rpBand"><i id="rpStripe"></i><b id="rpTitle">BUT !</b><span id="rpWho"></span><span id="rpScore"></span></div><div class="rpWipe" id="rpWipe"><span>REPLAY</span></div><div class="rpLoad" id="rpLoad" hidden>Chargement du replay…</div><button id="rpSkip">Passer ⏭</button></div>
-      <div class="pre" id="pre" hidden><div>Choisissez le mode, réglez votre tactique (onglet Tactique), puis donnez le coup d'envoi.</div><div class="row"><button id="preTac">Régler la tactique</button><button id="kick" class="main">Lancer le match</button><button id="instant" title="Le match est joué d'un coup, sans le regarder : on arrive directement à la feuille de match">Résultat direct ⏭</button></div></div>
+      <div class="pre" id="pre" hidden><div id="preMsg">Choisissez le mode, réglez votre tactique (onglet Tactique), puis donnez le coup d'envoi.</div><div class="row"><button id="preTac">Régler la tactique</button><button id="kick" class="main">Lancer le match</button><button id="instant" title="Le match est joué d'un coup, sans le regarder : on arrive directement à la feuille de match">Résultat direct ⏭</button></div></div>
       <div class="busy" id="busy" hidden><div class="spin" aria-hidden="true"></div><span>Calcul du match…</span></div>
       <div class="tip" id="tip" hidden></div>
       <div class="ff" id="ff" hidden>⏩ temps faible ×10</div>
       <div class="tacview" id="tacView" hidden>
         <div class="tvpitch">
-          <div class="tvhead"><button class="phoneonly" id="tvBack">← Retour au match</button><span class="group godonly" id="tvTeams"><button data-tv-team="0" class="on">Bleus</button><button data-tv-team="1">Rouges</button></span><span class="tvforms" id="tvForms"></span></div>
+          <div class="tvhead"><button class="phoneonly" id="tvBack">← Retour au match</button><span class="group" id="tvTeams"><button data-tv-team="0" class="on">Bleus</button><button data-tv-team="1">Rouges</button></span><span class="tvforms" id="tvForms"></span></div>
           <div class="tpitch" id="tvPitch"></div>
           <div class="tvbt">Remplaçants <span class="muted" id="tvSubs"></span></div>
           <div class="tbench" id="tvBench"></div>
@@ -342,6 +351,7 @@
             <div id="halfText" class="small" style="margin-top:4px"></div>
             <div class="row" style="margin-top:8px"><button class="main" id="halfGo">Reprendre la seconde période →</button></div>
           </div>
+          <div class="tvcard" id="tvOpp" hidden></div>
           <div class="tvcard"><b>Consignes</b>
             <table class="tvtac" id="tvTac"></table>
             <div class="row" style="margin-top:6px"><button id="tvNeutral">Tout au neutre</button></div>
@@ -995,6 +1005,7 @@
     $('statsCtl').hidden = t !== 'stats'; $('statsNote').hidden = t !== 'stats'; document.querySelector('.stage').classList.toggle('stats', t === 'stats');
     $('tip').hidden = true; hoverNode = -1; stKey = ''; nextHud = 0;
     if (t === 'stats') fillPlayers();
+    if (PHONE) resize();      // téléphone : la carte laisse la place à la barre de choix
     setStats({});
   }
   function setStats(o) {
@@ -1087,6 +1098,7 @@
     $('seed').value = seed; lockMode();
     $('player').className = 'muted'; $('player').textContent = 'Cliquez sur un joueur pour voir ce qu\'il est en train de faire.';
     simulate(false);
+    if (PHONE && !forfeited) setTab('tac');      // téléphone : on règle d'abord la tactique, puis « ▶ Jouer » (demande de Frédéric)
   }
   // l'écran reste allumé pendant la lecture (téléphone en veille sinon ; sur un site en https, pas en fichier ouvert à la main)
   let wake = null, wantWake = false;
@@ -1203,16 +1215,17 @@
   const ordList = a => Array.from({ length: 11 }, (_, i) => { const o = {}; for (const c of ORD) o[c.key] = (a && a[i] && a[i][c.key]) || 0; return o; });
   const ordOn = o => o && ORD.some(c => o[c.key]);
   const ordText = o => ORD.filter(c => o[c.key]).map(c => c.notes[o[c.key] + 1]).join(', ');
-  function tvLoad() { if (coach()) tv.team = 0; tv.base = tvState(tv.team); tv.form = tv.base.form; tv.rids = tv.base.rids.slice(); tv.tac = Object.assign({}, tv.base.tac); tv.ord = ordList(tv.base.ord); tv.sel = null; tv.key = JSON.stringify(tv.base); }
+  function tvLoad() { tv.base = tvState(tv.team); tv.form = tv.base.form; tv.rids = tv.base.rids.slice(); tv.tac = Object.assign({}, tv.base.tac); tv.ord = ordList(tv.base.ord); tv.sel = null; tv.key = JSON.stringify(tv.base); }
   const ordDiff = () => tv.ord.map((o, i) => i).filter(i => ORD.some(c => tv.ord[i][c.key] !== tv.base.ord[i][c.key]));
   const tacDiff = () => TAC.filter(c => tv.tac[c.key] !== tv.base.tac[c.key]);
+  const tvRO = () => coach() && tv.team === 1;
   const tvDirty = () => tv.base && (tv.form !== tv.base.form || tv.rids.some((r, i) => r !== tv.base.rids[i]) || tacDiff().length > 0 || ordDiff().length > 0);
   const newcomers = () => pending ? [] : tv.rids.filter(r => !tv.base.applied.includes(r));
   const subsUsed = () => pending ? 0 : tv.base.subs + newcomers().length;
   function tvSync() {           // la barre de temps a bougé, un changement a été fait : on recharge, sauf brouillon en cours
     if (tab !== 'tac' || !rec) return;
     if (tv.base && tvDirty()) return;
-    const k = JSON.stringify(tvState(coach() ? 0 : tv.team));
+    const k = JSON.stringify(tvState(tv.team));
     if (k !== tv.key) { tvLoad(); tvDraw(); }
   }
   function tvFresh(rid) {
@@ -1242,8 +1255,16 @@
   function tvDraw() {
     if (tab !== 'tac' || !rec || !tv.base) return;
     const T = view.teams[tv.team], R = T.roster, pls = E.formationPlaces(tv.form);
-    document.querySelectorAll('[data-tv-team]').forEach(b => b.classList.toggle('on', +b.dataset.tvTeam === tv.team));
-    $('tvForms').innerHTML = E.FORMATIONS.map(f => '<button data-tv-form="' + f.id + '" class="' + (f.id === tv.form ? 'on' : '') + '">' + f.name + '</button>').join('');
+    const ro = tvRO();      // Coach It : l'équipe adverse se regarde, elle ne se règle pas
+    document.querySelectorAll('[data-tv-team]').forEach(b => { b.classList.toggle('on', +b.dataset.tvTeam === tv.team); b.textContent = coach() ? (+b.dataset.tvTeam ? 'Adversaire' : 'Mon équipe') : (+b.dataset.tvTeam ? 'Rouges' : 'Bleus'); });
+    $('tvForms').innerHTML = E.FORMATIONS.map(f => '<button data-tv-form="' + f.id + '" class="' + (f.id === tv.form ? 'on' : '') + '"' + (ro && f.id !== tv.form ? ' disabled' : '') + '>' + f.name + '</button>').join('');
+    $('tvChanges').hidden = ro; $('tvNeutral').hidden = ro; $('tvOpp').hidden = !ro;
+    if (ro) {
+      const S = squad[1], on = TAC.filter(c => tv.tac[c.key]), P = presetOf(tv.tac);
+      $('tvOpp').innerHTML = '<b>Adversaire : ' + esc(S ? S.nom || S.id : 'Standard') + '</b><div class="small" style="margin-top:4px">' + esc(E.FORMATIONS.find(f => f.id === tv.form).name)
+        + (on.length ? ' · ' + (P ? 'tactique « ' + esc(PRE.find(x => x.id === P).name) + ' » : ' : '') + esc(on.map(c => c.label + ' : ' + c.options[tv.tac[c.key] + 1].toLowerCase()).join(', ')) : ' · consignes neutres') + '</div>'
+        + '<div class="small muted" style="margin-top:6px">' + (S && S.consignes ? 'Le style de son entraîneur. ' : '') + 'Vous voyez sa composition, ses consignes et ses joueurs (touchez-en un pour ses notes), mais c\'est son entraîneur qui décide.</div>';
+    }
     let h = tvPitchSvg();
     pls.forEach((pl, i) => { const q = tvXY(pl); h += '<div class="tspot tdrop" data-tdrop="p' + i + '" style="left:' + q.left.toFixed(2) + '%;top:' + q.top.toFixed(2) + '%">' + ttok(tv.rids[i], pl, i) + '</div>'; });
     $('tvPitch').innerHTML = h;
@@ -1251,8 +1272,8 @@
     $('tvBench').innerHTML = bench.length ? bench.map(e => '<div class="tdrop" data-tdrop="b' + e.rid + '">' + ttok(e.rid, null) + '</div>').join('') : '<span class="muted small">Pas de remplaçant.</span>';
     // consignes de l'équipe affichée (brouillon)
     const opt = (c, v) => '<option value="' + v + '"' + (tv.tac[c.key] === v ? ' selected' : '') + '>' + esc(c.options[v + 1]) + '</option>', pid = presetOf(tv.tac), who = tv.team ? 'Rouges' : 'Bleus';
-    $('tvTac').innerHTML = '<tr class="presets"><td class="k" title="Une tactique règle les sept consignes d\'un coup. Vous pouvez ensuite changer une consigne : la tactique devient « Personnalisée ».">Tactique</td><td><select class="preset" data-tv-preset aria-label="Tactique des ' + who + '"><option value="">Personnalisée</option>' + PRE.map(P => '<option value="' + P.id + '"' + (P.id === pid ? ' selected' : '') + ' title="' + esc(P.help) + '">' + esc(P.name) + '</option>').join('') + '</select></td></tr>'
-      + TAC.map(c => '<tr><td class="k" title="' + esc(c.help) + '">' + esc(c.label) + '</td><td><select data-tv-key="' + c.key + '" aria-label="' + esc(c.label) + ' des ' + who + '"' + (tv.tac[c.key] ? ' class="set"' : '') + '>' + [-1, 0, 1].map(v => opt(c, v)).join('') + '</select></td></tr>').join('');
+    $('tvTac').innerHTML = '<tr class="presets"><td class="k" title="Une tactique règle les sept consignes d\'un coup. Vous pouvez ensuite changer une consigne : la tactique devient « Personnalisée ».">Tactique</td><td><select class="preset" data-tv-preset aria-label="Tactique des ' + who + '"' + (ro ? ' disabled' : '') + '><option value="">Personnalisée</option>' + PRE.map(P => '<option value="' + P.id + '"' + (P.id === pid ? ' selected' : '') + ' title="' + esc(P.help) + '">' + esc(P.name) + '</option>').join('') + '</select></td></tr>'
+      + TAC.map(c => '<tr><td class="k" title="' + esc(c.help) + '">' + esc(c.label) + '</td><td><select data-tv-key="' + c.key + '" aria-label="' + esc(c.label) + ' des ' + who + '"' + (tv.tac[c.key] ? ' class="set"' : '') + (ro ? ' disabled' : '') + '>' + [-1, 0, 1].map(v => opt(c, v)).join('') + '</select></td></tr>').join('');
     $('tvNeutral').disabled = !TAC.some(c => tv.tac[c.key]);
     $('tacHint').textContent = coach() && !pending ? 'Ce que vous validez s\'applique au prochain arrêt de jeu après le direct (' + mmss(live) + '), même si vous revoyez une action plus ancienne.'
       : pending ? (coach() ? 'Avant le coup d\'envoi : réglez votre équipe. L\'adversaire joue ' + (squad[1] && squad[1].consignes ? 'avec le style de son entraîneur.' : 'avec des consignes neutres.') : 'Avant le coup d\'envoi : ce que vous validez vaut dès le début du match.')
@@ -1274,6 +1295,8 @@
     $('tvDraft').innerHTML = lines.length ? lines.map(x => '<div>' + x + '</div>').join('') : '<span class="muted">Aucun changement en préparation.</span>';
     $('tvApply').disabled = !lines.length; $('tvReset').disabled = !lines.length;
     $('tvApply').textContent = pending ? 'Valider' : 'Valider (prochain arrêt de jeu)';
+    // téléphone, avant le coup d'envoi : la tactique s'ouvre d'abord ; « ▶ Jouer » garde ce qui est préparé et ramène au terrain (« Lancer le match »)
+    if (PHONE) { $('tvBack').textContent = pending ? '▶ Jouer' : '← Match'; $('tvBack').classList.toggle('main', pending); $('tvApply').hidden = pending; }
     // demandes pas encore faites (on attend un arrêt de jeu)
     const tk = tv.base.tick, wait = pending ? [] : changes.filter(c => c.team === tv.team && c.tick <= tk && !(c.at <= tk));
     const desc = c => c.key === 'lineup' ? 'composition' : c.key === 'orders' ? 'consignes individuelles' : c.key === 'formation' ? 'formation ' + E.FORMATIONS.find(f => f.id === c.v).name : (TAC.find(x => x.key === c.key) || { label: c.key }).label.toLowerCase();
@@ -1284,7 +1307,7 @@
     else {
       const i = tv.rids.indexOf(e.rid), pl = i >= 0 ? pls[i] : null, fr = tvFresh(e.rid), off = pl && !accepte(pl).includes(e.nat);
       $('tvLook').innerHTML = '<b>n°' + e.num + ' ' + esc(e.name) + '</b><div class="small muted">' + NAT_NAME[e.nat] + ' · ' + (pl ? esc(pl.label) + (off ? ' <span style="color:#ff9a3c">(hors poste)</span>' : '') : fr == null ? 'sorti' : 'remplaçant') + (fr == null ? '' : ' · fraîcheur ' + Math.round(100 * fr) + ' %') + '</div>'
-        + (fr == null ? '' : '<div class="row" style="margin:6px 0">' + (tv.sel === e.rid ? '<span class="small" style="color:var(--accent)">Touchez le joueur à échanger.</span> <button id="tvSwapCancel">Annuler</button>' : '<button id="tvSwap">Échanger ce joueur</button>') + '</div>')
+        + (fr == null || ro ? '' : '<div class="row" style="margin:6px 0">' + (tv.sel === e.rid ? '<span class="small" style="color:var(--accent)">Touchez le joueur à échanger.</span> <button id="tvSwapCancel">Annuler</button>' : '<button id="tvSwap">Échanger ce joueur</button>') + '</div>')
         + (pl && pl.role !== 'GK' && !(coach() && tv.team) ? '<div class="small muted" style="margin-top:8px">Consignes individuelles (pour cette place)</div>' + ORD.map(c => '<div class="ordrow"><span title="' + esc(c.help) + '">' + esc(c.label) + '</span><span class="seg">' + [-1, 0, 1].map(v => '<button data-ord="' + c.key + '" data-ord-v="' + v + '" data-ord-i="' + i + '" class="' + (tv.ord[i][c.key] === v ? 'on' : '') + '">' + esc(c.options[v + 1]) + '</button>').join('') + '</span></div>').join('') : '')
         + '<div class="attrs">' + E.QUALITIES.filter(q => e.nat === 'G' || (q[0] !== 'reflexes' && q[0] !== 'handling')).map(q => '<div class="attr"><span>' + q[2] + '</span><b>' + Math.round(E.shown(e.a[q[0]]) * 100) + '</b></div>').join('') + '</div>';
     }
@@ -1316,7 +1339,10 @@
     if (PHONE) { setTab('match'); if (!pending) playing = true; }      // téléphone : « Valider » ramène au match, qui reprend
   }
   $('tvApply').onclick = tvApply;
-  $('tvBack').onclick = () => { setTab('match'); if (!pending) playing = true; };      // téléphone : le match reprend
+  $('tvBack').onclick = () => {      // téléphone : « ▶ Jouer » avant le coup d'envoi (garde la tactique préparée), « ← Match » ensuite (le match reprend)
+    if (pending && tv.team === 0 && tvDirty()) return tvApply();
+    setTab('match'); if (!pending) playing = true;
+  };
   $('tvReset').onclick = () => { tv.msg = ''; tvLoad(); tvDraw(); };
   $('tvNeutral').onclick = () => { for (const c of TAC) tv.tac[c.key] = 0; tv.msg = ''; tvDraw(); };
   $('tvTac').addEventListener('change', e => {
@@ -1327,7 +1353,7 @@
   });
   $('tacView').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.tvForm) { tv.form = b.dataset.tvForm; tvDraw(); }
+    if (b.dataset.tvForm) { if (tvRO()) return; tv.form = b.dataset.tvForm; tvDraw(); }
     else if (b.dataset.tvTeam) { tv.team = +b.dataset.tvTeam; tv.look = null; tv.msg = ''; tvLoad(); tvDraw(); }
     else if (b.id === 'tvSwap') { tv.sel = tv.look; tvDraw(); }
     else if (b.id === 'tvSwapCancel') { tv.sel = null; tvDraw(); }
@@ -1338,6 +1364,7 @@
   const tdropAt = (x, y) => { const el = document.elementFromPoint(x, y); return el && el.closest('#tacView [data-tdrop]'); };
   document.addEventListener('pointerdown', e => {
     const t = e.target.closest('#tacView .ttok'); if (!t || t.classList.contains('gone')) return;
+    if (tvRO()) { tv.look = +t.dataset.rid; tvDraw(); return; }      // adversaire : on regarde ses joueurs, on ne les déplace pas
     e.preventDefault(); Object.assign(TD, { rid: +t.dataset.rid, from: t.closest('[data-tdrop]').dataset.tdrop, x0: e.clientX, y0: e.clientY, on: false, el: t });
   });
   document.addEventListener('pointermove', e => {
@@ -1391,7 +1418,7 @@
     document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
     showSquads();
     if (coach()) { tac0[1] = oppTac(); simulate(false); }      // Coach It : l'adversaire joue dans son système, avec le style de son entraîneur (club) ou au neutre
-    tv.base = null; if (tab === 'tac') { tv.look = null; tv.msg = ''; tvLoad(); tvDraw(); }
+    tv.base = null; tv.team = 0; if (tab === 'tac') { tv.look = null; tv.msg = ''; tvLoad(); tvDraw(); }
     nextHud = 0;
   }
   function lockMode() {
@@ -1409,20 +1436,28 @@
   document.querySelectorAll('[data-st-src]').forEach(b => b.onclick = () => setStats({ src: b.dataset.stSrc }));
   $('stPlayer').onchange = () => setStats({ player: +$('stPlayer').value });
   // réseau de passes : survol d'un joueur = sa bulle ; clic = sa carte de chaleur
-  cv.addEventListener('mousemove', ev => {
-    if (tab !== 'stats' || stMap !== 'net' || !stData || !stData.nodes) return;
+  // au doigt (téléphone) : un premier toucher montre la bulle, un second sur le même joueur ouvre sa carte de chaleur
+  function nodeTip(ev) {
     const r = cv.getBoundingClientRect(), px = ev.clientX - r.left, py = ev.clientY - r.top, i = R.nodeAt(W, H, stData.nodes, px, py), tip = $('tip');
     hoverNode = i;
     if (i < 0) { tip.hidden = true; return; }
     const q = stData.nodes[i];
     const pm = stData.perMatch ? ' par match' : '';
-    tip.innerHTML = '<b>n°' + q.num + ' ' + esc(q.name) + '</b><br>' + q.made + ' passes données' + pm + ', ' + (q.made ? Math.round(100 * q.ok / q.made) : 0) + ' % réussies<br>' + q.got + ' passes reçues' + pm + '<br><span class="muted">Clic : sa carte de chaleur</span>';
-    tip.hidden = false; tip.style.left = Math.min(px + 14, r.width - tip.offsetWidth - 4) + 'px'; tip.style.top = Math.max(4, py - tip.offsetHeight - 10) + 'px';
+    tip.innerHTML = '<b>n°' + q.num + ' ' + esc(q.name) + '</b><br>' + q.made + ' passes données' + pm + ', ' + (q.made ? Math.round(100 * q.ok / q.made) : 0) + ' % réussies<br>' + q.got + ' passes reçues' + pm + '<br><span class="muted">' + (PHONE ? 'Touchez encore' : 'Clic') + ' : sa carte de chaleur</span>';
+    tip.hidden = false; tip.style.left = Math.min(px + 14, r.width - tip.offsetWidth - 4) + 'px'; tip.style.top = Math.max(cv.offsetTop + 4, cv.offsetTop + py - tip.offsetHeight - 10) + 'px';
+  }
+  cv.addEventListener('mousemove', ev => {
+    if (PHONE || tab !== 'stats' || stMap !== 'net' || !stData || !stData.nodes) return;
+    nodeTip(ev);
   });
   cv.addEventListener('mouseleave', () => { hoverNode = -1; $('tip').hidden = true; });
   cv.onclick = ev => {
     const r = cv.getBoundingClientRect(), w = R.toWorld(W, H, ev.clientX - r.left, ev.clientY - r.top);
     if (tab === 'stats') {
+      if (PHONE && stMap === 'net' && stData && stData.nodes) {
+        const r = cv.getBoundingClientRect(), i = R.nodeAt(W, H, stData.nodes, ev.clientX - r.left, ev.clientY - r.top);
+        if (i < 0 || i !== hoverNode || $('tip').hidden) return nodeTip(ev);
+      }
       if (stMap === 'net' && hoverNode >= 0) { const q = stData.nodes[hoverNode], p = view.players.find(x => x.team === stTeam && x.num === q.num); setStats({ map: 'heat', player: p.id }); }
       return;
     }
@@ -1516,6 +1551,11 @@
     P.append(close, box('pctl', $('back'), $('play'), $('fwd')), document.querySelector('.timeline'), speeds, $('finish'),
       box('ptabs', $('tabMatch'), $('tabStats'), $('tabTac')), $('views'), head('Joueur'), $('player'), head('Fil du match'), $('log'), document.querySelector('.homelink'));
     $('tabStats').textContent = 'Stats'; $('tvBack').textContent = '← Match';
+    // statistiques : mêmes choix que sur ordinateur (chiffres, carte de chaleur, réseau de passes, équipe, joueur)
+    document.querySelector('.stage').prepend($('statsCtl'));
+    document.querySelector('[data-st-map=heat]').textContent = 'Chaleur'; document.querySelector('[data-st-map=net]').textContent = 'Passes';
+    $('ppanel').insertBefore($('statsNote'), $('views').nextSibling);
+    $('preMsg').textContent = 'Votre tactique est prête : donnez le coup d\'envoi.'; $('preTac').textContent = '← Tactique';
     // colonne rétractable (remarque de Frédéric : trop large) : fermée, le terrain prend tout l'écran, avec trois boutons par-dessus
     const menu = open => { document.body.classList.toggle('pclosed', !open); try { localStorage.setItem('menuFerme', open ? '' : '1'); } catch (e) {} resize(); nextHud = 0; };
     close.onclick = () => menu(false); $('miniMenu').onclick = () => menu(true);
@@ -1532,7 +1572,7 @@
       forfeit();
       const msg = document.createElement('div'); msg.id = 'forfait';
       msg.innerHTML = '<b>Match abandonné : défaite par forfait (0-3).</b><br>Dans la Coupe en carton, un match lancé doit être joué jusqu\'au bout.';
-      $('pre').prepend(msg); $('kick').style.display = 'none'; $('preTac').style.display = 'none'; $('instant').style.display = 'none';
+      setTab('match'); $('pre').prepend(msg); $('kick').style.display = 'none'; $('preTac').style.display = 'none'; $('instant').style.display = 'none';
       const back = document.createElement('button'); back.className = 'main'; back.textContent = 'Retour à la coupe →'; back.onclick = () => { location.href = 'coupe.html'; };
       $('kick').parentNode.append(back);
     }

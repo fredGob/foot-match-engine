@@ -33,9 +33,26 @@ const phone = (browser, w, h) => browser.newContext({ viewport: { width: w, heig
   const pb = await box('#pitch'), cb = await box('#ppanel');
   check(pb.height >= 385 && pb.x === 0 && Math.abs(pb.x + pb.width - cb.x) < 2 && cb.x + cb.width <= 845, 'terrain à gauche sur toute la hauteur, colonne de commandes à droite', Math.round(pb.width) + ' × ' + Math.round(pb.height) + ' + colonne ' + Math.round(cb.width));
   check(await noSide(), 'pas de défilement de côté');
-  check(await page.isVisible('#kick') && await page.isVisible('#preTac'), 'avant-match : « Régler la tactique » et « Lancer le match » sur le terrain');
+  // avant le coup d'envoi (demande de Frédéric) : la tactique s'ouvre d'abord, on peut regarder l'adversaire, puis « ▶ Jouer » mène au terrain
+  check(await page.isVisible('#tacView') && await page.textContent('#tvBack') === '▶ Jouer' && await page.isHidden('#tvApply'), 'à l\'ouverture : l\'écran Tactique d\'abord, avec « ▶ Jouer »');
+  check(await page.textContent('#tvTeams') === 'Mon équipeAdversaire', 'boutons « Mon équipe » et « Adversaire »');
+  await page.tap('[data-tv-team="1"]'); await page.waitForTimeout(200);
+  check(await page.isVisible('#tvOpp') && /Adversaire/.test(await page.textContent('#tvOpp')) && await page.isHidden('#tvChanges') && (await page.$$('#tvTac select:disabled')).length === 8 && (await page.$$('#tvPitch .ttok')).length === 11, 'l\'adversaire : sa composition et ses consignes, sans pouvoir les changer', (await page.textContent('#tvOpp')).split('Vous')[0].replace(/\s+/g, ' '));
+  await page.tap('#tvPitch [data-tdrop="p9"] .ttok .ball'); await page.waitForTimeout(150);
+  check(/Vitesse/.test(await page.textContent('#tvLook')) && !(await page.$('#tvSwap')), 'toucher un adversaire : ses notes (pas d\'échange possible)');
+  await page.screenshot({ path: path.join(DOCS, 'telephone-adversaire.png') }); console.log('        capture : docs/telephone-adversaire.png');
+  await page.tap('[data-tv-team="0"]'); await page.waitForTimeout(200);
+  await page.tap('[data-tv-form="433"]'); await page.waitForTimeout(100);
+  await page.screenshot({ path: path.join(DOCS, 'telephone-ouverture.png') }); console.log('        capture : docs/telephone-ouverture.png');
+  await page.tap('#tvBack'); await page.waitForTimeout(300);
+  check(await page.isHidden('#tacView') && await page.isVisible('#kick') && await page.textContent('#preTac') === '← Tactique', '« ▶ Jouer » : le terrain, avec « Lancer le match » et « ← Tactique »');
+  await page.tap('#preTac'); await page.waitForTimeout(200);
+  check(await page.textContent('[data-tv-form].on') === '4-3-3', 'la formation choisie avant « ▶ Jouer » est gardée');
+  await page.tap('#tvBack'); await page.waitForTimeout(200);
   await page.screenshot({ path: path.join(DOCS, 'telephone-avant.png') }); console.log('        capture : docs/telephone-avant.png');
   await page.selectOption('#duration', '600').catch(() => page.evaluate(() => { const d = document.getElementById('duration'); d.value = '600'; d.dispatchEvent(new Event('change')); }));
+  await page.waitForTimeout(200);
+  if (await page.isVisible('#tacView')) await page.tap('#tvBack');      // nouveau match (durée d'essai) : la tactique se rouvre d'abord
   await page.waitForTimeout(200);
   await page.tap('#kick'); await ready(); await page.waitForTimeout(2500);
   const c1 = await page.textContent('#clock');
@@ -67,7 +84,7 @@ const phone = (browser, w, h) => browser.newContext({ viewport: { width: w, heig
   await page.tap('#tabTac'); await page.waitForTimeout(300);
   const tb = await box('#tacView');
   check(tb.x === 0 && tb.y === 0 && tb.width >= 840 && await page.textContent('#play') === '▶ Lecture', '« Tactique » met en pause et ouvre l\'écran Tactique en plein écran', Math.round(tb.width) + ' × ' + Math.round(tb.height));
-  check((await page.$$('#tvPitch .ttok')).length === 11 && await page.isHidden('#tvTeams') && await page.isVisible('#tvBack'), 'onze joueurs, votre équipe seulement, bouton « Retour au match »');
+  check((await page.$$('#tvPitch .ttok')).length === 11 && await page.textContent('#tvBack') === '← Match' && await page.isVisible('#tvApply'), 'onze joueurs, bouton « ← Match », « Valider » de retour');
   // le banc en colonne à droite du terrain, entièrement visible : on glisse l'avant-centre sur un remplaçant
   const tp = await box('#tvPitch'), bench = await page.$$('#tvBench .ttok'), bb = [];
   for (const t of bench) bb.push(await t.boundingBox());
@@ -92,6 +109,25 @@ const phone = (browser, w, h) => browser.newContext({ viewport: { width: w, heig
   console.log('Statistiques et fin du match');
   await page.tap('#tabStats'); await page.waitForTimeout(300);
   check(await page.isVisible('#numbers') && (await page.$$('#stats tr')).length > 10, '« Stats » : le tableau des chiffres à la place du terrain');
+  // les cartes, comme sur ordinateur (demande de Frédéric)
+  check(await page.isVisible('[data-st-map="heat"]') && await page.isVisible('[data-st-map="net"]') && await page.isHidden('#stSrc'), 'choix Chiffres / Chaleur / Passes au-dessus de la carte');
+  await page.tap('[data-st-map="heat"]'); await page.waitForTimeout(300);
+  const hb = await box('#pitch'), sc = await box('#statsCtl');
+  check(await page.isHidden('#numbers') && await page.isVisible('#stPlayer') && hb.y >= sc.y + sc.height - 1 && /Carte de chaleur/.test(await page.textContent('#statsNote')) && await page.isVisible('#statsNote'), 'carte de chaleur sous la barre de choix, explication dans la colonne', Math.round(hb.width) + ' × ' + Math.round(hb.height));
+  await page.screenshot({ path: path.join(DOCS, 'telephone-chaleur.png') }); console.log('        capture : docs/telephone-chaleur.png');
+  await page.tap('[data-st-team="1"]'); await page.waitForTimeout(200);
+  check(/Rouges|ROU|Standard/.test(await page.textContent('#statsNote')), 'carte de l\'adversaire');
+  await page.tap('[data-st-team="0"]'); await page.tap('[data-st-map="net"]'); await page.waitForTimeout(300);
+  let hit = null;
+  for (let yy = 0.12; yy < 0.92 && !hit; yy += 0.06) for (let xx = 0.1; xx < 0.92 && !hit; xx += 0.03) {
+    await page.touchscreen.tap(hb.x + xx * hb.width, hb.y + yy * hb.height); await page.waitForTimeout(25);
+    if (await page.isVisible('#tip')) hit = [hb.x + xx * hb.width, hb.y + yy * hb.height];
+  }
+  check(hit && /Touchez encore/.test(await page.textContent('#tip')), 'réseau de passes : toucher un joueur montre ses passes', hit ? (await page.textContent('#tip')).split('Touchez')[0] : '');
+  await page.screenshot({ path: path.join(DOCS, 'telephone-passes.png') }); console.log('        capture : docs/telephone-passes.png');
+  if (hit) { await page.touchscreen.tap(...hit); await page.waitForTimeout(300); }
+  check(await page.$eval('[data-st-map="heat"]', b => b.classList.contains('on')) && +(await page.inputValue('#stPlayer')) >= 0, 'second toucher : sa carte de chaleur');
+  await page.tap('[data-st-map="num"]'); await page.waitForTimeout(100);
   await page.tap('#tabMatch'); await page.waitForTimeout(200);
   await page.evaluate(() => { const r = document.getElementById('time'); r.value = 600; r.dispatchEvent(new Event('input')); r.dispatchEvent(new Event('change')); });
   // Coach It : pas au-delà du direct ; on laisse la lecture filer jusqu'au bout
@@ -105,6 +141,7 @@ const phone = (browser, w, h) => browser.newContext({ viewport: { width: w, heig
   console.log('Petit téléphone couché (667 × 375)');
   const small = await (await phone(browser, 667, 375)).newPage(); small.on('pageerror', e => errors.push(String(e)));
   await small.goto(url); await small.waitForTimeout(400);
+  await small.tap('#tvBack'); await small.waitForTimeout(300);      // la tactique s'ouvre d'abord : « ▶ Jouer » pour voir le terrain
   const sp = await (await small.$('#pitch')).boundingBox();
   check(await small.evaluate('document.documentElement.scrollWidth <= window.innerWidth') && sp.height >= 370 && sp.width >= 400, 'terrain et colonne tiennent, sans défilement de côté', Math.round(sp.width) + ' × ' + Math.round(sp.height));
   await small.tap('#preTac'); await small.waitForTimeout(300);
