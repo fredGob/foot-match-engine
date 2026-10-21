@@ -33,7 +33,7 @@ const pick = async (team, key, v) => {
   check(/^00:00/.test($('clock').textContent) && tacOf(d, 0).width === '1', 'régler une consigne avant le coup d\'envoi ne lance pas le match');
   await pick(0, 'width', 0);
   $('duration').value = '600'; $('duration').dispatchEvent(new w.Event('change')); await wait(200);
-  $('seed').value = '7'; $('load').click(); await wait(300);
+  $('seed').value = '16'; $('load').click(); await wait(300);      // match n° 16 : 5 tirs et un but en 10 minutes (le n° 7 n'en avait plus aucun depuis le n° 134)
   check(/^00:00 \/ 10:00/.test($('clock').textContent) && !$('pre').hidden, 'durée de 10 minutes pour les essais, toujours à l\'arrêt', $('clock').textContent);
 
   console.log('Équipes');
@@ -60,6 +60,7 @@ const pick = async (team, key, v) => {
     const notes = [...$2('player').querySelectorAll('.attr b')].map(x => +x.textContent);
     check(notes.length === 12 && notes.some(v => v !== 14) && /\((Élite|Faible)\)/.test($2('player').textContent), 'la fiche d\'un joueur montre ses notes venues du fichier', $2('player').textContent.replace(/\s+/g, ' ').slice(0, 60) + ' … notes ' + notes.join(' '));
     $2('duration').value = '600'; $2('duration').dispatchEvent(new w2.Event('change')); await wait(200);
+    $2('seed').value = '5'; $2('load').click(); await wait(200);      // numéro fixé (avant : tiré au hasard) : sur 10 minutes, l'Élite tire 3 fois, Faible jamais
     $2('kick').click(); await wait(600); if ($2('play').textContent === 'Pause') $2('play').click();
     $2('time').value = '600'; $2('time').dispatchEvent(new w2.Event('input')); $2('time').dispatchEvent(new w2.Event('change')); await wait(400);
     const r = [...$2('stats').querySelectorAll('tr')].find(x => x.children[1] && x.children[1].textContent === 'Tirs'), sh = r ? [r.children[0].textContent, r.children[2].textContent] : [0, 0];
@@ -104,12 +105,12 @@ const pick = async (team, key, v) => {
   check(!$('end').hidden, 'à la fin, le score final s\'affiche', $('endText').textContent);
 
   console.log('Consignes');
-  await goTo(60); const before60 = stat('Passes');
+  await goTo(75); const before60 = stat('Passes');      // 1:15 : ballon en jeu sur le match n° 16 (arrêt de jeu de 0:47 à 1:07)
   await pick(0, 'passing', 1);
-  check(JSON.stringify(stat('Passes')) === JSON.stringify(before60), 'changer une consigne à 1 minute ne modifie pas le passé');
+  check(JSON.stringify(stat('Passes')) === JSON.stringify(before60), 'changer une consigne à 1:15 ne modifie pas le passé');
   check(d.querySelectorAll('#marks .mark.tactic').length === 1, 'le changement est repéré sur la barre de temps');
   const mk = d.querySelector('#marks .mark.tactic'), mkT = mk ? mk.title.slice(0, 5) : '';
-  check(mkT >= '01:00', 'le changement attend le prochain arrêt de jeu après 1 minute', 'fait à ' + mkT);
+  check(mkT > '01:15', 'le changement attend le prochain arrêt de jeu après 1:15', 'fait à ' + mkT);
   await goTo(599);
   check(/Consigne des Bleus : jeu de passes → direct/.test($('log').textContent), 'le changement est noté dans le fil du match');
   await goTo(600);
