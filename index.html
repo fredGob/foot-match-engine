@@ -178,7 +178,14 @@
     + '<div class="who">' + esc(A.nom) + '</div><div class="sub">' + (A.club ? 'Effectif de ' + esc(A.club) : 'Équipe construite avec le budget') + '</div>'
     + '<div class="facts"><div class="fact"><small>Formation</small><b>' + esc(A.formation) + '</b></div><div class="fact"><small>Note moyenne</small><b>' + fmt(A.moyenne) + '</b></div><div class="fact"><small>Remplaçants</small><b>' + A.remplacants + '</b></div><div class="fact"><small>Adversaire</small><b>' + esc(A.adversaire) + '</b></div></div>'
     + '<ul class="xi">' + A.titulaires.map(t => '<li><span>' + esc(t.place) + '</span><b>' + esc(t.nom) + '</b>' + (t.hors ? '<span class="off">hors poste</span>' : '<span>' + fmt(t.note) + '</span>') + '</li>').join('') + '</ul>'
-    + '<div class="btns"><a class="btn main" id="playMine" href="' + esc(A.lien) + '">Jouer le match →</a><a class="btn" id="editMine" href="equipe.html#reprendre">Modifier la tactique</a></div></div>';
+    + '<div class="btns"><a class="btn main" id="playMine" href="match.html">Jouer le match →</a><a class="btn" id="editMine" href="equipe.html#reprendre">Modifier la tactique</a></div></div>';
+  // « Jouer le match » : la partie est gardée dans le navigateur, match.html la relit (adresse propre, n° 136).
+  // Aperçu d'une version d'avant : la partie était dans l'adresse (« lien »).
+  $('playMine').addEventListener('click', () => {
+    let P = A.partie || null;
+    if (!P && A.lien) { const h = /#partie=([^&]*)/.exec(A.lien); try { P = h && JSON.parse(decodeURIComponent(h[1])); } catch (e) { P = null; } }
+    try { if (P) localStorage.setItem('match-partie', JSON.stringify(P)); } catch (e) {}
+  });
 })();
 </script>
 </body>

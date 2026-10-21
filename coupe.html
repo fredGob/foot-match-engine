@@ -2165,10 +2165,16 @@ return { createMatch, step, snapshot, restore, shootout, setTactics, setFormatio
     for (const j of C.joueurs) shift(j, j.poste === 'G'); for (const j of C.remplacants || []) shift(j, j.poste_naturel === 'G');
     return C;
   }
-  function matchLink(p) {
+  // votre match : la partie (votre équipe, l'adversaire entier, le match de coupe) est gardée dans le navigateur au clic, puis match.html la relit (adresse propre, n° 136)
+  function matchPartie(p) {
     const me = Object.assign({}, G.me); delete me.id;
-    return 'match.html#partie=' + encodeURIComponent(JSON.stringify({ equipe: me, adversaire: hard(teamOf(p.b)), coupe: { id: p.id, tour: round().name, seed: p.seed } }));
+    return { equipe: me, adversaire: hard(teamOf(p.b)), coupe: { id: p.id, tour: round().name, seed: p.seed } };
   }
+  document.addEventListener('click', e => {
+    const a = e.target.closest('a[data-pair]'); if (!a) return;
+    const p = round().pairs.find(q => q.id === a.dataset.pair); if (!p) return;
+    try { localStorage.setItem('match-partie', JSON.stringify(matchPartie(p))); } catch (x) {}
+  });
   // résultat rendu par match.html (enregistré dans le navigateur au coup de sifflet final, tirs au but compris)
   function readResult() {
     let r = null; try { r = JSON.parse(localStorage.getItem(RES) || 'null'); } catch (e) {}
@@ -2212,7 +2218,7 @@ return { createMatch, step, snapshot, restore, shootout, setTactics, setFormatio
       h += '<div class="match"><div class="side">' + esc(G.me.nom) + '<small>' + (G.me.club ? 'Ligue 1' : 'votre équipe') + '</small></div>'
         + '<div class="vs">' + (r ? r.score[0] + ' – ' + r.score[1] + (r.tab ? '<small>tirs au but ' + r.tab[0] + '–' + r.tab[1] + '</small>' : r.forfait ? '<small>forfait</small>' : '') : 'contre<small>' + esc(R.name) + '</small>') + '</div>'
         + '<div class="side r">' + esc(B.nom) + '<small>' + esc(divOf(B)) + ' · note ' + Math.round(avg(hard(B))) + '</small></div></div>';
-      if (!r) h += '<div class="go"><a class="btn main" href="' + matchLink(p) + '">Jouer le match →</a><span class="muted small">Mode Coach It, 90 minutes. En cas d\'égalité : tirs au but. Une fois le coup d\'envoi donné, quitter le match = défaite par forfait.</span></div>';
+      if (!r) h += '<div class="go"><a class="btn main" href="match.html" data-pair="' + p.id + '">Jouer le match →</a><span class="muted small">Mode Coach It, 90 minutes. En cas d\'égalité : tirs au but. Une fois le coup d\'envoi donné, quitter le match = défaite par forfait.</span></div>';
       else if (G.champion) h += '<div class="verdict champ">🏆 Vous remportez la Coupe en carton !</div><div class="go"><button class="btn main" id="toEnd">Voir mon parcours en image →</button></div>';
       else if (r.winner === 0) h += '<div class="verdict win">Qualifié pour le tour suivant !</div>';
       else h += '<div class="verdict lose">' + (r.forfait ? 'Match abandonné : défaite par forfait. ' : '') + 'Éliminé en ' + esc(R.name.toLowerCase()) + '. La coupe continue sans vous.</div><div class="go"><button class="btn main" id="toEnd">Voir mon parcours en image →</button><button class="btn" id="again">Nouvelle coupe</button></div>';

@@ -1148,19 +1148,33 @@
     rebuild(tick);
   }
 
-  // équipes venues de la page équipe : « match.html#partie=… » contient votre équipe (au format de equipes.json, avec sa formation et ses consignes)
-  // et l'identifiant de l'adversaire dans equipes.json ('' = standard). Sans rien dans l'adresse (« Match rapide ») : standard contre standard.
+  // équipes venues de la page équipe ou de la coupe : la partie (votre équipe au format de equipes.json, avec sa formation et ses consignes,
+  // l'adversaire, le match de coupe) est gardée dans le navigateur (« match-partie », n° 136 : adresse propre, « match.html »).
+  // Une ancienne adresse « match.html#partie=… » marche encore : la partie est gardée, puis retirée de l'adresse.
+  // Rien de gardé : standard contre standard.
   let start = null, startErr = '';
+  const PARTIE = 'match-partie';
   try {
+    let raw = null;
     const h = /[#&]partie=([^&]*)/.exec(location.hash);
     if (h) {
-      const P = JSON.parse(decodeURIComponent(h[1]));
+      raw = decodeURIComponent(h[1]);
+      try { localStorage.setItem(PARTIE, raw); } catch (e) {}
+      try { const rest = location.hash.replace(h[0], '').replace(/^[#&]+/, ''); history.replaceState(null, '', location.pathname + location.search + (rest ? '#' + rest : '')); } catch (e) {}
+    } else { try { raw = localStorage.getItem(PARTIE); } catch (e) {} }
+    let P = raw ? JSON.parse(raw) : null;
+    if (P && P.coupe && !h) {      // match de coupe gardé : seulement s'il reste à jouer dans la coupe en cours (sinon, une vieille partie reviendrait)
+      let G = null; try { G = JSON.parse(localStorage.getItem('coupe-partie') || 'null'); } catch (e) {}
+      const todo = G && G.rounds && G.rounds.some(r => r.pairs.some(q => q.id === P.coupe.id && !q.res));
+      if (!todo) { P = null; try { localStorage.removeItem(PARTIE); } catch (e) {} }
+    }
+    if (P) {
       E.readTeam(P.equipe);                                    // équipe mal formée : message clair dans le cadre Équipes
       // adversaire : son identifiant dans equipes.json, ou l'équipe entière (clubs inventés de la coupe)
       const opp = P.adversaire && typeof P.adversaire === 'object' ? (E.readTeam(P.adversaire), P.adversaire) : TEAMS.find(T => T.id === P.adversaire) || null;
       start = { team: P.equipe, opp, formation: E.FORMATIONS.some(f => f.id === P.equipe.formation) ? P.equipe.formation : '442', tac: P.equipe.consignes || {}, coupe: P.coupe || null };
     }
-  } catch (e) { startErr = e.message; }
+  } catch (e) { startErr = e.message; try { localStorage.removeItem(PARTIE); } catch (x) {} }      // partie illisible : oubliée
   if (start) {
     squad = [start.team, start.opp];
     const t = blank(); for (const c of TAC) if ([-1, 0, 1].includes(start.tac[c.key])) t[c.key] = start.tac[c.key];
