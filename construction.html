@@ -26,6 +26,34 @@
   header .steps { display: flex; gap: 6px; color: var(--muted); }
   header .steps span { padding: 2px 10px; border-radius: 12px; border: 1px solid var(--line); font-size: 13px; }
   header .steps span.on { color: var(--text); border-color: var(--accent); }
+  header .steps span[hidden] { display: none; }
+  .clubmode header .steps span { cursor: pointer; }
+  .clubmode header .steps span:hover { border-color: #4a5868; }
+  .clubmode header .steps span.on:hover { border-color: var(--accent); }
+  .clubmode header .steps span.off { opacity: .45; cursor: default; }
+  .clubmode .noclub, body:not(.clubmode) .onlyclub { display: none !important; }
+  /* étape 2 : l'adversaire (n° 138) — liste des clubs à gauche, sa fiche à droite (système, onze, niveau, style, joueurs clés) */
+  .advwrap { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 12px 14px; align-items: start; }
+  .advs { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .advs .club { padding: 10px 12px; }
+  .advs .club b { font-size: 16px; }
+  .advs .club.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .advs .club.mine { opacity: .45; cursor: default; }
+  .lvl { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+  .lvl i { flex: 1; height: 6px; border-radius: 3px; background: #2a3440; overflow: hidden; display: block; min-width: 40px; }
+  .lvl i b { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+  .advd { position: sticky; top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .advd .who { font-size: 20px; font-weight: 650; }
+  .advd .pitch { max-width: 330px; margin: 0 auto; }
+  .advd .tok { cursor: default; }
+  .advd .tok .ball { background: var(--red, #d64545); width: 30px; height: 30px; font-size: 11px; }
+  .advd .spot { width: 70px; }
+  .advd .tok .nm { max-width: 70px; font-size: 10.5px; }
+  .advd .keys { display: flex; flex-direction: column; gap: 3px; font-size: 13.5px; }
+  .advd .keys span { color: var(--muted); }
+  .advd .row { justify-content: space-between; }
+  .advsum { font-size: 14px; }
+  .advsum b { font-size: 15px; }
   header .right { margin-left: auto; }
   .homebtn { display: inline-block; padding: 6px 12px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); color: var(--text); text-decoration: none; }
   .homebtn:hover { border-color: #4a5868; }
@@ -137,7 +165,8 @@
   .compo .offp { color: var(--warn); font-weight: 600; white-space: nowrap; }
 
   @media (max-width: 900px) {
-    .buy, .tac { grid-template-columns: minmax(0, 1fr); }
+    .buy, .tac, .advwrap { grid-template-columns: minmax(0, 1fr); }
+    .advd { position: static; order: -1; }
     .home { grid-template-columns: 1fr; margin-top: 3vh; }
     .list { max-height: none; }
     .valid { margin-left: 0; justify-content: flex-start; }
@@ -158,7 +187,7 @@
 <div class="wrap">
   <header>
     <h1 id="title">L'entraîneur en carton</h1>
-    <div class="steps" id="steps"><span id="st1">1. Acheter les joueurs</span><span id="st2">2. Placer l'équipe</span></div>
+    <div class="steps" id="steps"><span id="st1" data-step="1">1. Acheter les joueurs</span><span id="st2" data-step="2" class="onlyclub">2. Adversaire</span><span id="st3" data-step="3">2. Placer l'équipe</span><span id="st4" data-step="4" class="onlyclub">4. Match</span></div>
     <div class="right"><a class="homebtn" id="home" href="index.html">Accueil</a></div>
   </header>
 
@@ -168,6 +197,18 @@
       <h2>Les 18 clubs de Ligue 1 2026-27, effectifs d'octobre 2026</h2>
       <p class="hint" style="margin-top:0">Joueurs présents au club en octobre 2026, dans le système de jeu habituel du club. La note à droite est la note globale moyenne des onze titulaires. Pas d'achat ici : on prend l'effectif du club tel quel.</p>
       <div class="clubs" id="clubs"></div>
+    </div>
+  </section>
+
+  <!-- étape 2 (n° 138) : l'adversaire, sur une page à part : son système et son onze, son niveau, le style de son entraîneur, ses joueurs clés -->
+  <section id="vAdv" hidden>
+    <div class="advwrap">
+      <div class="card">
+        <h2>Choisissez votre adversaire</h2>
+        <p class="hint" style="margin:0 0 10px">Touchez un club pour voir sa fiche. La barre donne son niveau (note globale moyenne de ses onze titulaires).</p>
+        <div class="clubs advs" id="advs"></div>
+      </div>
+      <div class="card advd" id="advD"></div>
     </div>
   </section>
 
@@ -211,7 +252,8 @@
       <div class="side">
         <div class="card">
           <h2>Équipe</h2>
-          <input type="text" id="nom" maxlength="40" placeholder="Nom de l'équipe">
+          <input type="text" id="nom" class="noclub" maxlength="40" placeholder="Nom de l'équipe">
+          <div class="onlyclub" id="clubName" style="font-size:17px;font-weight:650"></div>
           <div class="small muted" id="teamInfo" style="margin-top:6px"></div>
         </div>
         <div class="card look" id="lookCard">
@@ -229,7 +271,8 @@
         </div>
         <div class="card go">
           <h2>Match</h2>
-          <label>Adversaire <select id="adv"></select></label>
+          <label class="noclub">Adversaire <select id="adv"></select></label>
+          <div class="onlyclub advsum" id="advSum"></div>
           <button class="main go-btn" id="play">Passer au match →</button>
           <div class="small muted">Ouvre la page de match avec votre équipe (les Bleus), sa formation, son placement et ses consignes. L'équipe est aussi enregistrée dans ce navigateur.</div>
         </div>
@@ -237,10 +280,10 @@
           <h2>Composition</h2>
           <table class="compo" id="compo"></table>
         </div>
-        <div class="card">
-          <div class="row"><button class="main" id="save">Enregistrer l'équipe</button><button id="export">Exporter</button><button id="back">Retour aux achats</button></div>
+        <div class="card noclub">
+          <div class="row noclub"><button class="main" id="save">Enregistrer l'équipe</button><button id="export">Exporter</button><button id="back">Retour aux achats</button></div>
           <div class="msg" id="msg"></div>
-          <div class="small muted">« Exporter » donne un fichier au format de equipes.json, à recopier dans ce fichier.</div>
+          <div class="small muted noclub">« Exporter » donne un fichier au format de equipes.json, à recopier dans ce fichier.</div>
         </div>
       </div>
     </div>
@@ -292,18 +335,36 @@ const forme = () => D.formations.find(f => f.id === S.formation);
 const tag = p => '<span class="tag ' + LIGNE[p] + '">' + p + '</span>';
 
 // ---------- écrans ----------
+// Club de Ligue 1 (n° 138, demande de Frédéric) : quatre étapes, chacune sur sa page : 1. mon club, 2. l'adversaire, 3. ma tactique, 4. le match.
+// Construction d'équipe (adresse cachée #carton) : 1. acheter les joueurs, 2. placer l'équipe (adversaire, nom, enregistrer, exporter : comme avant).
+let view = '';
 function show(v) {
-  for (const k of ['vClubs', 'vBuy', 'vTac']) $(k).hidden = k !== v;
-  const club = v === 'vClubs' || (v === 'vTac' && S.club);
-  $('st1').textContent = club ? '1. Choisir le club' : '1. Acheter les joueurs';
-  $('st1').classList.toggle('on', v === 'vBuy' || v === 'vClubs'); $('st2').classList.toggle('on', v === 'vTac');
-  $('title').textContent = club ? 'Équipe de Ligue 1' : 'Construire mon équipe';
+  view = v;
+  for (const k of ['vClubs', 'vAdv', 'vBuy', 'vTac']) $(k).hidden = k !== v;
+  const club = v === 'vClubs' || v === 'vAdv' || (v === 'vTac' && S.club);
+  document.body.classList.toggle('clubmode', !!club);
+  $('st1').textContent = club ? '1. Mon club' : '1. Acheter les joueurs';
+  $('st3').textContent = club ? '3. Ma tactique' : '2. Placer l\'équipe';
+  const step = { vClubs: 1, vBuy: 1, vAdv: 2, vTac: 3 }[v];
+  for (const k of [1, 2, 3, 4]) { $('st' + k).classList.toggle('on', k === step); $('st' + k).classList.toggle('off', club && k > 1 && !S.club); }
+  $('title').textContent = club ? 'Match rapide' : 'Construire mon équipe';
   $('back').textContent = S.club ? 'Changer de club' : 'Retour aux achats';
   if (v === 'vClubs') drawClubs();
+  if (v === 'vAdv') drawAdv();
   if (v === 'vBuy') drawBuy();
   if (v === 'vTac') drawTac();
   window.scrollTo(0, 0);
 }
+// les étapes du haut se touchent pour revenir en arrière (ou aller au match)
+$('steps').addEventListener('click', e => {
+  const t = e.target.closest('[data-step]'); if (!t || !document.body.classList.contains('clubmode')) return;
+  const k = +t.dataset.step;
+  if (k === 1) show('vClubs');
+  else if (!S.club) return;
+  else if (k === 2) show('vAdv');
+  else if (k === 3) show('vTac');
+  else if (k === 4) $('play').click();
+});
 
 // ---------- achats ----------
 function manque() {
@@ -396,8 +457,40 @@ function pickClub(id) {
   Object.assign(S, { club: C.id, nom: C.nom, formation: F.id, tac: Object.assign({ passing: 0, tempo: 0, width: 0, line: 0, press: 0, cross: 0, switch: 0 }, C.consignes),
     squad: C.titulaires.concat(C.remplacants).map(j => j.id), lineup: pls.map(pl => (C.titulaires.find(j => j.place === pl.code) || {}).id || null), bench: C.remplacants.map(j => j.id) });
   if (S.lineup.some(x => !x)) ranger();
-  show('vTac'); say('Effectif de ' + C.nom + ' en place, dans son système habituel (' + F.name + ') et avec le style de son entraîneur. Changez la formation, faites glisser les joueurs, réglez les consignes.');
+  if (S.adv === C.id || !CLUBS.some(x => x.id === S.adv)) S.adv = (CLUBS.find(x => x.id !== C.id) || {}).id || '';
+  save(); show('vAdv');      // enregistré tout de suite (accueil « Mon club », coupe), puis étape 2 : l'adversaire
 }
+
+// ---------- étape 2 : l'adversaire (n° 138) ----------
+// niveau : note globale moyenne des onze titulaires (sur 100), et une barre de la plus faible à la plus forte des équipes de Ligue 1
+const levels = () => { const v = CLUBS.map(C => moyenne(C.titulaires)); return [Math.min(...v), Math.max(...v)]; };
+const levelBar = C => { const [lo, hi] = levels(), m = moyenne(C.titulaires); return '<span class="lvl">Niveau <b style="color:var(--text)">' + fmtN(m) + '</b><i><b style="width:' + Math.round(12 + 88 * (m - lo) / Math.max(1, hi - lo)) + '%"></b></i></span>'; };
+// style de l'entraîneur : ses consignes, en clair (« Jeu de passes : court · Pressing : harceler »)
+const styleOf = C => { const t = C.consignes || {}, on = D.tactics.filter(c => t[c.key]); return on.length ? on.map(c => c.label + ' : ' + c.options[t[c.key] + 1].toLowerCase()).join(' · ') : 'consignes neutres'; };
+const formName = C => (D.formations.find(f => f.id === C.formation) || D.formations[0]).name;
+const rang = C => C.classement ? C.classement + (C.classement === 1 ? 'er' : 'e') + ' en 2025-26' : 'promu';
+function drawAdv() {
+  const mine = CLUBS.find(C => C.id === S.club);
+  $('advs').innerHTML = CLUBS.map(C => C.id === S.club ? '' : '<button class="club' + (C.id === S.adv ? ' on' : '') + '" data-adv="' + esc(C.id) + '"><div class="top"><span class="rk">' + (C.classement ? C.classement + (C.classement === 1 ? 'er' : 'e') : 'promu') + '</span><b>' + esc(C.nom) + '</b></div>'
+    + levelBar(C) + '<div class="stars">' + esc(formName(C)) + ' · ' + esc(styleOf(C)) + '</div></button>').join('');
+  const C = CLUBS.find(x => x.id === S.adv); if (!C) { $('advD').innerHTML = '<span class="muted">Choisissez un club.</span>'; return; }
+  const F = D.formations.find(f => f.id === C.formation) || D.formations[0];
+  let h = pitchSvg();
+  F.places.forEach(pl => { const j = C.titulaires.find(x => x.place === pl.code); if (!j) return; const p = placeXY(pl); h += '<div class="spot" style="left:' + p.left.toFixed(2) + '%;top:' + p.top.toFixed(2) + '%"><div class="tok" title="' + esc(j.nom) + ' — ' + esc(pl.label) + ', note ' + fmtN(j.note) + '"><div class="ball">' + j.poste + '</div><div class="nm">' + esc(nomCourt(j)) + '</div><div class="sub">' + fmtN(j.note) + '</div></div></div>'; });
+  const m = moyenne(C.titulaires), me = mine ? moyenne(mine.titulaires) : null, d = me == null ? 0 : Math.round(m - me);
+  const keys = C.titulaires.slice().sort((a, b) => b.note - a.note).slice(0, 3);
+  $('advD').innerHTML = '<h2>Votre adversaire</h2><div class="who">' + esc(C.nom) + '</div><div class="small muted">' + rang(C) + '</div>'
+    + levelBar(C) + (me == null ? '' : '<div class="small">' + (Math.abs(d) <= 2 ? 'Niveau proche du vôtre (' : d > 0 ? 'Plus fort que vous (' : 'Moins fort que vous (') + 'vous : ' + fmtN(me) + ')</div>')
+    + '<div><b>Système :</b> ' + esc(F.name) + '</div><div class="pitch">' + h + '</div>'
+    + '<div><b>Style de l\'entraîneur :</b> ' + esc(styleOf(C)) + '</div>'
+    + '<div class="keys"><b>Joueurs clés</b>' + keys.map(j => '<div>' + tag(j.poste) + ' ' + esc(j.nom) + ' <span>· ' + fmtN(j.note) + '</span></div>').join('') + '</div>'
+    + '<div class="row" style="margin-top:6px"><button id="advBack">← Mon club</button><button class="main go-btn" id="advNext">3. Ma tactique →</button></div>';
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-adv]'); if (b && b.closest('#vAdv')) { S.adv = b.dataset.adv; drawAdv(); if (window.innerWidth <= 900) $('advD').scrollIntoView({ behavior: 'smooth' }); return; }
+  if (e.target.id === 'advNext') { save(); show('vTac'); }
+  else if (e.target.id === 'advBack') show('vClubs');
+});
 document.addEventListener('click', e => { const b = e.target.closest('[data-club]'); if (b) pickClub(b.dataset.club); });
 
 // ---------- tactique : placement ----------
@@ -462,6 +555,12 @@ function drawTac() {
   $('cons').innerHTML = '<span class="k" title="Un jeu des sept consignes prêt à l\'emploi">Tactique</span><select class="preset" id="preset">' + D.presets.map(p => '<option value="' + p.id + '"' + (preset === p ? ' selected' : '') + ' title="' + esc(p.help) + '">' + esc(p.name) + '</option>').join('') + (preset ? '' : '<option selected value="">Personnalisée</option>') + '</select>' +
     D.tactics.map(c => '<span class="k" title="' + esc(c.help) + '">' + c.label + '</span><select data-tac="' + c.key + '" class="' + (S.tac[c.key] ? 'set' : '') + '">' + c.options.map((o, k) => '<option value="' + (k - 1) + '"' + (S.tac[c.key] === k - 1 ? ' selected' : '') + '>' + o + '</option>').join('') + '</select>').join('');
   $('nom').value = S.nom;
+  if (S.club) {
+    $('clubName').textContent = CLUBS.find(C => C.id === S.club).nom;
+    const A = CLUBS.find(C => C.id === S.adv);
+    $('advSum').innerHTML = A ? 'Adversaire : <b>' + esc(A.nom) + '</b><div class="small muted">' + esc(formName(A)) + ' · niveau ' + fmtN(moyenne(A.titulaires)) + ' · ' + esc(styleOf(A)) + '</div><div style="margin-top:4px"><button id="advChange">Changer d\'adversaire</button></div>' : '';
+    $('play').textContent = '4. Passer au match →';
+  } else $('play').textContent = 'Passer au match →';
   drawLook();
   // adversaire : un autre club de Ligue 1 (n° 111 : plus d'équipe standard ni de niveaux dans le jeu)
   const advs = D.adversaires.filter(a => a.id !== S.club);
@@ -484,6 +583,7 @@ function drawLook() {
 $('look').addEventListener('click', e => { if (e.target.id === 'swapBtn') { UI.sel = UI.look; drawTac(); } else if (e.target.id === 'swapCancel') { UI.sel = null; drawTac(); } });
 $('compo').addEventListener('click', e => { const r = e.target.closest('[data-look]'); if (r) { UI.look = r.dataset.look; drawTac(); } });
 $('adv').onchange = () => { S.adv = $('adv').value; };
+$('advSum').addEventListener('click', e => { if (e.target.id === 'advChange') show('vAdv'); });
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.id === 'preset' && t.value) { const p = D.presets.find(x => x.id === t.value); Object.assign(S.tac, p.t); drawTac(); }
