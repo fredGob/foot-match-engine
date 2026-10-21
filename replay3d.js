@@ -9,14 +9,13 @@
 })(typeof self !== 'undefined' ? self : this, function () {
 'use strict';
 
-const HL = 52.5, HW = 34, MX = 4.5, MY = 3.5, GW = 3.66, GH = 2.44, GD = 2.0;
+const HL = 52.5, HW = 34, GW = 3.66, GH = 2.44, GD = 2.0;
 const KEEPER = ['#f2a33a', '#26282c'];
 const SKIN = ['#e9c39b', '#c99a6e', '#8d5a3b', '#f1d0b0', '#6b4128', '#d9a77f'];
 const HAIR = ['#1d1a17', '#3b2a1e', '#6b4a2b', '#0f0f10', '#a07a4a', '#2a2522'];
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v, lerp = (a, b, k) => a + (b - a) * k;
 const smooth = (a, b, x) => { const k = clamp((x - a) / (b - a), 0, 1); return k * k * (3 - 2 * k); };
 
-function rand(seed) { let a = seed >>> 0; return () => (a = (Math.imul(a, 1664525) + 1013904223) >>> 0) / 4294967296; }
 // texture dessinée sur un canvas ; couleurs en sRGB (le rendu travaille en couleurs linéaires, comme un appareil photo)
 function canvasTex(w, h, draw, data) {
   const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
@@ -24,43 +23,130 @@ function canvasTex(w, h, draw, data) {
 }
 const lin = c => new THREE.Color(c).convertSRGBToLinear();
 
-function pitchTexture(R2) {
-  const k = 22, w = Math.round(2 * (HL + MX) * k), h = Math.round(2 * (HW + MY) * k);
-  return canvasTex(w, h, g => {
-    R2.drawPitch(g, w, h);
-    const r = rand(7);
-    for (let i = 0; i < 160000; i++) { g.fillStyle = r() < 0.5 ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)'; g.fillRect(r() * w, r() * h, 1 + r() * 2, 1 + r() * 3); }
-  });
+// l'ombre douce sous chaque joueur (en plus de son ombre au soleil) : elle le pose au sol
+function blobTexture() {
+  return canvasTex(64, 64, (g, w, h) => { const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,0,0.6)'); gr.addColorStop(0.45, 'rgba(0,0,0,0.3)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
 }
-// brins d'herbe, répétés tous les 60 cm : ce qui donne du grain quand la caméra est près du sol
-function grassTexture() {
-  const t = canvasTex(256, 256, (g, w, h) => {
-    g.clearRect(0, 0, w, h); const r = rand(5);
-    for (let i = 0; i < 2600; i++) { const x = r() * w, y = r() * h, l = 3 + r() * 7; g.strokeStyle = r() < 0.55 ? 'rgba(10,40,12,0.30)' : 'rgba(190,230,150,0.20)'; g.lineWidth = 1 + r(); g.beginPath(); g.moveTo(x, y); g.lineTo(x + (r() - 0.5) * 3, y - l); g.stroke(); }
-  });
-  t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+/* ---------- L'image façon caméra de télévision (ordinateur seulement ; n° 141, idées reprises d'une visite 3D haut de gamme) ----------
+   La scène est dessinée en « haute dynamique » (lumières au-delà du blanc) dans une image à part, avec sa profondeur. Puis :
+   1. l'ombrage de contact (occlusion ambiante) : là où deux surfaces se touchent (pieds et pelouse, bras et buste, gradins sous le toit),
+      la lumière du ciel arrive moins ; calculé à demi-résolution, puis adouci sans baver sur les contours ;
+   2. le halo : les zones les plus lumineuses (maillots blancs au soleil, lignes, filet, projecteurs) débordent un peu, comme sur une caméra ;
+   3. la passe finale : flou de profondeur des longues focales, halo, rendu des couleurs « neutre » (plus fidèle aux couleurs que l'ancien,
+      qui jaunissait la pelouse), étalonnage (saturation et contraste un peu plus forts), grain fin. Le vignettage est dans la page (CSS). */
+const VS = 'varying vec2 vUv;\nvoid main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+const DEPTH = `
+uniform sampler2D tD; uniform float near, far; uniform vec2 pInv;
+float lz(float d) { float z = d * 2.0 - 1.0; return 2.0 * near * far / (far + near - z * (far - near)); }
+vec3 vpos(vec2 uv) { float z = lz(texture2D(tD, uv).x); return vec3((uv * 2.0 - 1.0) * pInv * z, -z); }
+`;
+const AO_FRAG = DEPTH + `
+uniform vec2 res; uniform float p11, radius, power;
+varying vec2 vUv;
+void main() {
+  vec3 P = vpos(vUv);
+  float rpx = radius * p11 * 0.5 * res.y / -P.z;
+  if (-P.z > 140.0 || rpx < 0.8) { gl_FragColor = vec4(1.0); return; }
+  rpx = min(rpx, 48.0);
+  vec3 N = normalize(cross(dFdx(P), dFdy(P)));
+  float a0 = 6.2832 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))), occ = 0.0;
+  for (int i = 0; i < 12; i++) {
+    float fi = (float(i) + 0.5) / 12.0, a = a0 + float(i) * 2.39996;
+    vec3 v = vpos(vUv + vec2(cos(a), sin(a)) * sqrt(fi) * rpx / res) - P;
+    float vv = dot(v, v), d = sqrt(vv);
+    occ += max(0.0, dot(v, N) - 0.015 - 0.002 * -P.z) / (vv + 0.02) * (1.0 - smoothstep(radius, radius * 2.0, d));
+  }
+  gl_FragColor = vec4(vec3(pow(clamp(1.0 - occ * radius * power / 12.0, 0.0, 1.0), 1.4)), 1.0);
+}`;
+const BLUR_FRAG = DEPTH + `
+uniform sampler2D tA; uniform vec2 res;
+varying vec2 vUv;
+void main() {
+  float zc = lz(texture2D(tD, vUv).x), s = 0.0, w = 0.0;
+  for (int x = -2; x <= 2; x++) for (int y = -2; y <= 2; y++) {
+    vec2 uv = vUv + vec2(float(x), float(y)) * 1.5 / res;
+    float k = exp(-abs(lz(texture2D(tD, uv).x) - zc) / (0.03 * zc)) * (1.0 - 0.1 * float(x * x + y * y) / 8.0);
+    s += texture2D(tA, uv).r * k; w += k;
+  }
+  gl_FragColor = vec4(vec3(s / max(w, 1e-4)), 1.0);
+}`;
+const GLOW_FRAG = `
+uniform sampler2D tC; uniform vec2 res; uniform float thr;
+varying vec2 vUv;
+void main() {
+  vec2 o = 0.5 / res;
+  vec3 c = (texture2D(tC, vUv + vec2(-o.x, -o.y)).rgb + texture2D(tC, vUv + vec2(o.x, -o.y)).rgb + texture2D(tC, vUv + vec2(-o.x, o.y)).rgb + texture2D(tC, vUv + o).rgb) * 0.25;
+  float l = max(c.r, max(c.g, c.b));
+  gl_FragColor = vec4(min(c * smoothstep(thr, thr * 1.6, l), vec3(8.0)), 1.0);
+}`;
+const POST_FRAG = DEPTH + `
+uniform sampler2D tC, tA, tG; uniform vec2 res; uniform float focus, blur, nearK, maxB, time, exposure, aoOn, glow;
+varying vec2 vUv;
+float coc(float z) { float c = 1.0 - focus / z; return min(maxB, blur * (c > 0.0 ? c : -c * nearK)); }      // nearK : moins de flou devant le point
+vec3 sc(vec2 uv) { return texture2D(tC, uv).rgb * mix(1.0, texture2D(tA, uv).r, aoOn); }
+vec3 neutral(vec3 c) {      // rendu des couleurs « Khronos PBR Neutral »
+  float x = min(c.r, min(c.g, c.b)), off = x < 0.08 ? x - 6.25 * x * x : 0.04; c -= off;
+  float peak = max(c.r, max(c.g, c.b)); if (peak < 0.76) return c;
+  float d = 0.24, np = 1.0 - d * d / (peak + d - 0.76); c *= np / peak;
+  return mix(c, vec3(np), 1.0 - 1.0 / (0.15 * (peak - np) + 1.0));
 }
-function crowdTexture() {
-  const t = canvasTex(2048, 512, (g, w, h) => {
-    g.fillStyle = '#161a20'; g.fillRect(0, 0, w, h);
-    const r = rand(11), cols = ['#c9d3de', '#3a5f9e', '#9e3a3a', '#d8c45a', '#5a5a5a', '#e8e8e8', '#2f6fdf', '#d8423a', '#8a6a4a', '#2c2c2c', '#f0c8a0', '#6a4a3a'];
-    for (let y = 3; y < h; y += 7) for (let x = (y % 14) / 2; x < w; x += 6) {
-      if (r() < 0.08) continue;
-      g.globalAlpha = 0.5 + 0.5 * (y / h);
-      g.fillStyle = cols[Math.floor(r() * cols.length)]; g.fillRect(x, y + 2, 4.4, 4.6);           // le maillot
-      g.fillStyle = r() < 0.5 ? '#e0b48c' : '#8a5a3c'; g.beginPath(); g.arc(x + 2.2, y + 1, 1.8, 0, 7); g.fill();      // la tête
+void main() {
+  float zc = lz(texture2D(tD, vUv).x), cc = coc(zc);
+  vec3 col = sc(vUv);
+  if (cc > 0.6) {
+    vec3 acc = col; float ws = 1.0;
+    for (int i = 0; i < 28; i++) {
+      float fi = float(i) + 0.5, r = sqrt(fi / 28.0) * cc, a = fi * 2.39996;
+      vec2 uv = vUv + vec2(cos(a), sin(a)) * r / res;
+      float zt = lz(texture2D(tD, uv).x), w = zt >= zc ? 1.0 : smoothstep(r - 1.5, r + 0.5, coc(zt));
+      acc += sc(uv) * w; ws += w;
     }
-    g.globalAlpha = 1;
-    for (let i = 0; i < 26; i++) { const x = r() * w, y = 40 + r() * (h - 120); g.fillStyle = i % 2 ? '#2f6fdf' : '#d8423a'; g.fillRect(x, y, 34, 20); g.fillStyle = '#ffffff'; g.fillRect(x, y + 8, 34, 4); }      // drapeaux
-  });
-  t.wrapS = THREE.RepeatWrapping; return t;
-}
-function boardTexture() {
-  const t = canvasTex(4096, 128, (g, w, h) => {
-    const ads = [['#11151a', '#ffe45c', "L'ENTRAÎNEUR EN CARTON"], ['#2f6fdf', '#ffffff', 'COUPE EN CARTON'], ['#d8423a', '#ffffff', 'MATCH RAPIDE'], ['#1e7a3c', '#ffffff', 'TACTIQUE · TACTIQUE']];
-    ads.forEach((a, i) => { g.fillStyle = a[0]; g.fillRect(i * w / 4, 0, w / 4, h); g.fillStyle = a[1]; g.font = '800 66px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(a[2], i * w / 4 + w / 8, h / 2 + 2); });
-  });
-  t.wrapS = THREE.RepeatWrapping; return t;
+    col = acc / ws;
+  }
+  col += glow * (textureLod(tG, vUv, 1.0).rgb * 0.35 + textureLod(tG, vUv, 2.5).rgb * 0.3 + textureLod(tG, vUv, 4.0).rgb * 0.22 + textureLod(tG, vUv, 5.5).rgb * 0.13);
+  col = neutral(col * exposure);
+  col = mix(col * 12.92, 1.055 * pow(max(col, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055, step(0.0031308, col));
+  float avg = (col.r + col.g + col.b) / 3.0;
+  col += (col - avg) * 0.06;                     // saturation
+  col = (col - 0.5) * 1.06 + 0.5;                // contraste
+  col += (fract(sin(dot(gl_FragCoord.xy + fract(time) * 97.0, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.018;
+  gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+}`;
+function makePost(renderer) {
+  if (!renderer.capabilities.isWebGL2 || !THREE.WebGLMultisampleRenderTarget) return null;
+  const HF = THREE.HalfFloatType, LF = THREE.LinearFilter;
+  const rt = new THREE.WebGLMultisampleRenderTarget(4, 4, { format: THREE.RGBAFormat, type: HF, minFilter: LF, magFilter: LF });
+  rt.samples = 4; rt.texture.generateMipmaps = false;
+  rt.depthTexture = new THREE.DepthTexture(4, 4); rt.depthTexture.type = THREE.UnsignedIntType;
+  const half = o => new THREE.WebGLRenderTarget(4, 4, Object.assign({ format: THREE.RGBAFormat, minFilter: LF, magFilter: LF, depthBuffer: false }, o));
+  const aoA = half(), aoB = half(), glowRT = half({ type: HF, minFilter: THREE.LinearMipmapLinearFilter, generateMipmaps: true });
+  const D = { tD: { value: rt.depthTexture }, near: { value: 0.3 }, far: { value: 800 }, pInv: { value: new THREE.Vector2(1, 1) } };
+  const halfRes = { value: new THREE.Vector2(2, 2) }, fullRes = { value: new THREE.Vector2(4, 4) };
+  const mk = (frag, U) => new THREE.ShaderMaterial({ uniforms: Object.assign({}, D, U), vertexShader: VS, fragmentShader: frag, depthTest: false, depthWrite: false, extensions: { derivatives: true } });
+  const aoM = mk(AO_FRAG, { res: halfRes, p11: { value: 1 }, radius: { value: 0.55 }, power: { value: 1.25 } });
+  const blurM = mk(BLUR_FRAG, { tA: { value: aoA.texture }, res: halfRes });
+  const glowM = mk(GLOW_FRAG, { tC: { value: rt.texture }, res: halfRes, thr: { value: 1.7 } });
+  const U = { tC: { value: rt.texture }, tA: { value: aoB.texture }, tG: { value: glowRT.texture }, res: fullRes, focus: { value: 20 }, blur: { value: 0 }, nearK: { value: 0.3 }, maxB: { value: 12 }, time: { value: 0 }, exposure: { value: 1.0 }, aoOn: { value: 1 }, glow: { value: 0.35 } };
+  const finalM = mk(POST_FRAG, U);
+  const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), finalM); quad.frustumCulled = false;
+  const sc = new THREE.Scene(); sc.add(quad); const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const pass = (m, target) => { quad.material = m; renderer.setRenderTarget(target); renderer.render(sc, cam); };
+  const P = {
+    U, ao: true,
+    size(w, h) { rt.setSize(w, h); fullRes.value.set(w, h); const hw = Math.max(1, Math.round(w / 2)), hh = Math.max(1, Math.round(h / 2)); for (const r of [aoA, aoB, glowRT]) r.setSize(hw, hh); halfRes.value.set(hw, hh); },
+    // dessine la scène puis les passes ; camera : pour la profondeur
+    render(scene, camera) {
+      const tm = renderer.toneMapping; renderer.toneMapping = THREE.NoToneMapping;      // la passe finale fait le rendu des couleurs
+      renderer.setRenderTarget(rt); renderer.render(scene, camera); renderer.toneMapping = tm;
+      D.near.value = camera.near; D.far.value = camera.far; D.pInv.value.set(1 / camera.projectionMatrix.elements[0], 1 / camera.projectionMatrix.elements[5]);
+      aoM.uniforms.p11.value = camera.projectionMatrix.elements[5];
+      if (P.ao) { pass(aoM, aoA); pass(blurM, aoB); }
+      U.aoOn.value = P.ao ? 1 : 0;
+      pass(glowM, glowRT);
+      pass(finalM, null);
+    },
+  };
+  return P;
 }
 function ballTexture() {
   return canvasTex(512, 256, (g, w, h) => {
@@ -73,7 +159,7 @@ function ballTexture() {
     }
   });
 }
-function skyTexture() { return canvasTex(4, 512, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#2c4a78'); gr.addColorStop(0.5, '#7fa3cc'); gr.addColorStop(0.8, '#e4c79a'); gr.addColorStop(1, '#f0b878'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }); }
+function skyTexture() { return canvasTex(4, 512, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#3d68a3'); gr.addColorStop(0.45, '#86acd6'); gr.addColorStop(0.8, '#d9dfe0'); gr.addColorStop(1, '#f1dcb4'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }); }
 // le visage, peint sur la tête (le devant de la sphère est au milieu de la texture)
 function faceTexture(skin, hair) {
   return canvasTex(512, 256, (g, w, h) => {
@@ -103,46 +189,32 @@ function backTexture(name, num, ink) {
 
 function create(canvas, R2, opt) {
   opt = opt || {};
+  const small = !!opt.small;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(opt.small ? 1.5 : 2, window.devicePixelRatio || 1));
-  renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+  renderer.setPixelRatio(Math.min(small ? 1.5 : 2, window.devicePixelRatio || 1));
+  renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const scene = new THREE.Scene();
-  scene.background = skyTexture(); scene.fog = new THREE.Fog(lin('#b9c3c9'), 150, 340);
-  const camera = new THREE.PerspectiveCamera(26, 16 / 9, 0.1, 800);
-  scene.add(new THREE.HemisphereLight(lin('#d6e4ff'), lin('#3b5a30'), 0.75));
-  // soleil de fin d'après-midi, rasant : de longues ombres nettes autour de l'action
-  const sun = new THREE.DirectionalLight(lin('#ffe9c8'), 2.1); sun.castShadow = true;
-  const SM = opt.small ? 2048 : 4096; sun.shadow.mapSize.set(SM, SM);
+  scene.background = skyTexture(); scene.fog = new THREE.Fog(lin('#c6cfd4'), 150, 380);
+  const camera = new THREE.PerspectiveCamera(26, 16 / 9, 0.3, 800);
+  // soleil de fin d'après-midi, rasant : de longues ombres nettes autour de l'action ; le ciel éclaire et se reflète (n° 141)
+  const SUN = new THREE.Vector3(-30, 55, 38).normalize();
+  try { scene.environment = Stade3D.envMap(renderer, SUN); } catch (e) { scene.environment = null; }
+  scene.add(new THREE.HemisphereLight(lin('#d6e4ff'), lin('#3b5a30'), scene.environment ? 0.25 : 0.75));
+  const sun = new THREE.DirectionalLight(lin('#ffe6c2'), 2.2); sun.castShadow = true;
+  const SM = small ? 2048 : 4096; sun.shadow.mapSize.set(SM, SM);
   Object.assign(sun.shadow.camera, { left: -24, right: 24, top: 24, bottom: -24, near: 5, far: 160 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02; sun.shadow.radius = 3;
   scene.add(sun); scene.add(sun.target);
-  const fill = new THREE.DirectionalLight(lin('#b8ccff'), 0.45); fill.position.set(40, 30, -60); scene.add(fill);
+  const fill = new THREE.DirectionalLight(lin('#b8ccff'), 0.3); fill.position.set(40, 30, -60); scene.add(fill);
+  const post = small ? null : (() => { try { return makePost(renderer); } catch (e) { return null; } })();
+  const dof = { focus: 20, blur: 0, nearK: 0.3 };
 
   const std = (c, rough, extra) => new THREE.MeshStandardMaterial(Object.assign({ color: lin(c), roughness: rough == null ? 0.85 : rough, metalness: 0 }, extra || {}));
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(360, 260), std('#2c5730', 1)); ground.rotation.x = -Math.PI / 2; ground.position.y = -0.03; ground.receiveShadow = true; scene.add(ground);
-  const pitch = new THREE.Mesh(new THREE.PlaneGeometry(2 * (HL + MX), 2 * (HW + MY)), std('#ffffff', 0.92, { map: pitchTexture(R2) })); pitch.rotation.x = -Math.PI / 2; pitch.receiveShadow = true; scene.add(pitch);
-  const gt = grassTexture(); gt.repeat.set(2 * (HL + MX) / 0.6, 2 * (HW + MY) / 0.6);
-  const grass = new THREE.Mesh(new THREE.PlaneGeometry(2 * (HL + MX), 2 * (HW + MY)), new THREE.MeshStandardMaterial({ map: gt, transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1 }));
-  grass.rotation.x = -Math.PI / 2; grass.position.y = 0.004; grass.receiveShadow = true; scene.add(grass);
-  // panneaux publicitaires, tribunes sur les quatre côtés, projecteurs
-  const boards = boardTexture();
-  const board = (len, x, z, ry, rep) => { const t = boards.clone(); t.needsUpdate = true; t.repeat.set(rep, 1); const face = new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, emissive: lin('#ffffff'), emissiveMap: t, emissiveIntensity: 0.35 }); const m = new THREE.Mesh(new THREE.BoxGeometry(len, 0.9, 0.12), [std('#111', 0.6), std('#111', 0.6), std('#111', 0.6), std('#111', 0.6), face, face]); m.position.set(x, 0.45, z); m.rotation.y = ry; m.castShadow = true; m.receiveShadow = true; scene.add(m); };
-  board(100, 0, -(HW + 3.2), 0, 100 / 32); board(100, 0, HW + 3.2, Math.PI, 100 / 32); board(64, -(HL + 3.6), 0, Math.PI / 2, 2); board(64, HL + 3.6, 0, -Math.PI / 2, 2);
-  const crowd = crowdTexture(), dark = std('#23282f', 0.9), roofM = std('#3a3f47', 0.6);
-  function stand(len, cx, cz, ry) {
-    const g = new THREE.Group(), t = crowd.clone(); t.needsUpdate = true; t.repeat.set(len / 30, 1);
-    const face = new THREE.Mesh(new THREE.PlaneGeometry(len, 26), std('#ffffff', 1, { map: t, side: THREE.DoubleSide })); face.rotation.x = -0.6; face.position.set(0, 8, 9); g.add(face);
-    const back = new THREE.Mesh(new THREE.BoxGeometry(len + 2, 19, 1), dark); back.position.set(0, 9.5, 19.5); g.add(back);
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(len + 4, 0.6, 17), roofM); roof.position.set(0, 20, 11.5); roof.rotation.x = 0.08; roof.castShadow = true; g.add(roof);
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(len, 1.6, 0.4), dark); wall.position.set(0, 0.8, -1); g.add(wall);
-    g.position.set(cx, 0, cz); g.rotation.y = ry; scene.add(g);
-  }
-  stand(150, 0, -(HW + 8), Math.PI); stand(150, 0, HW + 8, 0); stand(90, -(HL + 9), 0, -Math.PI / 2); stand(90, HL + 9, 0, Math.PI / 2);
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) stand(34, sx * (HL + 14), sz * (HW + 13), Math.atan2(sx, sz));      // les coins, pour fermer le stade
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 38, 10), std('#5b6068', 0.5)); mast.position.set(sx * (HL + 24), 19, sz * (HW + 22)); scene.add(mast);
-    const lamp = new THREE.Mesh(new THREE.BoxGeometry(6, 3.4, 0.6), new THREE.MeshBasicMaterial({ color: lin('#fffbe6') })); lamp.position.set(sx * (HL + 23), 38.5, sz * (HW + 21)); lamp.lookAt(0, 0, 0); scene.add(lamp);
-  }
+  const stade = Stade3D.build(scene, { small, sun: SUN });      // pelouse, lignes, panneaux, tribunes, public (stade3d.js)
+  // les ombres douces au pied des joueurs
+  const blobM = new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+  const blobG = new THREE.PlaneGeometry(1.15, 1.15); blobG.rotateX(-Math.PI / 2);
+  const blobs = [];
 
   // ---------- les buts : poteaux, barre, montants arrière, et un vrai filet (des mailles) qui se gonfle ----------
   const white = std('#ffffff', 0.35);
@@ -298,7 +370,10 @@ function create(canvas, R2, opt) {
   const figs = [];
   const gest = {};      // les gestes de chaque joueur (index → liste), préparés pour l'action en cours
   let clip = null, hooks = null, segs = [], si = 0, t = 0, raf = 0, last = 0, cam = null, ballLast = null, hasGest = false, keeperTouchedLast = false, kickLeg = 0, diveSide = 0, diveDir = 0, diveReach = 0, diveAmt = 0, W = 1, H = 1;
-  function resize(w, h) { W = w; H = h; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  function resize(w, h) {
+    W = w; H = h; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    if (post) { const v = renderer.getDrawingBufferSize(new THREE.Vector2()); post.size(v.x, v.y); }
+  }
   // les mêmes gestes pour les joueurs animés (players3d.js) : on tourne les os du squelette par-dessus le mouvement enregistré
   function kickR(u, r, leg) {
     const w = smooth(-0.5, -0.32, r) * (1 - smooth(0.35, 0.6, r)); if (w <= 0) return;
@@ -477,6 +552,9 @@ function create(canvas, R2, opt) {
     hasGest = prepareGestures(c);
     if (hasGest && c.keeper >= 0) keeperTouchedLast = (gest[c.keeper] || []).some(g => c.shotT != null && g.t >= c.shotT - 0.05);
     for (const N of nets) { N.s = 0; N.vs = 0; updateNet(N); }
+    stade.dress(c.teams);
+    while (blobs.length < c.players.length) { const b = new THREE.Mesh(blobG, blobM); b.renderOrder = 2; scene.add(b); blobs.push(b); }
+    blobs.forEach((b, i) => { b.visible = i < c.players.length; });
   }
   // vitesse du ralenti selon le moment de l'action
   function rate(s, tt) {
@@ -484,9 +562,23 @@ function create(canvas, R2, opt) {
     const a = clip.shotT - 1.3, b = clip.goalT + 0.5;
     return tt < a - 0.4 ? 1 : tt < a ? lerp(1, 0.32, (tt - a + 0.4) / 0.4) : tt < b ? 0.32 : lerp(0.32, 0.7, Math.min(1, (tt - b) / 0.5));
   }
+  /* Qualité qui s'adapte (n° 141, comme la visite 3D de référence) : si les images mettent trop de temps à venir (plus de 45 ms en moyenne),
+     on retire d'abord l'ombrage de contact, puis toute la passe « caméra de télévision » (d'un coup si c'est très lent). Le choix reste pour les replays suivants. */
+  const perf = { n: 0, sum: 0, slow: 0 };
+  const quality = () => { document.body.dataset.replayQualite = post.on === false ? 'simple' : 'sans-ombrage'; };
+  function watchPerf(ms) {
+    if (!post || post.on === false || ++perf.n <= 3) return;      // les premières images comptent les chargements
+    if (ms > 300) { if (++perf.slow >= 2) { post.on = false; quality(); } return; }      // deux images de suite à plus de 0,3 s : tout de suite au plus simple
+    perf.slow = 0; if (perf.n <= 5) return;
+    perf.sum += ms;
+    if (perf.n < 5 + 12) return;
+    const avg = perf.sum / 12;
+    if (avg > 45) { if (post.ao && avg < 120) post.ao = false; else post.on = false; quality(); }
+    perf.n = 5; perf.sum = 0;
+  }
   function frame() {
     raf = requestAnimationFrame(frame);
-    const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000); last = now;
+    const now = performance.now(), dt = Math.min(0.25, (now - last) / 1000); watchPerf(now - last); last = now;      // appareil très lent : le replay saute des images plutôt que de durer
     let s = segs[si]; const gdt = dt * rate(s, t); t += gdt;
     if (t > s.to) {
       si++;
@@ -531,22 +623,29 @@ function create(canvas, R2, opt) {
         roll += kdir * Math.sign(Math.cos(F)) * Math.min(1.45, kmag);
       }
       f.position.set(x, lift, z); f.rotation.set(roll, yaw, pitch); f.scale.setScalar(u.rigged ? 1.03 : 1.12);
+      const bl = blobs[i], spread = 1 + 0.6 * Math.min(1, Math.abs(roll) + Math.abs(pitch));      // couché (plongeon, tacle) : l'ombre s'étale
+      bl.position.set(x, 0.01, z); bl.scale.setScalar(spread * (1 + lift));
     });
     // le ballon : dans le but, il s'arrête dans le filet, qui se creuse
     let bx = S.ball.x, by = Math.max(0, S.ball.z), bz = S.ball.y;
     const N = nets.find(n => n.d === Math.sign(bx));
     if (N && Math.abs(bx) > HL && Math.abs(bz) < GW + 0.2 && by < GH) {
       const push = clamp(Math.abs(bx) - (HL + GD - 0.3), 0, 0.7);
-      if (gdt) { N.vs += (90 * (push - N.s) - 9 * N.vs) * gdt; N.s += N.vs * gdt; }
+      for (let st = gdt; st > 1e-6; st -= 0.03) { const h = Math.min(0.03, st); N.vs += (90 * (push - N.s) - 9 * N.vs) * h; N.s += N.vs * h; }      // petits pas : le filet reste stable même si les images sont lentes
       N.hy = clamp(by + BR, 0.3, GH - 0.4); N.hz = clamp(bz, -GW + 0.4, GW - 0.4);
       bx = N.d * Math.min(Math.abs(bx), HL + GD - 0.2 + Math.max(0, N.s) * 0.9);
-    } else if (N && gdt) { N.vs += (-90 * N.s - 9 * N.vs) * gdt; N.s += N.vs * gdt; }
+    } else if (N) for (let st = gdt; st > 1e-6; st -= 0.03) { const h = Math.min(0.03, st); N.vs += (-90 * N.s - 9 * N.vs) * h; N.s += N.vs * h; }
     for (const n of nets) updateNet(n);
     if (ballLast) { const dx = bx - ballLast.x, dz = bz - ballLast.z, dd = Math.hypot(dx, dz); if (dd > 1e-4 && dd < 5) ball.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(dz / dd, 0, -dx / dd), dd / BR)); }
     ballLast = { x: bx, z: bz };
     ball.position.set(bx, by + BR, bz);
     placeCamera(s.cam, S, bx, by, bz, dt);
-    renderer.render(scene, camera);
+    stade.update(tt, c.goalT != null ? smooth(c.goalT + 0.15, c.goalT + 0.7, tt) : 0);      // le public saute après le but
+    if (post && post.on !== false) {
+      const P = post.U, k = H / 720;
+      P.focus.value = dof.focus; P.blur.value = dof.blur * k; P.nearK.value = dof.nearK; P.maxB.value = 12 * k; P.time.value = tt;
+      post.render(scene, camera);
+    } else renderer.render(scene, camera);
   }
   // les deux caméras ; elles glissent en douceur (temps réel : au ralenti, elles restent bien sur l'action)
   function placeCamera(kind, S, bx, by, bz, dt) {
@@ -561,20 +660,26 @@ function create(canvas, R2, opt) {
       pos = [p.x - ux * 4.6 - uy * 1.2, 2.0, p.y - uy * 4.6 + ux * 1.2];
       const ahead = [p.x + ux * 7, 0.9, p.y + uy * 7];
       look = [lerp(lerp(bx, ahead[0], 0.5), bx, after), lerp(lerp(by + 0.3, ahead[1], 0.5), by + 0.4, after), lerp(lerp(bz, ahead[2], 0.5), bz, after)];
+      look[0] += 0.05 * Math.sin(t * 1.7); look[1] += 0.035 * Math.sin(t * 2.3 + 1); look[2] += 0.05 * Math.sin(t * 1.3 + 2);      // caméra à l'épaule : elle bouge à peine (n° 141)
       fov = 42;
     } else {
       // caméra télé de replay : plus basse et plus près que celle du match, légèrement tournée vers le but
       const k = 0.25 * smooth(c.shotT - 2, c.shotT, t);
       look = [lerp(bx, gx, k), 0.6 + by * 0.5, lerp(bz, 0, k) * 0.9];
       pos = [clamp(bx, -HL + 2, HL - 2) - c.side * 8, 9, bz * 0.6 + 21];
-      fov = 30;
+      fov = lerp(30, 25, smooth(c.shotT - 3, c.shotT - 0.8, t));      // le cadreur resserre le plan avant le tir (n° 141)
     }
     if (!cam) cam = { pos: pos.slice(), look: look.slice() };
     for (let i = 0; i < 3; i++) { cam.pos[i] += (pos[i] - cam.pos[i]) * k; cam.look[i] += (look[i] - cam.look[i]) * k; }
     if (camera.fov !== fov) { camera.fov = fov; camera.updateProjectionMatrix(); }
     camera.position.set(cam.pos[0], cam.pos[1], cam.pos[2]); camera.lookAt(cam.look[0], cam.look[1], cam.look[2]);
-    figs.forEach((f, i) => { f.visible = i === c.scorer || (kind === 'pres' && i === c.focus) || Math.hypot(f.position.x - cam.pos[0], f.position.z - cam.pos[2]) > 3; });      // pas de joueur collé à l'objectif
+    figs.forEach((f, i) => { f.visible = i === c.scorer || (kind === 'pres' && i === c.focus) || Math.hypot(f.position.x - cam.pos[0], f.position.z - cam.pos[2]) > 3; if (blobs[i]) blobs[i].visible = f.visible; });      // pas de joueur collé à l'objectif
     sun.position.set(cam.look[0] - 30, 55, cam.look[2] + 38); sun.target.position.set(cam.look[0], 0, cam.look[2]);
+    // le flou de profondeur : net sur l'action (le ballon pour la caméra du buteur, qui fait le point du tireur vers le but)
+    const fx = kind === 'buteur' ? bx : cam.look[0], fy = kind === 'buteur' ? by + 0.3 : cam.look[1], fz = kind === 'buteur' ? bz : cam.look[2];
+    const fd = Math.max(3, Math.hypot(fx - cam.pos[0], fy - cam.pos[1], fz - cam.pos[2]));
+    dof.focus = dof.focus && cam.f ? dof.focus + (fd - dof.focus) * k : fd; cam.f = true;
+    dof.blur = kind === 'buteur' ? 7 : kind === 'pres' ? 5 : 3; dof.nearK = kind === 'buteur' ? 0.45 : kind === 'pres' ? 0.5 : 0.12;
   }
   /* clip : { t0, t1, shotT, goalT, side (but en x = side × 52,5), scorer, keeper (index des joueurs, -1 sinon), own (contre son camp), head,
              teams: [{ color }], players: [{ team, role, num, name }], at(t) → { players: [{ x, y, face, v }], ball: { x, y, z } } }
@@ -584,7 +689,7 @@ function create(canvas, R2, opt) {
     stop(); clip = c; hooks = h || {};
     segs = [{ cam: 'tele', from: c.t0, to: c.t1 }];
     if (c.scorer >= 0 && !c.own && c.shotT != null) segs.push({ cam: 'buteur', from: Math.max(c.t0, c.shotT - 2.2), to: Math.min(c.t1, c.goalT + 1.3) });
-    setup(c); si = 0; t = segs[0].from; cam = null; ballLast = null; last = performance.now();
+    setup(c); si = 0; t = segs[0].from; cam = null; ballLast = null; last = performance.now(); perf.n = 0; perf.sum = 0; perf.slow = 0;
     if (hooks.onAngle) hooks.onAngle(segs[0].cam);
     render(t, 0, 0, segs[0]);
     raf = requestAnimationFrame(frame);
@@ -592,6 +697,7 @@ function create(canvas, R2, opt) {
   function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; }
   // une seule image, à l'instant tt, avec la caméra « nom » (pour les essais et les captures)
   function still(c, tt, kind, focus) { stop(); clip = c; c.focus = focus; hooks = {}; setup(c); t = tt; cam = null; ballLast = null; render(tt, 0, 0, { cam: kind }); }
+  self.__rp3 = { scene, renderer, camera, post, stade };
   return { play, stop, resize, still, playing: () => !!raf };
 }
 

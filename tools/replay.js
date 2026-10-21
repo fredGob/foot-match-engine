@@ -87,6 +87,7 @@ const serve = async (ctx, model = true) => { await ctx.route(R3.LIB, r => r.fulf
   await ph.tap('#rpSkip'); await ph.waitForTimeout(400);
   check(await ph.isHidden('#replay') && await ph.isVisible('#pmini'), '« Passer » au doigt : retour au match');
 
+  await ctx.close(); await tel.close();      // sans carte graphique, les pages encore ouvertes ralentiraient trop la suite
   console.log('Replay avec les joueurs animés (vrais mouvements, n° 129)');
   const an = await browser.newContext({ viewport: { width: 1200, height: 700 } }); await serve(an, true);
   const ap = await an.newPage(); ap.on('pageerror', e => errors.push(String(e)));

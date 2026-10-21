@@ -63,7 +63,9 @@ function buildBody(sk, segs) {
       for (let k = 0; k < N; k++) {
         const t = k / N * Math.PI * 2, c = Math.cos(t), s = Math.sin(t);
         const p = r.c.clone().addScaledVector(u, r.a * Math.sign(c) * Math.pow(Math.abs(c), 2 / n)).addScaledVector(v, r.b * Math.sign(s) * Math.pow(Math.abs(s), 2 / n));
-        row.push(vert(p, partOf ? partOf(p, r) : r.part, w(p, r)));
+        const pt = partOf ? partOf(p, r) : r.part;
+        if (pt < 0) { const o = p.clone().sub(r.c); o.y = 0; p.addScaledVector(o.normalize(), 0.008); p.y += 0.006; }      // les cheveux : un peu de volume (n° 141)
+        row.push(vert(p, pt, w(p, r)));
       }
       first.push(row);
     });
@@ -72,7 +74,8 @@ function buildBody(sk, segs) {
       if (out) idx.push(a, c, b, b, c, d); else idx.push(a, b, c, b, d, c);
     }
     const cap = (row, r, flip) => {
-      const ctr = vert(r.c, partOf ? partOf(r.c, r) : r.part, w(r.c, r));
+      const cp = partOf ? partOf(r.c, r) : r.part, cc = r.c.clone(); if (cp < 0) cc.y += 0.012;
+      const ctr = vert(cc, cp, w(r.c, r));
       for (let k = 0; k < N; k++) { const a = row[k], b = row[(k + 1) % N]; if (flip === out) idx.push(ctr, b, a); else idx.push(ctr, a, b); }
     };
     if (cap0) cap(first[0], rings[0], false);
@@ -182,17 +185,22 @@ function swapBody(scene) {
 function bodyMaterial(kit) {
   const m = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0, skinning: true });
   const trim = kit.shorts.clone(); if (Math.abs(trim.r - kit.shirt.r) + Math.abs(trim.g - kit.shirt.g) + Math.abs(trim.b - kit.shirt.b) < 0.15) trim.copy(kit.shirt).multiplyScalar(0.55);
-  const U = { k_trim: { value: trim }, k_eyes: { value: new THREE.Color(0x15110e) } };
+  const U = { k_trim: { value: trim }, k_eyes: { value: new THREE.Color(0x15110e) }, k_rim: { value: new THREE.Color(0.30, 0.27, 0.22).multiplyScalar(kit.rim != null ? kit.rim : 0.5) } };      // k_rim : liseré de lumière sur les bords (n° 141)
   for (const k of ['shirt', 'shorts', 'socks', 'skin', 'hair', 'boots', 'hands']) U['k_' + k] = { value: kit[k].clone() };
+  if (kit.hands.equals(kit.skin)) U.k_hands.value.multiplyScalar(0.82);
+  U.k_skin.value.multiplyScalar(0.82);      // peau un peu plus mate : sous le soleil, elle paraissait blanche (n° 141)
   m.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, U);
     sh.vertexShader = 'attribute float part, hairy;\nvarying float vPart, vHairy;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vPart = part; vHairy = hairy;');
-    sh.fragmentShader = 'varying float vPart, vHairy;\nuniform vec3 k_shirt, k_shorts, k_socks, k_skin, k_hair, k_boots, k_hands, k_trim, k_eyes;\n' + sh.fragmentShader
+    sh.fragmentShader = 'varying float vPart, vHairy;\nuniform vec3 k_shirt, k_shorts, k_socks, k_skin, k_hair, k_boots, k_hands, k_trim, k_eyes, k_rim;\n' + sh.fragmentShader
       .replace('#include <color_fragment>', `#include <color_fragment>
       int pt = int(vPart + 0.5);
       vec3 c = pt == 1 ? k_shirt : pt == 2 ? k_shorts : pt == 3 ? k_socks : pt == 4 ? k_boots : pt == 5 ? k_hair : pt == 6 ? k_hands : pt == 7 ? k_trim : pt == 8 ? k_eyes : k_skin;
       if (vHairy > 0.5) c = k_hair;
       diffuseColor.rgb = c;`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      float rimF = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0);
+      totalEmissiveRadiance += k_rim * rimF * rimF * rimF;`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
       int pr = int(vPart + 0.5);
       if (vHairy > 0.5) pr = 5;
