@@ -152,9 +152,9 @@ const COUPE = 'file://' + path.join(ROOT, 'coupe.html');
 
   console.log('Avec une équipe construite (page équipe)');
   await page.goto('file://' + path.join(ROOT, 'equipe.html') + '#clubs'); await page.waitForTimeout(400);
-  await page.click('[data-club="monaco"]'); await page.waitForTimeout(300); await page.click('#save'); await page.waitForTimeout(200);
+  await page.click('[data-club="monaco"]'); await page.waitForTimeout(300); await page.click('#advNext'); await page.waitForTimeout(200);      // étape 2 puis 3 : l'équipe s'enregistre seule (n° 138)
   const built = await page.evaluate(() => (JSON.parse(localStorage.getItem('construction-equipe')) || {}).equipe);
-  check(built && built.joueurs.length === 11 && built.remplacants.length > 0 && built.formation, '« Enregistrer l\'équipe » garde l\'équipe entière pour la coupe');
+  check(built && built.joueurs.length === 11 && built.remplacants.length > 0 && built.formation, 'le club placé dans la page équipe est enregistré entier pour la coupe');
   await page.goto(COUPE); await page.waitForTimeout(300);
   page.once('dialog', d => d.accept()); await page.click('#backCup').catch(() => {});
   await page.evaluate(() => localStorage.removeItem('coupe-partie')); await page.reload(); await page.waitForTimeout(300);

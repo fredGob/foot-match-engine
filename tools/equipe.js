@@ -150,12 +150,19 @@ function choisir(D) {
   await shot('equipe-ligue1.png');
   await page.click('#clubs .club[data-club="psg"]');
   const PSG = clubs.find(T => T.id === 'psg');
+  // étape 2 (n° 138) : l'adversaire, sur sa page à part
+  check(await page.isVisible('#vAdv') && await page.isHidden('#vTac') && (await page.$$('#advs .club')).length === 17 && !(await page.$('#advs [data-adv="psg"]')), 'club choisi : étape 2, page « Adversaire » avec les 17 autres clubs', await page.textContent('#steps'));
+  await page.click('#advs [data-adv="lyon"]'); await page.waitForTimeout(150);
+  const advTxt = (await page.textContent('#advD')).replace(/\s+/g, ' ');
+  check(/Lyon-Quenelle/.test(advTxt) && /Niveau \d+/.test(advTxt) && /Système : 4-2-3-1/.test(advTxt) && /Style de l'entraîneur/.test(advTxt) && /Joueurs clés/.test(advTxt) && (await page.$$('#advD .pitch .tok')).length === 11, 'fiche de l\'adversaire : niveau, système et onze sur le terrain, style de l\'entraîneur, joueurs clés', advTxt.slice(0, 160));
+  await shot('equipe-adversaire.png');
+  await page.click('#advNext'); await page.waitForTimeout(200);
   const order = ['G', 'AG', 'DCG', 'DCD', 'AD', 'MG', 'MCG', 'MCD', 'MD', 'ATG', 'ATD'];      // rang de l'effectif du 4-4-2 dans le moteur
   const want = order.map(c => PSG.joueurs.find(j => j.poste === c).nom);
   check(await page.isVisible('#pitch') && (await page.$$('#pitch .tok')).length === 11 && (await page.$$('#bench .tok')).length === PSG.remplacants.length,
     'PSG choisi : écran tactique, 11 titulaires sur le terrain, ' + PSG.remplacants.length + ' remplaçants sur le banc');
   check(JSON.stringify(await page.evaluate('S.lineup.map(id => byId[id].nom)')) === JSON.stringify(want) && await page.evaluate('S.formation') === PSG.formation, 'chaque titulaire à sa place, dans le système habituel du club (' + PSG.formation + ')', want.join(', '));
-  check(/pas de budget/.test(await page.textContent('#teamInfo')) && (await page.textContent('#back')) === 'Changer de club' && /Choisir le club/.test(await page.textContent('#st1')), 'pas de budget affiché, bouton « Changer de club »', await page.textContent('#teamInfo'));
+  check(/pas de budget/.test(await page.textContent('#teamInfo')) && /3\. Ma tactique/.test(await page.textContent('#steps .on')) && await page.isHidden('#nom') && await page.isHidden('#save') && await page.isHidden('#export') && /Lyon-Quenelle/.test(await page.textContent('#advSum')) && await page.textContent('#play') === '4. Passer au match →', 'étape 3 « Ma tactique » : pas de budget, ni nom ni enregistrer ni exporter, l\'adversaire rappelé, « 4. Passer au match »', await page.textContent('#teamInfo'));
   // le remplaçant attaquant glissé sur l'attaquant mobile (place n° 9 en 4-4-2)
   const kb = await page.evaluate(`S.bench.findIndex(id => ['AT', 'MG', 'MD'].includes(byId[id].poste))`), sub = await page.evaluate('S.bench[' + kb + ']'), ac = await page.evaluate('S.lineup[9]');
   await drag('[data-drop="b' + kb + '"]', '[data-drop="p9"]');
@@ -164,13 +171,11 @@ function choisir(D) {
   check(await page.evaluate('S.formation') === '4231', 'formation 4-2-3-1 choisie');
   await page.selectOption('#preset', 'possession');
   await shot('equipe-ligue1-tactique.png');
-  await page.click('#save');
+  await page.evaluate('save()');      // club : plus de bouton « Enregistrer » (n° 138), l'équipe s'enregistre en passant d'une étape à l'autre et au match
   const saved2 = await page.evaluate(`JSON.parse(localStorage.getItem('construction-equipe'))`);
-  check(saved2 && saved2.club === 'psg' && saved2.formation === '4231', 'enregistrée (club, formation)');
-  const [dl2] = await Promise.all([page.waitForEvent('download'), page.click('#export')]);
-  const tmp2 = path.join(os.tmpdir(), 'equipe-export-l1-' + process.pid + '.json'); await dl2.saveAs(tmp2);
-  const T2 = JSON.parse(fs.readFileSync(tmp2, 'utf8')); fs.unlinkSync(tmp2);
-  check(dl2.suggestedFilename() === 'equipe-paris-saint-qatar.json' && T2.joueurs.length === 11 && T2.remplacants.length === PSG.remplacants.length && T2.formation === '4231', 'fichier exporté', dl2.suggestedFilename() + ' · ' + T2.description);
+  check(saved2 && saved2.club === 'psg' && saved2.formation === '4231' && saved2.adv === 'lyon', 'enregistrée (club, formation, adversaire)');
+  const T2 = await page.evaluate('exportTeam()');      // l'équipe telle qu'elle part au match
+  check(T2.id === 'paris-saint-qatar' && T2.joueurs.length === 11 && T2.remplacants.length === PSG.remplacants.length && T2.formation === '4231', 'équipe envoyée au match', T2.id + ' · ' + T2.description);
   const all = PSG.joueurs.concat(PSG.remplacants);
   check(T2.joueurs.concat(T2.remplacants).every(j => JSON.stringify(j.notes) === JSON.stringify(all.find(x => x.nom === j.nom).notes)), 'les notes exportées sont celles de equipes.json');
   let ok2 = true, det2 = '';
@@ -187,8 +192,8 @@ function choisir(D) {
   await page.screenshot({ path: path.join(DOCS, 'accueil.png'), fullPage: true }); console.log('        capture : docs/accueil.png');
   await page.click('#editMine'); await page.waitForURL(/#reprendre/);
   check(await page.isVisible('#pitch') && await page.evaluate('S.club') === 'psg' && JSON.stringify(await page.evaluate('S.lineup')) === JSON.stringify(saved2.lineup), 'club repris après rechargement : même formation, mêmes places');
-  await page.click('#back');
-  check(await page.isVisible('#clubs'), '« Changer de club » ramène à la liste des clubs');
+  await page.click('#st1');
+  check(await page.isVisible('#clubs'), 'l\'étape « 1. Mon club » (en haut) ramène à la liste des clubs');
   await page.goto(url + '#carton'); await page.reload(); await page.waitForTimeout(300);
   check(await page.evaluate('S.squad.length') === 0 && await page.evaluate('S.club') === null, 'construction d\'équipe (adresse cachée) après un club : effectif vide, budget entier');
   await page.goto(url + '#construire'); await page.reload(); await page.waitForTimeout(300);
@@ -196,10 +201,9 @@ function choisir(D) {
 
   console.log('Passer au match');
   await page.click('#home'); await page.click('#goQuick'); await page.waitForURL(/#clubs/); await page.click('#clubs .club[data-club="lens"]');
+  await page.click('#advs [data-adv="marseille"]'); await page.click('#advNext'); await page.waitForTimeout(200);      // étape 2 : l'adversaire
   await page.click('#forms button[data-form="352"]'); await page.selectOption('#preset', 'contre');
-  const advs = await page.$$eval('#adv optgroup', g => g.map(x => x.label + ' : ' + x.children.length));
-  check(advs.length === 1 && advs[0] === 'Ligue 1 2026-27 : 17' && await page.inputValue('#adv') !== 'lens', 'choix de l\'adversaire : les 17 autres clubs de Ligue 1', advs.join(' | '));
-  await page.selectOption('#adv', 'marseille');
+  check(await page.evaluate('S.adv') === 'marseille' && /Marsupilami/.test(await page.textContent('#advSum')), 'adversaire choisi à l\'étape 2, rappelé à l\'étape 3', (await page.textContent('#advSum')).replace(/\s+/g, ' ').slice(0, 80));
   const tacLens = await page.evaluate('Object.assign({}, S.tac)'), lineLens = await page.evaluate('S.lineup.map(id => byId[id].nom)');
   await Promise.all([page.waitForURL(/match\.html$/), page.click('#play')]);      // adresse propre (n° 136) : la partie est gardée dans le navigateur
   check(/match\.html$/.test(page.url()), '« Passer au match » : adresse propre, sans l\'équipe dedans', page.url().split('/').pop());
@@ -218,7 +222,7 @@ function choisir(D) {
   await page.waitForTimeout(1500); await page.screenshot({ path: path.join(DOCS, 'match-depuis-equipe.png') }); console.log('        capture : docs/match-depuis-equipe.png');
   await Promise.all([page.waitForURL(/equipe\.html/), page.click('#teamLink')]);
   await page.waitForTimeout(300);
-  check(await page.isVisible('#pitch') && await page.evaluate('S.club') === 'lens' && await page.evaluate('S.formation') === '352' && await page.inputValue('#adv') === 'marseille', '« Retour à la page équipe » : on retrouve Lens, son placement et l\'adversaire');
+  check(await page.isVisible('#pitch') && await page.evaluate('S.club') === 'lens' && await page.evaluate('S.formation') === '352' && await page.evaluate('S.adv') === 'marseille', '« Retour à la page équipe » : on retrouve Lens, son placement et l\'adversaire');
 
   console.log('Téléphone (390 × 844)');
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
