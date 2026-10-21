@@ -59,6 +59,7 @@ const serve = async (ctx, model = true) => { await ctx.route(R3.LIB, r => r.fulf
   await ph.goto(url); await ph.evaluate(() => { localStorage.setItem('vue', '3d'); localStorage.removeItem('menuFerme'); }); await ph.reload();
   await ph.waitForFunction(() => document.body.dataset.vue3d === 'prete', null, { timeout: 60000 });
   check(await ph.isVisible('#ppanel #views'), 'boutons 2D / 3D dans la colonne');
+  await ph.tap('#tvBack'); await ph.waitForTimeout(300);      // la tactique s'ouvre d'abord : « ▶ Jouer »
   await ph.tap('#kick'); await ph.waitForTimeout(3000);
   check(await ph.isVisible('#pitch3d') && await ph.evaluate('document.documentElement.scrollWidth <= window.innerWidth'), 'match en 3D, sans défilement de côté');
   await ph.screenshot({ path: path.join(DOCS, 'vue-3d-telephone.png') }); console.log('        capture : docs/vue-3d-telephone.png');

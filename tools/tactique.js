@@ -79,7 +79,10 @@ const url = 'file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURICo
   await page.click('[data-mode="coach"]'); await page.waitForTimeout(300);
   await page.click('#kick'); await ready(); await page.waitForTimeout(1500); await page.click('#play').catch(() => {}); await page.waitForTimeout(200);
   await page.click('#tabTac'); await page.waitForTimeout(200);
-  check(!(await page.isVisible('#tvTeams')), 'mode Coach It : seulement votre équipe dans l\'onglet Tactique');
+  check(await page.textContent('#tvTeams') === 'Mon équipeAdversaire', 'mode Coach It : boutons « Mon équipe » et « Adversaire »');
+  await page.click('[data-tv-team="1"]'); await page.waitForTimeout(150);
+  check(await page.isVisible('#tvOpp') && await page.isHidden('#tvChanges') && (await page.$$('#tvTac select:disabled')).length === 8 && (await page.$$('#tvForms button:disabled')).length === 5, 'l\'adversaire se regarde (composition, consignes, notes) mais ne se règle pas', (await page.textContent('#tvOpp')).split('Vous')[0].replace(/\s+/g, ' '));
+  await page.click('[data-tv-team="0"]'); await page.waitForTimeout(150);
   await drag('#tvBench .tdrop:not(:has(.gone)):not(:has(.leaving)) .ttok', '#tvPitch [data-tdrop="p8"]'); await page.click('#tvApply'); await ready();
   const logOf = () => page.evaluate(() => document.getElementById('log').textContent);
   check(/En attente du prochain arrêt de jeu/.test(await page.textContent('#tvPending')) || /Remplacement des Bleus/.test(await logOf()), 'mode Coach It : remplacement demandé au direct, en attente ou déjà fait (arrêt de jeu en cours)', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
@@ -107,7 +110,7 @@ const url = 'file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURICo
   console.log('Téléphone couché (844 × 390)');
   const pp = await (await browser.newContext({ viewport: { width: 844, height: 390 }, screen: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true })).newPage();
   pp.on('pageerror', e => errors.push(String(e)));
-  await pp.goto(url); await pp.waitForTimeout(400); await pp.click('#tabTac'); await pp.waitForTimeout(200);
+  await pp.goto(url); await pp.waitForTimeout(400);      // téléphone : l'écran Tactique s'ouvre d'abord
   check(await pp.evaluate('document.documentElement.scrollWidth <= window.innerWidth') && (await pp.$$('#tvPitch .ttok')).length === 11, 'onglet Tactique sur téléphone : pas de défilement de côté');
   await pp.tap('#tvPitch [data-tdrop="p2"] .ttok .ball'); await pp.tap('#tvSwap'); await pp.tap('#tvPitch [data-tdrop="p3"] .ttok .ball');
   check(/→/.test(await pp.textContent('#tvDraft')), 'au doigt : « Échanger ce joueur » puis toucher l\'autre', (await pp.textContent('#tvDraft')).replace(/\s+/g, ' '));
