@@ -554,9 +554,11 @@ function apercu() {
   return { nom: (S.nom || '').trim() || 'Mon équipe', club: S.club ? CLUBS.find(C => C.id === S.club).nom : '', formation: forme().name, adversaire: adv.nom,
     moyenne: Math.round(10 * S.lineup.reduce((t, id) => t + byId[id].note, 0) / 11) / 10, remplacants: S.bench.length,
     titulaires: pls.map((pl, i) => { const j = byId[S.lineup[i]]; return { nom: nomCourt(j), note: Math.round(10 * j.note) / 10, poste: j.poste, place: pl.label, x: Math.round(pl.x * 10) / 10, d: pl.role === 'GK' ? -15 : Math.round(pl.d * 10) / 10, hors: !accepte(pl).includes(j.poste) }; }),
-    lien: lienMatch() };
+    partie: partieMatch() };
 }
-function lienMatch() { const T = exportTeam(); delete T.description; return 'match.html#partie=' + encodeURIComponent(JSON.stringify({ equipe: T, adversaire: S.adv })); }
+// la partie (votre équipe, l'adversaire) est gardée dans le navigateur (« match-partie ») et match.html la relit : adresse propre (n° 136)
+function partieMatch() { const T = exportTeam(); delete T.description; return { equipe: T, adversaire: S.adv }; }
+function versMatch(P) { try { localStorage.setItem('match-partie', JSON.stringify(P)); } catch (e) {} location.href = 'match.html'; }
 function save() {
   const s = { squad: S.squad, lineup: S.lineup, bench: S.bench, formation: S.formation, tac: S.tac, nom: S.nom, club: S.club, adv: S.adv, quand: new Date().toISOString(), apercu: apercu() };
   try { if (S.lineup && S.lineup.every(Boolean)) s.equipe = exportTeam(); } catch (e) {}      // l'équipe entière, pour la Coupe en carton (coupe.html)
@@ -600,9 +602,9 @@ $('export').onclick = () => {
 };
 
 // « Passer au match » : l'équipe (au format de equipes.json, avec ses remplaçants), sa formation, ses consignes
-// et l'adversaire partent dans l'adresse de match.html (un fichier ouvert par double-clic ne peut pas lire les données d'un autre).
+// et l'adversaire sont gardés dans le navigateur, puis match.html s'ouvre avec une adresse propre (n° 136 ; avant : tout dans l'adresse).
 // L'équipe est aussi enregistrée : le lien « Retour à la page équipe » de match.html (equipe.html#reprendre) la remet en place.
-$('play').onclick = () => { save(); location.href = lienMatch(); };
+$('play').onclick = () => { save(); versMatch(partieMatch()); };
 
 // on arrive de l'accueil (index.html) : equipe.html#construire, #clubs ou #reprendre ; sans rien, retour à l'accueil
 {

@@ -35,7 +35,7 @@ const COUPE = 'file://' + path.join(ROOT, 'coupe.html');
   const D0 = await page.evaluate(() => window.CoupeData), divs = {};
   for (const id of G.teams) { const T = D0.petits.find(x => x.id === id); if (T) divs[T.division] = (divs[T.division] || 0) + 1; }
   check(G.teams.filter(id => D0.clubs.some(C => C.id === id)).length === 17 && divs['Ligue 2'] === 4 && divs['National'] === 4 && divs['National 2'] === 3 && divs['Régional'] === 3, 'les 17 autres clubs de Ligue 1 et 14 petits poucets tirés au sort (4 L2, 4 National, 3 N2, 3 régionaux)', JSON.stringify(divs));
-  check(await page.isVisible('a.btn.main[href^="match.html#partie="]'), 'bouton « Jouer le match »');
+  check(await page.isVisible('a.btn.main[href="match.html"][data-pair]'), 'bouton « Jouer le match » (adresse propre : match.html)');
 
   console.log('Les autres matchs (simulés par le moteur, en arrière-plan)');
   const t0 = Date.now();
@@ -48,8 +48,9 @@ const COUPE = 'file://' + path.join(ROOT, 'coupe.html');
 
   console.log('Votre match (match.html, mode Coach It)');
   // pour l'essai : le même lien, avec un match de 2 minutes (« duree »), qui finit souvent à égalité → tirs au but
-  const href = await page.getAttribute('a.btn.main[href^="match.html#partie="]', 'href');
-  const P = JSON.parse(decodeURIComponent(href.split('#partie=')[1]));
+  // le clic garde la partie dans le navigateur (« match-partie ») : on la relit sans ouvrir le match
+  await page.evaluate(() => { const a = document.querySelector('a.btn.main[data-pair]'); a.addEventListener('click', e => e.preventDefault(), { once: true }); a.click(); });
+  const P = await page.evaluate(() => JSON.parse(localStorage.getItem('match-partie')));
   check(typeof P.adversaire === 'object' && P.coupe && P.coupe.tour === '16e de finale', 'le lien envoie l\'adversaire entier et le tour de coupe');
   const opp0 = (await page.evaluate(() => { const g = JSON.parse(localStorage.getItem('coupe-partie')); const p = g.rounds[0].pairs.find(q => q.a === 'moi'); return p.b; }));
   const D = await page.evaluate(() => window.CoupeData);
@@ -122,9 +123,11 @@ const COUPE = 'file://' + path.join(ROOT, 'coupe.html');
   await page3.close();
 
   console.log('Abandon = défaite (match lancé puis quitté)');
-  const href2 = await page.getAttribute('a.btn.main[href^="match.html#partie="]', 'href');
   const page4 = await ctx.newPage(); page4.on('pageerror', e => errors.push(String(e)));
-  await page4.goto('file://' + path.join(ROOT, href2)); await page4.waitForTimeout(400);
+  await page.bringToFront(); await Promise.all([page.waitForURL(/match\.html$/), page.click('a.btn.main[data-pair]')]);      // le vrai bouton : adresse propre
+  check(/match\.html$/.test(page.url()) && /8e de finale/.test(await page.textContent('#squads')), '« Jouer le match » : adresse propre (match.html), le match de coupe est bien là', page.url().split('/').pop());
+  await page.goBack(); await page.waitForTimeout(400);
+  await page4.goto('file://' + path.join(ROOT, 'match.html')); await page4.waitForTimeout(400);
   await page4.reload(); await page4.waitForTimeout(400);
   check(await page4.isHidden('#forfait'), 'page rechargée avant le coup d\'envoi : pas de forfait (on peut régler sa tactique)');
   await page4.click('#kick'); await page4.waitForTimeout(3500);

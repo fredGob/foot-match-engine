@@ -1,0 +1,9 @@
+# Réglage lu par le serveur du site (Hostinger, n° 136).
+# Le navigateur doit toujours demander au serveur si une page a changé avant de la réutiliser :
+# après une mise à jour du site, le téléphone charge tout de suite la nouvelle version.
+# (Si rien n'a changé, le serveur répond « pas de changement » : presque rien à télécharger.)
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|js|json)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

@@ -201,7 +201,8 @@ function choisir(D) {
   check(advs.length === 1 && advs[0] === 'Ligue 1 2026-27 : 17' && await page.inputValue('#adv') !== 'lens', 'choix de l\'adversaire : les 17 autres clubs de Ligue 1', advs.join(' | '));
   await page.selectOption('#adv', 'marseille');
   const tacLens = await page.evaluate('Object.assign({}, S.tac)'), lineLens = await page.evaluate('S.lineup.map(id => byId[id].nom)');
-  await Promise.all([page.waitForURL(/match\.html#partie=/), page.click('#play')]);
+  await Promise.all([page.waitForURL(/match\.html$/), page.click('#play')]);      // adresse propre (n° 136) : la partie est gardée dans le navigateur
+  check(/match\.html$/.test(page.url()), '« Passer au match » : adresse propre, sans l\'équipe dedans', page.url().split('/').pop());
   await page.waitForTimeout(800);
   const nm = [await page.textContent('#name0'), await page.textContent('#name1')];
   check(/Lentilles/.test(nm[0]) && /Marsupilami/.test(nm[1]) && (await page.$$('#squads select')).length === 0, '« Passer au match » ouvre match.html : RC Lentilles contre Olympique de Marsupilami, aucun choix d\'équipe dans la page', nm.join(' / '));
@@ -211,7 +212,7 @@ function choisir(D) {
   await page.click('#tabMatch');
   check(formM === '352' && JSON.stringify(tacM) === JSON.stringify(tacLens), 'la formation (3-5-2) et la tactique « Contre-attaque » sont en place dans le match', formM + ' ' + JSON.stringify(tacM));
   await page.click('#kick'); await page.waitForFunction(() => !document.getElementById('time').disabled && document.getElementById('busy').hidden, null, { timeout: 30000 });
-  const sent = JSON.parse(decodeURIComponent(/#partie=(.*)$/.exec(page.url())[1]));      // ce que la page équipe a envoyé, lu par le moteur
+  const sent = await page.evaluate(() => JSON.parse(localStorage.getItem('match-partie')));      // ce que la page équipe a envoyé, lu par le moteur
   const onPitch = E.createMatch({ seed: 1, duration: 60, teams: [sent.equipe, null], formations: [sent.equipe.formation, '442'] }).teams[0].players.map(p => p.name);
   check(JSON.stringify(onPitch) === JSON.stringify(lineLens), 'chaque joueur joue à la place où on l\'a mis', onPitch.slice(8).join(', '));
   await page.waitForTimeout(1500); await page.screenshot({ path: path.join(DOCS, 'match-depuis-equipe.png') }); console.log('        capture : docs/match-depuis-equipe.png');
