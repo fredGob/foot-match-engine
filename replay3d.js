@@ -399,7 +399,7 @@ function create(canvas, R2, opt) {
     if (g.dive) {
       const k = smooth(-0.22, 0.02, r) * (1 - smooth(0.9, 1.4, r));
       B.lArm.rotation.z += 2.6 * k * w; B.rArm.rotation.z -= 2.6 * k * w; B.lLeg.rotation.x += 0.35 * k * w; B.rLeg.rotation.x += 0.35 * k * w;
-      T.roll += g.side * 1.35 * g.amt * k * w; T.lift += 0.42 * g.amt * Math.sin(Math.PI * Math.min(1, smooth(-0.22, 0.25, r))) * w; T.lat += g.dir * g.reach * k * w;
+      T.kmag += 1.35 * g.amt * k * w; T.kdir = g.dir; T.lift += 0.42 * g.amt * Math.sin(Math.PI * Math.min(1, smooth(-0.22, 0.25, r))) * w; T.lat += g.dir * g.reach * k * w;
       return;
     }
     const k = smooth(-0.25, 0, r) * (1 - smooth(0.4, 0.8, r));
@@ -418,7 +418,7 @@ function create(canvas, R2, opt) {
   const CALM = { pass: 0.65, lob: 0.75, clear: 0.75, shot: 0.75, punt: 0.9, throw: 1, ctrl: 0.55, head: 0.6, block: 0.6, tackle: 0.5, miss: 0.5, save: 0.9, catch: 0.9 };
   function calmSpeed(g, tt, v) { return g ? v * (1 - CALM[g.k] * env(tt - g.t, WIN[g.k])) : v; }
   function gesture(g, u, tt) {
-    const T = { pitch: 0, roll: 0, lift: 0, fwd: 0, lat: 0 };
+    const T = { pitch: 0, roll: 0, lift: 0, fwd: 0, lat: 0, kmag: 0, kdir: 0 };      // kmag, kdir : plongeon du gardien (ampleur, côté du ballon)
     if (!g) return T;
     const r = tt - g.t, w = env(r, WIN[g.k]), B = u.bones;
     switch (g.k) {
@@ -503,25 +503,34 @@ function create(canvas, R2, opt) {
       if (!gdt) u.sp = p.v; else u.sp += (Math.min(p.v, 10) - u.sp) * Math.min(1, gdt * 10);
       const g = u.rigged && hasGest ? pick(i, tt) : null;
       if (u.rigged) { u.body.position.y = 0; P3().animate(f, calmSpeed(g, tt, u.sp), gdt); } else gait(u, u.sp, gdt);
-      let x = p.x, z = p.y, roll = 0, lift = 0, pitch = 0;
+      let x = p.x, z = p.y, roll = 0, lift = 0, pitch = 0, kmag = 0, kdir = 0;
       if (u.rigged && hasGest) {      // les gestes de toute l'action (n° 133)
         const G = gesture(g, u, tt);
-        roll = G.roll; lift = G.lift; pitch = G.pitch; z += G.lat;
+        roll = G.roll; lift = G.lift; pitch = G.pitch; z += G.lat; kmag = G.kmag; kdir = G.kdir;
         x += Math.cos(p.face) * G.fwd; z += Math.sin(p.face) * G.fwd;
         if (i === c.keeper && c.shotT != null && !keeperTouchedLast) {      // le but : il plonge sans toucher le ballon
           const k = smooth(c.shotT + 0.06, c.shotT + 0.06 + Math.max(0.3, (c.goalT - c.shotT) * 0.9), tt) * (1 - smooth(c.goalT + 1.4, c.goalT + 2.2, tt));
           diveR(u, k);
-          roll += diveSide * 1.3 * diveAmt * k; lift += 0.45 * diveAmt * Math.sin(Math.PI * Math.min(1, k)) * (tt < c.goalT + 0.3 ? 1 : 0.4);
+          const m = 1.3 * diveAmt * k; if (m > kmag) { kmag = m; kdir = diveDir; }      // le plus ample des deux plongeons, jamais leur somme (n° 140)
+          lift = Math.max(lift, 0.45 * diveAmt * Math.sin(Math.PI * Math.min(1, k)) * (tt < c.goalT + 0.3 ? 1 : 0.4));
           z += diveDir * diveReach * k;
         }
       } else if (i === c.scorer && c.shotT != null && !c.own) { if (c.head) (u.rigged ? headerR : header)(u, tt - c.shotT); else (u.rigged ? kickR : kick)(u, tt - c.shotT, kickLeg); }
       if (i === c.keeper && c.shotT != null && !(u.rigged && hasGest)) {
         const k = smooth(c.shotT + 0.06, c.shotT + 0.06 + Math.max(0.3, (c.goalT - c.shotT) * 0.9), tt) * (1 - smooth(c.goalT + 1.4, c.goalT + 2.2, tt));
         (u.rigged ? diveR : dive)(u, k);
-        roll = diveSide * 1.3 * diveAmt * k; lift = 0.45 * diveAmt * Math.sin(Math.PI * Math.min(1, k)) * (tt < c.goalT + 0.3 ? 1 : 0.4);
+        kmag = 1.3 * diveAmt * k; kdir = diveDir; lift = 0.45 * diveAmt * Math.sin(Math.PI * Math.min(1, k)) * (tt < c.goalT + 0.3 ? 1 : 0.4);
         z += diveDir * diveReach * k;      // il s'étire vers le ballon, au-delà de ce que le moteur lui fait parcourir
       }
-      f.position.set(x, lift, z); f.rotation.set(roll, -p.face, pitch); f.scale.setScalar(u.rigged ? 1.03 : 1.12);
+      // plongeon (n° 140, remarque de Frédéric : « un salto arrière ») : dans le moteur, le gardien regarde dans le sens où il se déplace,
+      // donc le long de sa ligne quand il se jette. On le tourne face au jeu, puis il bascule sur le côté du ballon, 83° au plus.
+      let yaw = -p.face;
+      if (kmag > 0.01) {
+        const F = p.x > 0 ? Math.PI : 0, a = Math.min(1, kmag / 0.5), dA = Math.atan2(Math.sin(F - p.face), Math.cos(F - p.face));
+        yaw = -(p.face + dA * a);
+        roll += kdir * Math.sign(Math.cos(F)) * Math.min(1.45, kmag);
+      }
+      f.position.set(x, lift, z); f.rotation.set(roll, yaw, pitch); f.scale.setScalar(u.rigged ? 1.03 : 1.12);
     });
     // le ballon : dans le but, il s'arrête dans le filet, qui se creuse
     let bx = S.ball.x, by = Math.max(0, S.ball.z), bz = S.ball.y;

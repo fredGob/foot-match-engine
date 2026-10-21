@@ -707,7 +707,7 @@
   const stopReplay = () => { rpResume = false; endReplay(); };
   $('rpSkip').onclick = endReplay;
   // pour les essais (tools/replay.js) : une image fixe du replay du but n° k, à « dt » secondes du tir, avec la caméra « cam »
-  window.replayStill = (k, dt, cam, focus, abs, touches) => { const e = rec.events.filter(x => x.kind === 'goal')[k], c = goalClip(e); if (touches) c.touches = touches; $('replay').hidden = false; $('rpLoad').hidden = true; if (!rp) rp = RP3.create($('replayCv'), R, { small: PHONE }); sizeReplay(); rp.still(c, abs ? dt : (c.shotT != null ? c.shotT : c.goalT) + dt, cam, focus); return { shotT: c.shotT, goalT: c.goalT, t0: c.t0, touches: c.touches }; };
+  window.replayStill = (k, dt, cam, focus, abs, touches) => { const e = rec.events.filter(x => x.kind === 'goal')[k], c = goalClip(e); if (touches) c.touches = touches; $('replay').hidden = false; $('rpLoad').hidden = true; if (!rp) rp = RP3.create($('replayCv'), R, { small: PHONE }); sizeReplay(); rp.still(c, abs ? dt : (c.shotT != null ? c.shotT : c.goalT) + dt, cam, focus); return { shotT: c.shotT, goalT: c.goalT, t0: c.t0, touches: c.touches, keeper: c.keeper }; };
   $('log').addEventListener('click', ev => { const b = ev.target.closest('.rpBtn'); if (b) replay(rec.events.find(e => e.kind === 'goal' && String(e.t) === b.dataset.t), false); });
 
   const ATTRS = [['pace', 'Vitesse'], ['passing', 'Passe'], ['firstTouch', 'Prise de balle'], ['vision', 'Vision du jeu'], ['dribbling', 'Dribble'], ['finishing', 'Finition'], ['tackling', 'Tacle'], ['positioning', 'Placement'], ['decisions', 'Lucidité'], ['workRate', 'Volume de course'], ['heading', 'Jeu de tête'], ['longShots', 'Frappe de loin']];
@@ -1307,8 +1307,9 @@
     }
     for (const i of ordDiff()) { const r = tv.rids[i], t = ordText(tv.ord[i]); lines.push('Consignes de ' + nm(r) + ' (' + esc(pls[i].label) + ') : ' + (t ? esc(t) : 'neutres')); }
     $('tvDraft').innerHTML = lines.length ? lines.map(x => '<div>' + x + '</div>').join('') : '<span class="muted">Aucun changement en préparation.</span>';
-    $('tvApply').disabled = !lines.length; $('tvReset').disabled = !lines.length;
-    $('tvApply').textContent = pending ? 'Valider' : 'Valider (prochain arrêt de jeu)';
+    // n° 140 (remarque de Frédéric) : sans changement, le bouton ramène simplement au match (avant : grisé, on restait bloqué)
+    $('tvApply').disabled = !lines.length && halfStop; $('tvReset').disabled = !lines.length;
+    $('tvApply').textContent = !lines.length ? (pending ? 'Fermer' : 'Retour au match') : pending ? 'Valider' : 'Valider (prochain arrêt de jeu)';
     // téléphone, avant le coup d'envoi : la tactique s'ouvre d'abord ; « ▶ Jouer » garde ce qui est préparé et ramène au terrain (« Lancer le match »)
     if (PHONE) { $('tvBack').textContent = pending ? '▶ Jouer' : '← Match'; $('tvBack').classList.toggle('main', pending); $('tvApply').hidden = pending; }
     // demandes pas encore faites (on attend un arrêt de jeu)
@@ -1338,8 +1339,10 @@
     if (!pending && subsUsed() > E.MAX_SUBS) { tv.rids[i] = keep; tv.msg = 'Plus de remplacement possible (' + E.MAX_SUBS + ' sur ' + E.MAX_SUBS + ').'; return; }
     tv.msg = '';
   }
+  // retour au match : la lecture reprend (sauf avant le coup d'envoi) ; à la mi-temps, on reste au vestiaire jusqu'à « Reprendre la seconde période »
+  const backToMatch = () => { if (halfStop) return; setTab('match'); if (!pending) playing = true; };
   function tvApply() {
-    if (!tvDirty()) return;
+    if (!tvDirty()) return backToMatch();
     const obj = {};
     if (tv.form !== tv.base.form) obj.formation = tv.form;
     if (tv.rids.some((r, i) => r !== tv.base.rids[i])) obj.lineup = tv.rids.slice();
@@ -1350,7 +1353,7 @@
     setTactics(tv.team, obj, P ? P.name : undefined);
     tv.msg = pending ? 'Composition du coup d\'envoi enregistrée.' : 'Demandé à ' + mmss(at) + ' : fait au prochain arrêt de jeu.';
     tvLoad(); tvDraw(); nextHud = 0;
-    if (PHONE) { setTab('match'); if (!pending) playing = true; }      // téléphone : « Valider » ramène au match, qui reprend
+    backToMatch();      // « Valider » ramène au match, qui reprend (sur téléphone depuis le n° 102, partout depuis le n° 140)
   }
   $('tvApply').onclick = tvApply;
   $('tvBack').onclick = () => {      // téléphone : « ▶ Jouer » avant le coup d'envoi (garde la tactique préparée), « ← Match » ensuite (le match reprend)
