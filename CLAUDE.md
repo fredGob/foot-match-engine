@@ -764,9 +764,9 @@ Sixième séance (9 octobre 2026) : axe « niveaux », en commençant par la pos
 
 ## Ce qui ne va pas encore
 
-Après le n° 142 (à décider avec Frédéric) :
+Après le n° 142 :
 
-- **Le moteur est lent sur téléphone** : « Résultat direct » d'un match de clubs y prend 30 à 45 s (barre de progression), et la coupe joue ses 15 autres matchs plus lentement qu'au n° 110. Le moteur a presque doublé son temps de calcul depuis le 9 octobre, à cause des comportements ajoutés (surtout le n° 134). Pistes : optimiser les calculs les plus fréquents (prévision du ballon, choix du porteur, places des joueurs) en gardant les matchs identiques, ou calculer le match dans un travailleur du navigateur pendant qu'on règle la tactique.
+- **Le moteur est lent sur téléphone** (**choix de Frédéric, 22 octobre 2026 : on garde ce temps, « ce n'est pas bloquant si on met une icône de chargement »** ; pas de séance d'accélération pour l'instant) : « Résultat direct » d'un match de clubs y prend 30 à 45 s (barre de progression), et la coupe joue ses 15 autres matchs plus lentement qu'au n° 110. Le moteur a presque doublé son temps de calcul depuis le 9 octobre, à cause des comportements ajoutés (surtout le n° 134). Pistes : optimiser les calculs les plus fréquents (prévision du ballon, choix du porteur, places des joueurs) en gardant les matchs identiques, ou calculer le match dans un travailleur du navigateur pendant qu'on règle la tactique.
 
 Après le n° 134 (à surveiller) :
 
