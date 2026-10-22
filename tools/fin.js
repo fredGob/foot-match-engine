@@ -63,6 +63,10 @@ const secs = s => { const m = /^(\d+):(\d+)/.exec(s); return 60 * +m[1] + +m[2];
   await page.fill('#seed', '12'); await page.click('#load'); await page.waitForTimeout(200);
   check(await page.isVisible('#instant'), 'bouton « Résultat direct » à l\'avant-match');
   const t0 = Date.now(); await page.click('#instant');
+  // n° 142 : le calcul se fait par morceaux ; la page répond et la barre avance (avant : page figée, écran noir sur téléphone)
+  const prog = [];
+  for (let i = 0; i < 6; i++) { const t1 = Date.now(), x = await page.evaluate(() => document.getElementById('busy').hidden ? 'fini' : document.getElementById('busyTxt').textContent); prog.push(x.replace('Calcul du match… ', '') + ' (' + (Date.now() - t1) + ' ms)'); if (x === 'fini') break; await page.waitForTimeout(400); }
+  check(prog.some(x => /^\d+ %/.test(x)) && prog.every(x => +x.match(/\((\d+) ms\)/)[1] < 1000), 'pendant le calcul, la page répond et la barre avance', prog.join(', '));
   await page.waitForFunction(() => !document.getElementById('end').hidden, null, { timeout: 60000 });
   check(await page.isVisible('#card'), 'la feuille de match s\'affiche tout de suite', ((Date.now() - t0) / 1000).toFixed(1) + ' s');
   check(await page.textContent('#endText') === played, 'même résultat que le match regardé (même numéro, mêmes consignes)', await page.textContent('#endText'));

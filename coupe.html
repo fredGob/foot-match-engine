@@ -303,7 +303,13 @@ const FORMATIONS = [
       F('MID', 0, 11, 14, 10, 20, 'Milieu droit'), null, null] },
 ];
 // place du joueur n° i dans la formation de son équipe (null dans une formation : comme en 4-4-2)
-function slotOf(T, i) { const f = FORMATIONS.find(x => x.id === T.form), s = f && f.slots && f.slots[i]; return s ? Object.assign({}, SLOTS[i], s) : SLOTS[i]; }
+// (n° 142 : gardée en mémoire par formation ; elle était recomposée des milliers de fois par match. La place n'est jamais modifiée.)
+const SLOT_CACHE = new Map();
+function slotOf(T, i) {
+  let c = SLOT_CACHE.get(T.form); if (!c) { c = []; SLOT_CACHE.set(T.form, c); }
+  if (c[i] === undefined) { const f = FORMATIONS.find(x => x.id === T.form), s = f && f.slots && f.slots[i]; c[i] = s ? Object.assign({}, SLOTS[i], s) : SLOTS[i]; }
+  return c[i];
+}
 // change la formation d'une équipe, avant ou pendant le match
 function setFormation(m, team, id) {
   const T = m.teams[team], f = FORMATIONS.find(x => x.id === id);
@@ -778,15 +784,19 @@ function cornerSpot(p, T, c) {
 }
 
 // ---------- trajectoire prévue du ballon et temps d'interception de chaque joueur ----------
+// (n° 142 : les points de la trajectoire sont réutilisés d'un pas à l'autre au lieu d'être recréés ; mêmes valeurs, moins de ménage mémoire)
 function predict(m) {
-  const b = m.ball, s = { x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz, dip: b.dip }, path = m.path;
-  path.length = 0; path.push({ x: s.x, y: s.y, z: s.z, t: 0 });
+  const b = m.ball, s = { x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz, dip: b.dip }, path = m.path, pool = m.pathPool || (m.pathPool = []);
+  let n = 0;
+  const put = (x, y, z, t) => { const q = pool[n] || (pool[n] = { x: 0, y: 0, z: 0, t: 0 }); q.x = x; q.y = y; q.z = z; q.t = t; path[n++] = q; };
+  put(s.x, s.y, s.z, 0);
   for (let i = 1; i <= 110; i++) {
     ballStep(s, DT);
-    path.push({ x: s.x, y: s.y, z: s.z, t: i * DT });
+    put(s.x, s.y, s.z, i * DT);
     if (Math.abs(s.x) > P.HL + 0.5 || Math.abs(s.y) > P.HW + 0.5) break;
     if (s.z === 0 && s.vx * s.vx + s.vy * s.vy < 0.05) break;
   }
+  path.length = n;
   for (const p of m.players) m.icpt[p.id] = intercept(m, p);
   m.icptTick = m.tick;
 }

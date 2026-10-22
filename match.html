@@ -141,6 +141,7 @@
   .pre > div.row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding: 0; background: none; }
   .pre #preTac, .pre #instant { font-size: 15px; padding: 8px 18px; }
   .busy { font-size: 18px; font-weight: 500; }
+  .busy .pbar { width: min(320px, 70%); height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.15); overflow: hidden; } .busy .pbar[hidden] { display: none; } .busy .pbar i { display: block; height: 100%; width: 0; background: var(--accent); }
   .spin { width: 46px; height: 46px; border-radius: 50%; border: 5px solid rgba(255, 255, 255, 0.15); border-top-color: var(--accent); animation: tourne-rond 0.8s linear infinite; }      /* tourne même quand la page calcule */
   @keyframes tourne-rond { to { transform: rotate(360deg); } }
   .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
@@ -335,7 +336,7 @@
       <div class="end" id="end" hidden><canvas id="card" width="2400" height="1350" aria-label="Résumé du match"></canvas><div id="endText" hidden></div><div class="row" id="endGoals"></div><div class="tab" id="tab" hidden></div><div class="row"><button id="saveCard" class="main">Enregistrer l'image</button><button id="rewatch">Revoir depuis le début</button><button id="again">Jouer un autre match</button></div></div>
       <div class="replay" id="replay" hidden><canvas id="replayCv"></canvas><div class="rpVig"></div><div class="rpTag">REPLAY</div><div class="rpAngle" id="rpAngle"></div><div class="rpBand" id="rpBand"><i id="rpStripe"></i><b id="rpTitle">BUT !</b><span id="rpWho"></span><span id="rpScore"></span></div><div class="rpWipe" id="rpWipe"><span>REPLAY</span></div><div class="rpLoad" id="rpLoad" hidden>Chargement du replay…</div><button id="rpSkip">Passer ⏭</button></div>
       <div class="pre" id="pre" hidden><div id="preMsg">Choisissez le mode, réglez votre tactique (onglet Tactique), puis donnez le coup d'envoi.</div><div class="row"><button id="preTac">Régler la tactique</button><button id="kick" class="main">Lancer le match</button><button id="instant" title="Le match est joué d'un coup, sans le regarder : on arrive directement à la feuille de match">Résultat direct ⏭</button></div></div>
-      <div class="busy" id="busy" hidden><div class="spin" aria-hidden="true"></div><span>Calcul du match…</span></div>
+      <div class="busy" id="busy" hidden><div class="spin" aria-hidden="true"></div><span id="busyTxt">Calcul du match…</span><div class="pbar" id="busyBar" hidden><i></i></div></div>
       <div class="tip" id="tip" hidden></div>
       <div class="ff" id="ff" hidden>⏩ temps faible ×10</div>
       <div class="tacview" id="tacView" hidden>
@@ -594,7 +595,13 @@ const FORMATIONS = [
       F('MID', 0, 11, 14, 10, 20, 'Milieu droit'), null, null] },
 ];
 // place du joueur n° i dans la formation de son équipe (null dans une formation : comme en 4-4-2)
-function slotOf(T, i) { const f = FORMATIONS.find(x => x.id === T.form), s = f && f.slots && f.slots[i]; return s ? Object.assign({}, SLOTS[i], s) : SLOTS[i]; }
+// (n° 142 : gardée en mémoire par formation ; elle était recomposée des milliers de fois par match. La place n'est jamais modifiée.)
+const SLOT_CACHE = new Map();
+function slotOf(T, i) {
+  let c = SLOT_CACHE.get(T.form); if (!c) { c = []; SLOT_CACHE.set(T.form, c); }
+  if (c[i] === undefined) { const f = FORMATIONS.find(x => x.id === T.form), s = f && f.slots && f.slots[i]; c[i] = s ? Object.assign({}, SLOTS[i], s) : SLOTS[i]; }
+  return c[i];
+}
 // change la formation d'une équipe, avant ou pendant le match
 function setFormation(m, team, id) {
   const T = m.teams[team], f = FORMATIONS.find(x => x.id === id);
@@ -1069,15 +1076,19 @@ function cornerSpot(p, T, c) {
 }
 
 // ---------- trajectoire prévue du ballon et temps d'interception de chaque joueur ----------
+// (n° 142 : les points de la trajectoire sont réutilisés d'un pas à l'autre au lieu d'être recréés ; mêmes valeurs, moins de ménage mémoire)
 function predict(m) {
-  const b = m.ball, s = { x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz, dip: b.dip }, path = m.path;
-  path.length = 0; path.push({ x: s.x, y: s.y, z: s.z, t: 0 });
+  const b = m.ball, s = { x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz, dip: b.dip }, path = m.path, pool = m.pathPool || (m.pathPool = []);
+  let n = 0;
+  const put = (x, y, z, t) => { const q = pool[n] || (pool[n] = { x: 0, y: 0, z: 0, t: 0 }); q.x = x; q.y = y; q.z = z; q.t = t; path[n++] = q; };
+  put(s.x, s.y, s.z, 0);
   for (let i = 1; i <= 110; i++) {
     ballStep(s, DT);
-    path.push({ x: s.x, y: s.y, z: s.z, t: i * DT });
+    put(s.x, s.y, s.z, i * DT);
     if (Math.abs(s.x) > P.HL + 0.5 || Math.abs(s.y) > P.HW + 0.5) break;
     if (s.z === 0 && s.vx * s.vx + s.vy * s.vy < 0.05) break;
   }
+  path.length = n;
   for (const p of m.players) m.icpt[p.id] = intercept(m, p);
   m.icptTick = m.tick;
 }
@@ -4844,6 +4855,7 @@ return { create, add, rows, rowsOf, highlights };
   function frame(ts) {
     const dt = Math.min(0.1, (ts - last) / 1000 || 0); last = ts;
     if (CUP && !pending && !cupOf && !forfeited && ts - beat > 3000) { beat = ts; try { localStorage.setItem('coupe-en-cours', JSON.stringify({ id: CUP.id, t: Date.now() })); } catch (e) {} }      // coupe : « match en cours » (abandon = défaite)
+    if (rush && job) { rushStep(); if (rush) return requestAnimationFrame(frame); }      // résultat direct, finir le match : presque toute l'image, sans redessiner le terrain caché
     if (job && !job.done && !pending && !series) {      // calcul en arrière-plan, quelques millisecondes par image
       const J = job; advance(J, target(J), PHONE ? 6 : 10);
       if (J.done || performance.now() - J.hlAt > 600) refresh(J);
@@ -4935,25 +4947,31 @@ return { create, add, rows, rowsOf, highlights };
     const d = document.documentElement;
     try { const p = d.requestFullscreen && !document.fullscreenElement && d.requestFullscreen({ navigationUI: 'hide' }); if (p) p.then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')).catch(() => {}); } catch (e) {}
   }
-  // résultat direct : le coup d'envoi, puis tout le match calculé d'un coup, sans le regarder ; on arrive sur la feuille de match
+  /* Résultat direct et « Finir le match » (n° 142, remarque de Frédéric : « un écran noir ») : le reste du match se calcule par morceaux,
+     une bonne part de chaque image, avec une barre qui avance. D'un seul bloc, la page restait figée : 10 s sur ordinateur, 45 s sur un
+     téléphone, sans rien redessiner (écran noir, surtout pendant le passage en plein écran). Pendant le calcul, les commandes ne répondent pas. */
+  let rush = null;
+  function startRush(kind) { rush = { kind }; $('busy').hidden = false; $('busyBar').hidden = false; rushShow(); }
+  function rushShow() { const p = Math.min(99, Math.round(100 * job.f / Math.max(1, job.cap - 1))); $('busyTxt').textContent = 'Calcul du match… ' + p + ' %'; $('busyBar').firstChild.style.width = p + '%'; }
+  function rushStep() {
+    advance(job, job.cap - 1, 140);      // la barre et le rond avancent quelques fois par seconde : ça suffit
+    if (!job.done) { rushShow(); if (performance.now() - job.hlAt > 1500) refresh(job); return; }
+    const k = rush.kind; rush = null;
+    refresh(job); cur = live = end; $('busy').hidden = true; $('busyBar').hidden = true; $('busyTxt').textContent = 'Calcul du match…'; nextHud = 0;
+    if (k === 'finish' && tab !== 'match') setTab('match');
+  }
+  for (const k of ['click', 'pointerdown', 'input', 'change', 'keydown']) document.addEventListener(k, ev => { if (rush) { ev.stopPropagation(); if (ev.cancelable) ev.preventDefault(); } }, true);
+  // résultat direct : le coup d'envoi, puis tout le match calculé sans le regarder ; on arrive sur la feuille de match
   function instant() {
-    if (!pending || forfeited) return;
-    $('busy').hidden = false;
-    setTimeout(() => {      // laisse le rond s'afficher avant le calcul
-      launch(); playing = false;
-      advance(job, job.cap - 1, 0); refresh(job);
-      cur = live = end; $('busy').hidden = true; nextHud = 0;
-    }, 30);
+    if (!pending || forfeited || rush) return;
+    launch(); playing = false; startRush('instant');
   }
   // finir le match d'un coup, en cours de partie : la suite est calculée sans la regarder (changements demandés compris), puis la feuille de match
   function finish() {
-    if (pending || forfeited || !job) return;
+    if (pending || forfeited || !job || rush) return;
     if (coach() && !confirm('Finir le match d\'un coup ? La fin est jouée sans la regarder, et vous ne pourrez plus rien changer.')) return;
-    playing = false; if (halfStop) halfEnd(); if (rpOn) stopReplay(); $('busy').hidden = false;
-    setTimeout(() => {
-      advance(job, job.cap - 1, 0); refresh(job);
-      cur = live = end; $('busy').hidden = true; if (tab !== 'match') setTab('match'); nextHud = 0;
-    }, 30);
+    playing = false; if (halfStop) halfEnd(); if (rpOn) stopReplay();
+    startRush('finish');
   }
   function launch() { if (!pending || forfeited) return; if (PHONE) fullscreen(); pending = false; lockMode(); cur = 0; live = 0; marked = -1; playing = true; if (tab === 'tac') setTab('match'); rebuild(0); }
   // plusieurs consignes d'un coup (tactique prédéfinie) : un seul recalcul
