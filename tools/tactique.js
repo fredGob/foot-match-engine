@@ -37,13 +37,21 @@ const url = 'file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURICo
   await drag('#tvBench [data-tdrop] .ttok', '#tvPitch [data-tdrop="p9"]');
   check(/Titulaire/.test(await page.textContent('#tvDraft')), 'un remplaçant glissé sur un titulaire : « Titulaire : … » en préparation', (await page.textContent('#tvDraft')));
   await page.click('#tvApply'); await page.waitForTimeout(300);
-  check(await page.$eval('#tvPitch [data-tdrop="p9"] .ttok', e => e.dataset.rid) === benchAT && /coup d'envoi/.test(await page.textContent('#tvPending')), 'validé : il est titulaire au coup d\'envoi', await page.textContent('#tvPending'));
+  check(await page.isHidden('#tacView') && await page.isVisible('#kick'), '« Valider » ramène au terrain (n° 140)');
+  await page.click('#tabTac'); await page.waitForTimeout(150);
+  check(await page.$eval('#tvPitch [data-tdrop="p9"] .ttok', e => e.dataset.rid) === benchAT && await page.textContent('#tvApply') === 'Fermer', 'validé : il est titulaire au coup d\'envoi ; sans changement, le bouton dit « Fermer »', await page.textContent('#tvApply'));
+  await page.click('#tvApply'); await page.waitForTimeout(150);
+  check(await page.isHidden('#tacView'), '« Fermer » sans changement ramène au terrain');
 
   console.log('Pendant le match');
   await page.selectOption('#duration', '1200'); await page.waitForTimeout(200);
   await page.fill('#seed', '7'); await page.click('#load'); await page.waitForTimeout(200);      // match n° 7 : pas d'arrêt de jeu à 05:00 pile
   await page.click('#tabMatch'); await page.click('#kick'); await ready();
   await page.click('#play').catch(() => {}); await seek(300); await page.waitForTimeout(300);
+  await page.click('#tabTac'); await page.waitForTimeout(200);
+  check(!(await page.isDisabled('#tvApply')) && await page.textContent('#tvApply') === 'Retour au match', 'en cours de match, sans changement : bouton « Retour au match » (n° 140, remarque de Frédéric : on restait bloqué)');
+  await page.click('#tvApply'); await page.waitForTimeout(200);
+  check(await page.isHidden('#tacView') && await page.textContent('#play') === 'Pause', '« Retour au match » : le match reprend');
   await page.click('#tabTac'); await page.waitForTimeout(200);
   check(await page.$eval('#tvPitch [data-tdrop="p9"] .ttok', e => e.dataset.rid) === benchAT, 'le titulaire choisi avant le match joue bien');
   check(/remplacements 0 \/ 5/.test(await page.textContent('#tvSubs')), 'compteur : 0 remplacement sur 5', await page.textContent('#tvSubs'));
@@ -54,7 +62,9 @@ const url = 'file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURICo
   check(/Entre :/.test(draft) && /→/.test(draft) && /remplacements 1 \/ 5/.test(await page.textContent('#tvSubs')), 'un remplacement et un changement de place en préparation', draft.replace(/\s+/g, ' '));
   await page.screenshot({ path: path.join(DOCS, 'tactique.png') }); console.log('        capture : docs/tactique.png');
   await page.click('#tvApply'); await ready(); await page.waitForTimeout(300);
-  check(/fait au prochain arrêt de jeu/.test(await page.textContent('#tvPending')), 'validé à 05:00 : fait au prochain arrêt de jeu (en attente, ou déjà fait si le jeu est arrêté)', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
+  check(await page.isHidden('#tacView') && await page.textContent('#play') === 'Pause', '« Valider » ramène au match, qui reprend (n° 140)');
+  await page.click('#tabTac'); await page.waitForTimeout(150);
+  check(/En attente du prochain arrêt de jeu/.test(await page.textContent('#tvPending')) || /Remplacement des Bleus/.test(await page.textContent('#log')), 'validé à 05:00 : fait au prochain arrêt de jeu (en attente, ou déjà fait)', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
   await page.click('#tabMatch'); await seek(1199); await page.waitForTimeout(400);
   const log = await page.textContent('#log'), m1 = /(\d\d:\d\d)Remplacement des Bleus : ([^(]+) remplace/.exec(log), m2 = /(\d\d:\d\d)Changement de place des Bleus/.exec(log);
   check(m1 && m2 && m1[1] >= '05:00' && m1[1] === m2[1], 'remplacement et changement de place faits ensemble, au premier arrêt de jeu après 05:00', m1 ? m1[1] + ' ' + m1[2] : log.slice(0, 200));
@@ -84,11 +94,12 @@ const url = 'file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURICo
   check(await page.isVisible('#tvOpp') && await page.isHidden('#tvChanges') && (await page.$$('#tvTac select:disabled')).length === 8 && (await page.$$('#tvForms button:disabled')).length === 5, 'l\'adversaire se regarde (composition, consignes, notes) mais ne se règle pas', (await page.textContent('#tvOpp')).split('Vous')[0].replace(/\s+/g, ' '));
   await page.click('[data-tv-team="0"]'); await page.waitForTimeout(150);
   await drag('#tvBench .tdrop:not(:has(.gone)):not(:has(.leaving)) .ttok', '#tvPitch [data-tdrop="p8"]'); await page.click('#tvApply'); await ready();
+  await page.click('#tabTac'); await page.waitForTimeout(150);      // « Valider » ramène au match (n° 140) : on rouvre l'onglet pour lire la demande
   const logOf = () => page.evaluate(() => document.getElementById('log').textContent);
   check(/En attente du prochain arrêt de jeu/.test(await page.textContent('#tvPending')) || /Remplacement des Bleus/.test(await logOf()), 'mode Coach It : remplacement demandé au direct, en attente ou déjà fait (arrêt de jeu en cours)', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
   await page.selectOption('#tvTac select[data-tv-key="press"]', '1');
   check(/Pressing : harceler/.test(await page.textContent('#tvDraft')), 'une consigne changée dans l\'onglet Tactique se prépare avec le reste', (await page.textContent('#tvDraft')).replace(/\s+/g, ' '));
-  await page.click('#tvApply'); await ready();
+  await page.click('#tvApply'); await ready(); await page.click('#tabTac'); await page.waitForTimeout(150);
   check(/pressing/.test(await page.textContent('#tvPending')) || /Consigne des Bleus : pressing/.test(await logOf()), 'consigne validée : en attente du prochain arrêt de jeu, ou déjà faite', (await page.textContent('#tvPending')).replace(/\s+/g, ' '));
   check(!(await page.$('#tactics')), 'plus de cadre « Consignes » dans la colonne de droite');
 
@@ -99,7 +110,7 @@ const url = 'file://' + path.join(ROOT, 'match.html') + '#partie=' + encodeURICo
   check(/Consignes de .*dribbler, tirer de loin/.test(await page.textContent('#tvDraft')) && !!(await page.$('#tvPitch [data-tdrop="p10"] .ttok .ball u')), 'en préparation, et repère « C » sur le joueur', (await page.textContent('#tvDraft')).replace(/\s+/g, ' '));
   await page.evaluate(() => { document.getElementById('tacView').scrollTop = 0; });
   await page.screenshot({ path: path.join(DOCS, 'consignes-individuelles.png') }); console.log('        capture : docs/consignes-individuelles.png');
-  await page.click('#tvApply'); await ready();
+  await page.click('#tvApply'); await ready(); await page.click('#tabTac'); await page.waitForTimeout(150);
   check(/consignes individuelles/.test(await page.textContent('#tvPending')) || /Consignes individuelles des Bleus/.test(await logOf()), 'validées : au prochain arrêt de jeu, notées dans le fil du match', (await page.textContent('#tvPending')).replace(/\s+/g, ' ') + ' | ' + ((await logOf()).match(/Consignes individuelles[^\n]{0,80}/) || [''])[0]);
   await page.click('#tabMatch'); await page.waitForTimeout(100); await page.click('#tabTac'); await page.waitForTimeout(100);
   await page.click('#tvPitch [data-tdrop="p10"] .ttok'); await page.waitForTimeout(100);

@@ -33,25 +33,29 @@
   .clubmode header .steps span.off { opacity: .45; cursor: default; }
   .clubmode .noclub, body:not(.clubmode) .onlyclub { display: none !important; }
   /* étape 2 : l'adversaire (n° 138) — liste des clubs à gauche, sa fiche à droite (système, onze, niveau, style, joueurs clés) */
-  .advwrap { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 12px 14px; align-items: start; }
-  .advs { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
-  .advs .club { padding: 10px 12px; }
-  .advs .club b { font-size: 16px; }
+  /* n° 139 (remarque de Frédéric) : le choix de l'équipe en haut, la fiche de l'adversaire (tactique, titulaires) juste en dessous */
+  .advwrap { display: flex; flex-direction: column; gap: 12px; }
+  .advs { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+  .advs .club { padding: 8px 10px; gap: 3px; }
+  .advs .club b { font-size: 15px; }
+  .advs .club .stars { font-size: 12px; }
+  .advgrid { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 12px 20px; align-items: start; }
+  .advinfo { display: flex; flex-direction: column; gap: 10px; }
   .advs .club.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
   .advs .club.mine { opacity: .45; cursor: default; }
   .lvl { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
   .lvl i { flex: 1; height: 6px; border-radius: 3px; background: #2a3440; overflow: hidden; display: block; min-width: 40px; }
   .lvl i b { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
-  .advd { position: sticky; top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .advd { display: flex; flex-direction: column; gap: 8px; }
   .advd .who { font-size: 20px; font-weight: 650; }
-  .advd .pitch { max-width: 330px; margin: 0 auto; }
+  .advd .pitch { max-width: 360px; margin: 0 auto; }
   .advd .tok { cursor: default; }
   .advd .tok .ball { background: var(--red, #d64545); width: 30px; height: 30px; font-size: 11px; }
   .advd .spot { width: 70px; }
   .advd .tok .nm { max-width: 70px; font-size: 10.5px; }
   .advd .keys { display: flex; flex-direction: column; gap: 3px; font-size: 13.5px; }
   .advd .keys span { color: var(--muted); }
-  .advd .row { justify-content: space-between; }
+  .advd .row { justify-content: flex-end; gap: 10px; }
   .advsum { font-size: 14px; }
   .advsum b { font-size: 15px; }
   header .right { margin-left: auto; }
@@ -166,7 +170,11 @@
 
   @media (max-width: 900px) {
     .buy, .tac, .advwrap { grid-template-columns: minmax(0, 1fr); }
-    .advd { position: static; order: -1; }
+    /* téléphone, tablette : les clubs sur une ligne qu'on fait défiler du doigt, la fiche juste dessous */
+    .advs { display: flex; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
+    .advs .club { flex: 0 0 168px; scroll-snap-align: start; }
+    .advgrid { grid-template-columns: minmax(0, 1fr); }
+    .advd .row { justify-content: space-between; }
     .home { grid-template-columns: 1fr; margin-top: 3vh; }
     .list { max-height: none; }
     .valid { margin-left: 0; justify-content: flex-start; }
@@ -205,7 +213,7 @@
     <div class="advwrap">
       <div class="card">
         <h2>Choisissez votre adversaire</h2>
-        <p class="hint" style="margin:0 0 10px">Touchez un club pour voir sa fiche. La barre donne son niveau (note globale moyenne de ses onze titulaires).</p>
+        <p class="hint" style="margin:0 0 10px">Touchez un club : sa fiche s'affiche juste en dessous. La barre donne son niveau (note globale moyenne de ses onze titulaires).</p>
         <div class="clubs advs" id="advs"></div>
       </div>
       <div class="card advd" id="advD"></div>
@@ -472,7 +480,7 @@ const rang = C => C.classement ? C.classement + (C.classement === 1 ? 'er' : 'e'
 function drawAdv() {
   const mine = CLUBS.find(C => C.id === S.club);
   $('advs').innerHTML = CLUBS.map(C => C.id === S.club ? '' : '<button class="club' + (C.id === S.adv ? ' on' : '') + '" data-adv="' + esc(C.id) + '"><div class="top"><span class="rk">' + (C.classement ? C.classement + (C.classement === 1 ? 'er' : 'e') : 'promu') + '</span><b>' + esc(C.nom) + '</b></div>'
-    + levelBar(C) + '<div class="stars">' + esc(formName(C)) + ' · ' + esc(styleOf(C)) + '</div></button>').join('');
+    + levelBar(C) + '<div class="stars">' + esc(formName(C)) + '</div></button>').join('');      // le style est dans la fiche, juste dessous
   const C = CLUBS.find(x => x.id === S.adv); if (!C) { $('advD').innerHTML = '<span class="muted">Choisissez un club.</span>'; return; }
   const F = D.formations.find(f => f.id === C.formation) || D.formations[0];
   let h = pitchSvg();
@@ -480,14 +488,14 @@ function drawAdv() {
   const m = moyenne(C.titulaires), me = mine ? moyenne(mine.titulaires) : null, d = me == null ? 0 : Math.round(m - me);
   const keys = C.titulaires.slice().sort((a, b) => b.note - a.note).slice(0, 3);
   $('advD').innerHTML = '<h2>Votre adversaire</h2><div class="who">' + esc(C.nom) + '</div><div class="small muted">' + rang(C) + '</div>'
-    + levelBar(C) + (me == null ? '' : '<div class="small">' + (Math.abs(d) <= 2 ? 'Niveau proche du vôtre (' : d > 0 ? 'Plus fort que vous (' : 'Moins fort que vous (') + 'vous : ' + fmtN(me) + ')</div>')
-    + '<div><b>Système :</b> ' + esc(F.name) + '</div><div class="pitch">' + h + '</div>'
+    + '<div class="advgrid"><div><div style="margin-bottom:6px"><b>Système :</b> ' + esc(F.name) + ' · titulaires</div><div class="pitch">' + h + '</div></div>'
+    + '<div class="advinfo">' + levelBar(C) + (me == null ? '' : '<div class="small">' + (Math.abs(d) <= 2 ? 'Niveau proche du vôtre (' : d > 0 ? 'Plus fort que vous (' : 'Moins fort que vous (') + 'vous : ' + fmtN(me) + ')</div>')
     + '<div><b>Style de l\'entraîneur :</b> ' + esc(styleOf(C)) + '</div>'
-    + '<div class="keys"><b>Joueurs clés</b>' + keys.map(j => '<div>' + tag(j.poste) + ' ' + esc(j.nom) + ' <span>· ' + fmtN(j.note) + '</span></div>').join('') + '</div>'
+    + '<div class="keys"><b>Joueurs clés</b>' + keys.map(j => '<div>' + tag(j.poste) + ' ' + esc(j.nom) + ' <span>· ' + fmtN(j.note) + '</span></div>').join('') + '</div></div></div>'
     + '<div class="row" style="margin-top:6px"><button id="advBack">← Mon club</button><button class="main go-btn" id="advNext">3. Ma tactique →</button></div>';
 }
 document.addEventListener('click', e => {
-  const b = e.target.closest('[data-adv]'); if (b && b.closest('#vAdv')) { S.adv = b.dataset.adv; drawAdv(); if (window.innerWidth <= 900) $('advD').scrollIntoView({ behavior: 'smooth' }); return; }
+  const b = e.target.closest('[data-adv]'); if (b && b.closest('#vAdv')) { const x = $('advs').scrollLeft; S.adv = b.dataset.adv; drawAdv(); $('advs').scrollLeft = x; return; }
   if (e.target.id === 'advNext') { save(); show('vTac'); }
   else if (e.target.id === 'advBack') show('vClubs');
 });

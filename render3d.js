@@ -7,7 +7,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
 'use strict';
 
-const HL = 52.5, HW = 34, MX = 4.5, MY = 3.5;
+const HL = 52.5, HW = 34;
 const KEEPER = ['#f2a33a', '#26282c'];
 const SKIN = ['#e9c39b', '#c99a6e', '#8d5a3b', '#f1d0b0', '#6b4128', '#d9a77f'];
 const HAIR = ['#1d1a17', '#3b2a1e', '#6b4a2b', '#0f0f10', '#a07a4a', '#2a2522'];
@@ -33,37 +33,10 @@ function loadThree(cb) {
   loading.push(cb);
 }
 
-// petit tirage au hasard fixe (le décor est toujours le même)
-function rand(seed) { let a = seed >>> 0; return () => (a = (Math.imul(a, 1664525) + 1013904223) >>> 0) / 4294967296; }
-function canvasTex(w, h, draw) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.anisotropy = 8; return t; }
+function canvasTex(w, h, draw) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.anisotropy = 8; t.encoding = THREE.sRGBEncoding; return t; }
+const lin = c => new THREE.Color(c).convertSRGBToLinear();
+const S3 = () => (typeof self !== 'undefined' && self.Stade3D) || require('./stade3d.js');      // le stade commun (stade3d.js)
 
-// la pelouse : le dessin de la vue de dessus (render.js), plus un grain d'herbe
-function pitchTexture(R2) {
-  const k = 16, w = Math.round(2 * (HL + MX) * k), h = Math.round(2 * (HW + MY) * k);
-  return canvasTex(w, h, (g) => {
-    R2.drawPitch(g, w, h);
-    const r = rand(7);
-    for (let i = 0; i < 90000; i++) { g.fillStyle = r() < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)'; g.fillRect(r() * w, r() * h, 1 + r() * 2, 1 + r() * 3); }
-  });
-}
-// la foule : des taches de couleur serrées, plus claires vers le bas (les premiers rangs sont éclairés)
-function crowdTexture() {
-  const t = canvasTex(1024, 256, (g, w, h) => {
-    g.fillStyle = '#1a1f26'; g.fillRect(0, 0, w, h);
-    const r = rand(11), cols = ['#c9d3de', '#3a5f9e', '#9e3a3a', '#d8c45a', '#5a5a5a', '#e8e8e8', '#2f6fdf', '#d8423a', '#8a6a4a', '#2c2c2c'];
-    for (let y = 2; y < h; y += 5) for (let x = (y % 10) / 2; x < w; x += 4.2) { if (r() < 0.12) continue; g.fillStyle = cols[Math.floor(r() * cols.length)]; g.globalAlpha = 0.55 + 0.45 * (y / h); g.fillRect(x, y, 3, 3.6); }
-    g.globalAlpha = 1;
-  });
-  t.wrapS = THREE.RepeatWrapping; return t;
-}
-// panneaux publicitaires au bord du terrain
-function boardTexture() {
-  const t = canvasTex(2048, 64, (g, w, h) => {
-    const ads = [['#11151a', '#ffe45c', "L'ENTRAÎNEUR EN CARTON"], ['#2f6fdf', '#ffffff', 'COUPE EN CARTON'], ['#d8423a', '#ffffff', 'MATCH RAPIDE'], ['#1e7a3c', '#ffffff', 'TACTIQUE · TACTIQUE']];
-    ads.forEach((a, i) => { g.fillStyle = a[0]; g.fillRect(i * w / 4, 0, w / 4, h); g.fillStyle = a[1]; g.font = '800 34px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(a[2], i * w / 4 + w / 8, h / 2 + 1); });
-  });
-  t.wrapS = THREE.RepeatWrapping; return t;
-}
 // le ballon : blanc à pentagones noirs (approchés par des taches)
 function ballTexture() {
   return canvasTex(256, 128, (g, w, h) => {
@@ -81,41 +54,25 @@ function create(canvas, R2, opt) {
   opt = opt || {};
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  // couleurs linéaires et rendu « appareil photo », comme le replay (n° 141)
+  renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const scene = new THREE.Scene();
-  scene.background = skyTexture(); scene.fog = new THREE.Fog('#9fb4c8', 160, 320);
+  scene.background = skyTexture(); scene.fog = new THREE.Fog(lin('#c6cfd4'), 160, 380);
   const camera = new THREE.PerspectiveCamera(28, 2, 1, 700);
-  scene.add(new THREE.HemisphereLight('#dfe9ff', '#2f4a2f', 0.62));
-  // le soleil (et les projecteurs) : de vraies ombres sous les joueurs
-  const sun = new THREE.DirectionalLight('#fff4e0', 0.85); sun.position.set(-40, 90, 55);
+  // le soleil : de vraies ombres sous les joueurs ; le ciel éclaire et se reflète
+  const SUN = new THREE.Vector3(-40, 90, 55).normalize();
+  try { scene.environment = S3().envMap(renderer, SUN); } catch (e) { scene.environment = null; }
+  scene.add(new THREE.HemisphereLight(lin('#d6e4ff'), lin('#3b5a30'), scene.environment ? 0.25 : 0.75));
+  const sun = new THREE.DirectionalLight(lin('#ffe6c2'), 2.2); sun.position.set(-40, 90, 55);
   sun.castShadow = true; sun.shadow.mapSize.set(opt.small ? 1024 : 2048, opt.small ? 1024 : 2048);
   Object.assign(sun.shadow.camera, { left: -62, right: 62, top: 45, bottom: -45, near: 10, far: 220 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02;
   scene.add(sun); scene.add(sun.target);
 
-  const std = (c, rough, extra) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: rough == null ? 0.85 : rough, metalness: 0 }, extra || {}));
-  // terrain, sol autour
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(320, 240), std('#2a5a30', 1)); ground.rotation.x = -Math.PI / 2; ground.position.y = -0.03; ground.receiveShadow = true; scene.add(ground);
-  const pitch = new THREE.Mesh(new THREE.PlaneGeometry(2 * (HL + MX), 2 * (HW + MY)), std('#c9d6c4', 0.95, { map: pitchTexture(R2) })); pitch.rotation.x = -Math.PI / 2; pitch.receiveShadow = true; scene.add(pitch);
-  // panneaux publicitaires
-  const boards = boardTexture();
-  const board = (len, x, z, ry, rep) => { const t = boards.clone(); t.needsUpdate = true; t.repeat.set(rep, 1); const m = new THREE.Mesh(new THREE.BoxGeometry(len, 0.9, 0.12), [std('#111', 0.6), std('#111', 0.6), std('#111', 0.6), std('#111', 0.6), new THREE.MeshBasicMaterial({ map: t }), new THREE.MeshBasicMaterial({ map: t })]); m.position.set(x, 0.45, z); m.rotation.y = ry; m.castShadow = true; scene.add(m); };
-  board(100, 0, -(HW + 3.2), 0, 100 / 32); board(64, -(HL + 3.6), 0, Math.PI / 2, 2); board(64, HL + 3.6, 0, Math.PI / 2, 2);
-  // tribunes en gradins, avec un toit, et la foule
-  const crowd = crowdTexture(), dark = std('#2a2f37', 0.9), roofM = std('#3a3f47', 0.7);
-  function stand(len, cx, cz, ry) {
-    const g = new THREE.Group(), t = crowd.clone(); t.needsUpdate = true; t.repeat.set(len / 40, 1);
-    const face = new THREE.Mesh(new THREE.PlaneGeometry(len, 24), std('#ffffff', 1, { map: t, side: THREE.DoubleSide })); face.rotation.x = -0.62; face.position.set(0, 7.5, 8); g.add(face);
-    const back = new THREE.Mesh(new THREE.BoxGeometry(len + 2, 17, 1), dark); back.position.set(0, 8.5, 18.5); g.add(back);
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(len + 4, 0.6, 16), roofM); roof.position.set(0, 18.5, 11); roof.rotation.x = 0.08; g.add(roof);
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(len, 1.6, 0.4), dark); wall.position.set(0, 0.8, -1); g.add(wall);
-    g.position.set(cx, 0, cz); g.rotation.y = ry; scene.add(g);
-  }
-  stand(140, 0, -(HW + 8), Math.PI); stand(84, -(HL + 9), 0, -Math.PI / 2); stand(84, HL + 9, 0, Math.PI / 2);
-  // projecteurs aux quatre coins
-  for (const sx of [-1, 1]) for (const sz of [-1]) {      // seulement en face : ceux du côté de la caméra passeraient devant
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 34, 8), std('#5b6068', 0.6)); mast.position.set(sx * (HL + 20), 17, sz * (HW + 18)); scene.add(mast);
-    const lamp = new THREE.Mesh(new THREE.BoxGeometry(5, 3, 0.6), new THREE.MeshBasicMaterial({ color: '#fffbe6' })); lamp.position.set(sx * (HL + 19), 34.5, sz * (HW + 17)); lamp.lookAt(0, 0, 0); scene.add(lamp);
-  }
+  const std = (c, rough, extra) => new THREE.MeshStandardMaterial(Object.assign({ color: lin(c), roughness: rough == null ? 0.85 : rough, metalness: 0 }, extra || {}));
+  // la pelouse, les lignes, les panneaux, les tribunes et le public (stade3d.js) ; pas de tribune du côté de la caméra
+  const stade = S3().build(scene, { small: opt.small, sun: SUN, near: false });
+  let crowdKey = '';
 
   // les buts : poteaux, barre, filet tendu vers l'arrière
   const white = std('#ffffff', 0.4);
@@ -123,7 +80,7 @@ function create(canvas, R2, opt) {
     const gx = d * HL;
     for (const z of [-3.66, 3.66]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.44, 12), white); p.position.set(gx, 1.22, z); p.castShadow = true; scene.add(p); }
     const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 7.32, 12), white); bar.rotation.x = Math.PI / 2; bar.position.set(gx, 2.44, 0); bar.castShadow = true; scene.add(bar);
-    const netM = new THREE.MeshBasicMaterial({ color: '#ffffff', wireframe: true, transparent: true, opacity: 0.22 });
+    const netM = new THREE.MeshBasicMaterial({ color: '#ffffff', wireframe: true, transparent: true, opacity: 0.3 });
     const top = new THREE.Mesh(new THREE.PlaneGeometry(2, 7.32, 8, 28), netM); top.rotation.set(-Math.PI / 2, 0, 0); top.rotation.z = 0; top.position.set(gx + d * 1, 2.3, 0); top.rotation.x = -Math.PI / 2 + d * 0.12; scene.add(top);
     const backN = new THREE.Mesh(new THREE.PlaneGeometry(7.32, 2.3, 28, 9), netM); backN.rotation.y = Math.PI / 2; backN.position.set(gx + d * 2, 1.15, 0); scene.add(backN);
     for (const z of [-3.66, 3.66]) { const side = new THREE.Mesh(new THREE.PlaneGeometry(2, 2.4, 8, 9), netM); side.position.set(gx + d * 1, 1.2, z); scene.add(side); }
@@ -132,7 +89,7 @@ function create(canvas, R2, opt) {
   // ballon
   const BR = 0.14;      // rayon du ballon : 0,11 m en vrai, un peu plus ici comme les joueurs (×1,15)
   const ball = new THREE.Mesh(new THREE.SphereGeometry(BR, 20, 14), std('#ffffff', 0.45, { map: ballTexture() })); ball.castShadow = true; scene.add(ball);
-  const ring = new THREE.Mesh(new THREE.RingGeometry(0.75, 0.95, 32), new THREE.MeshBasicMaterial({ color: '#ffe45c', transparent: true, opacity: 0.95, depthWrite: false }));
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.75, 0.95, 32), new THREE.MeshBasicMaterial({ color: '#ffe45c', transparent: true, opacity: 0.95, depthWrite: false, toneMapped: false }));
   ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; ring.visible = false; scene.add(ring);
 
   // ---------- un joueur : un vrai petit corps articulé (hanches, genoux, épaules, coudes), qui regarde vers +x ----------
@@ -184,7 +141,7 @@ function create(canvas, R2, opt) {
       if (f) scene.remove(f);
       const k = (p.num * 7 + p.team * 3 + p.id) >>> 0, shorts = p.team === 0 ? '#f2f4f7' : '#1b1f24', socks = p.role === 'GK' ? shirt : p.team === 0 ? '#2f6fdf' : '#d8423a';
       if (P3() && P3().ready()) {      // vrais mouvements (n° 129)
-        const C = c => new THREE.Color(c);
+        const C = lin;
         f = P3().make({ shirt: C(shirt), shorts: C(shorts), socks: C(socks), skin: C(SKIN[k % SKIN.length]), hair: C(HAIR[(k >> 2) % HAIR.length]), boots: C('#141619'), hands: C(p.role === 'GK' ? '#f2f2f2' : SKIN[k % SKIN.length]) }, { num: p.num, ink: '#ffffff', shadow: !opt.small });      // sur téléphone, pas d'ombre sous les joueurs (plus léger)
         f.userData.x = null; f.userData.lean = 0; scene.add(f);
       } else f = makePlayer(shirt, shorts, socks, SKIN[k % SKIN.length], HAIR[(k >> 2) % HAIR.length], p.num, '#ffffff');
@@ -258,6 +215,8 @@ function create(canvas, R2, opt) {
     ballLast = { x: bx, z: bz };
     ball.position.set(bx, by + BR, bz);
     sun.position.set(cam.x - 40, 90, 55); sun.target.position.set(cam.x, 0, 0);      // les ombres restent nettes là où regarde la caméra
+    const ck = m.teams[0].color + m.teams[1].color; if (ck !== crowdKey) { crowdKey = ck; stade.dress(m.teams); }      // le public aux couleurs des deux équipes
+    stade.update(opts.t || 0, 0);
     const sel = opts.selected >= 0 ? m.players.find(p => p.id === opts.selected) : null;
     ring.visible = !!sel; if (sel) ring.position.set(Lp(sel.px, sel.x), 0.03, Lp(sel.py, sel.y));
     placeCamera(bx, bz, dt);
