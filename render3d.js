@@ -198,6 +198,9 @@ function create(canvas, R2, opt) {
     const jump = gdt < 0 || gdt > 1.5; if (jump) gdt = 0;
     const Lp = (a, b) => a + (b - a) * alpha, big = opts.big || 1;
     const seen = new Set();
+    // touche (n° 142) : le tireur tient le ballon à deux mains au-dessus de la tête, puis le lance (le moteur, lui, le fait partir du sol)
+    const TI = m.throwIn, ebx = Lp(m.ball.px, m.ball.x), ebz = Lp(m.ball.py, m.ball.y);
+    let hands = null, holdK = 0;
     for (const p of m.players) {
       const f = figFor(p, m), u = f.userData, x = Lp(p.px, p.x), z = Lp(p.py, p.y);
       seen.add(p.id);
@@ -206,10 +209,18 @@ function create(canvas, R2, opt) {
       u.x = x; u.z = z;
       if (u.rigged) P3().animate(f, u.sp, gdt); else pose(u, u.sp, gdt);
       f.position.set(x, 0, z); f.rotation.y = -p.face; f.scale.setScalar((u.rigged ? 1.05 : 1.15) * big);
+      if (TI && TI.id === p.id) {
+        holdK = TI.r > -0.7 ? 1 : Math.max(0, Math.min(1, (2.2 - Math.hypot(x - ebx, z - ebz)) / 0.8));      // il prend le ballon une fois arrivé dessus
+        if (u.rigged) { P3().throwPose(f, TI.r, holdK); hands = P3().handsAt(f); }
+        if (!hands) hands = va().set(x, 2.25 * big, z);
+      }
       f.visible = true;
     }
     for (const [id, f] of figs) if (!seen.has(id)) f.visible = false;
-    const b = m.ball, bx = Lp(b.px, b.x), bz = Lp(b.py, b.y), by = Math.max(0, Lp(b.pz, b.z));
+    const b = m.ball;
+    let bx = ebx, bz = ebz, by = Math.max(0, Lp(b.pz, b.z));
+    if (hands && TI.r < 0) { const k = holdK; bx += (hands.x - bx) * k; bz += (hands.z - bz) * k; by += (hands.y + 0.04 - BR - by) * k; }      // dans les mains
+    else if (hands && TI.r < TI.fly) { const u = TI.r / TI.fly; by += (2.15 * big - BR) * (1 - u) * (1 + 1.2 * u); }      // lancé en cloche, il retombe là où le moteur le fait rouler
     // le ballon roule : il tourne autour de l'axe perpendiculaire à son déplacement
     if (ballLast && !jump) { const dx = bx - ballLast.x, dz = bz - ballLast.z, dd = Math.hypot(dx, dz); if (dd > 1e-4 && dd < 5) ball.quaternion.premultiply(qa().setFromAxisAngle(va().set(dz / dd, 0, -dx / dd), dd / BR)); }
     ballLast = { x: bx, z: bz };

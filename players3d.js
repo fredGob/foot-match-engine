@@ -270,12 +270,15 @@ function make(kit, opts) {
   for (const k in A) { A[k].play(); A[k].setEffectiveWeight(0); }
   A.walk.time = Math.random() * A.walk.getClip().duration; A.run.time = Math.random() * A.run.getClip().duration;
   const bone = n => body.getObjectByName('mixamorig' + n) || body.getObjectByName('mixamorig:' + n);
-  g.userData = { rigged: true, body, mixer, A, sp: 0, bones: { hips: bone('Hips'), spine: bone('Spine1'), lUp: bone('LeftUpLeg'), rUp: bone('RightUpLeg'), lLeg: bone('LeftLeg'), rLeg: bone('RightLeg'), lArm: bone('LeftArm'), rArm: bone('RightArm'), lFore: bone('LeftForeArm'), rFore: bone('RightForeArm'), head: bone('Head') } };
+  g.userData = { rigged: true, body, mixer, A, sp: 0, bones: { hips: bone('Hips'), spine: bone('Spine1'), lUp: bone('LeftUpLeg'), rUp: bone('RightUpLeg'), lLeg: bone('LeftLeg'), rLeg: bone('RightLeg'), lArm: bone('LeftArm'), rArm: bone('RightArm'), lFore: bone('LeftForeArm'), rFore: bone('RightForeArm'), head: bone('Head'), lHand: bone('LeftHand'), rHand: bone('RightHand') } };
   return g;
 }
 // la course suit la vitesse v (m/s) du joueur dans le match ; dt : temps de jeu écoulé (0 en pause, petit au ralenti)
 function animate(g, v, dt) {
   const u = g.userData, A = u.A;
+  // un geste posé par-dessus (touche) : on remet d'abord les os comme le mouvement les avait laissés. En pause, le mélangeur ne réécrit
+  // pas un os dont la valeur n'a pas changé : sans cela, le geste s'ajouterait à lui-même à chaque image.
+  if (u.posed) { for (const [b, q] of u.posed) b.quaternion.copy(q); u.posed = null; }
   const idle = clamp(1 - v / 0.7, 0, 1), run = clamp((v - 2.2) / 1.8, 0, 1), walk = Math.max(0, 1 - idle - run);
   A.idle.setEffectiveWeight(idle); A.walk.setEffectiveWeight(walk); A.run.setEffectiveWeight(run);
   A.walk.setEffectiveTimeScale(clamp(v / 1.4, 0.6, 1.9));
@@ -283,5 +286,27 @@ function animate(g, v, dt) {
   u.mixer.update(Math.max(0, dt));
 }
 
-return { load, ready, make, animate, LIBS, MODEL };
+/* La touche (remarque de Frédéric : « en 3D, les touches sont faites au pied ») : le tireur tient le ballon à deux mains au-dessus de la tête,
+   l'amène derrière la tête, puis le lance en ramenant les bras vers l'avant. r : temps (s) depuis le lâcher, négatif avant
+   (−9 : il tient le ballon sans savoir quand il le lâchera) ; k : part du geste (0 à 1, pour le prendre et le reposer en douceur).
+   Rotation des os comme dans le replay : bras gauche z > 0 (droit z < 0) = bras levé ; buste x > 0 = penché en avant. */
+function throwPose(g, r, k) {
+  const u = g.userData, B = u.bones; if (!B || !(k > 0)) return;
+  if (!u.posed) u.posed = [B.lArm, B.rArm, B.lFore, B.rFore, B.spine].map(b => [b, b.quaternion.clone()]);
+  const wind = smooth(-0.6, -0.12, r), fwd = smooth(-0.12, 0.1, r), done = (1 - smooth(0.2, 0.55, r)) * k;
+  const arm = (2.6 + 0.15 * wind - 0.45 * fwd) * done;      // bras levés, puis ramenés vers l'avant au lâcher (sans s'écarter sur les côtés)
+  const bend = (0.75 + 0.55 * wind) * (1 - fwd) * done;    // coudes pliés : le ballon au-dessus, puis derrière la tête
+  B.lArm.rotation.z += arm; B.rArm.rotation.z -= arm;
+  B.lFore.rotation.z += bend; B.rFore.rotation.z -= bend;
+  B.spine.rotation.x += (-0.3 * wind * (1 - fwd) + 0.4 * fwd) * done;      // cambré en arrière, puis vers l'avant
+}
+// où sont les mains (milieu des deux poignets, en mètres dans la scène) : le ballon de touche s'y pose. À appeler une fois le joueur placé.
+function handsAt(g) {
+  const B = g.userData.bones; if (!B || !B.lHand || !B.rHand) return null;
+  g.updateMatrixWorld(true);
+  const a = B.lHand.getWorldPosition(new THREE.Vector3()), b = B.rHand.getWorldPosition(new THREE.Vector3());
+  return a.add(b).multiplyScalar(0.5);
+}
+
+return { load, ready, make, animate, throwPose, handsAt, LIBS, MODEL };
 });

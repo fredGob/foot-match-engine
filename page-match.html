@@ -507,7 +507,7 @@
   function simulate(full) {
     const m = startMatch(seed, duration, tac0, squad), key = seed + '|' + squad.map(clubOf).join('|');
     const cap = full ? Math.round(duration / DT) + 4 : 1;
-    const buf = buffers[cap] || (buffers[cap] = { P: new Float32Array(cap * NP * F), B: new Float32Array(cap * 4), L: new Uint16Array(cap * NP), N: new Uint16Array(cap * NP), K: new Uint8Array(cap * NP), D: new Uint8Array(cap) });
+    const buf = buffers[cap] || (buffers[cap] = { P: new Float32Array(cap * NP * F), B: new Float32Array(cap * 4), L: new Uint16Array(cap * NP), N: new Uint16Array(cap * NP), K: new Uint8Array(cap * NP), D: new Uint8Array(cap), H: new Uint8Array(cap) });
     const r = Object.assign({ n: 1, texts: [''], kinds: [], stats: [], events: m.events, passes: [], lineups: [], hl: null }, buf);
     const J = { m, r, cap, f: 0, ci: 0, due: [], open: [], lastQ: null, snaps: [], textId: new Map([['', 0]]), kindId: new Map(), done: !full, hlAt: 0 };
     for (const c of changes) c.at = undefined;
@@ -534,6 +534,8 @@
     }
     r.B[f * 4] = b.x; r.B[f * 4 + 1] = b.y; r.B[f * 4 + 2] = b.z; r.B[f * 4 + 3] = b.owner ? b.owner.id : -1;
     r.D[f] = m.mode === 'dead' ? 1 : 0;                      // arrêt de jeu : la lecture pourra l'accélérer
+    const R = m.restart;      // touche : qui la joue (n° + 1), tant qu'il tient le ballon (pour la 3D : ballon dans les mains, puis lancé)
+    r.H[f] = m.mode === 'dead' && R && R.type === 'throwin' && R.placed ? R.taker.id + 1 : b.owner && b.owner.setPiece === 'throwin' ? b.owner.id + 1 : 0;
     if (f % 10 === 0) r.stats[f / 10] = m.teams.map(T => { const s = Object.assign({ dist: T.stats.run, fresh: 0 }, T.stats); for (const p of T.players) if (p.role !== 'GK') s.fresh += p.stam; return s; });
   }
   // calcule jusqu'à l'image « until », ou jusqu'à ce que « ms » millisecondes soient passées (0 : pas de limite)
@@ -602,7 +604,22 @@
     if (view.lu !== L) { view.lu = L; for (const p of view.players) { const e = view.teams[p.team].roster[L.rids[p.team][p.idx]]; p.rid = e.rid; p.name = e.name; p.num = e.num; p.a = e.a; } }
     const q = view.ball, o = B[f1 * 4 + 3];
     q.px = B[f0 * 4]; q.py = B[f0 * 4 + 1]; q.pz = B[f0 * 4 + 2]; q.x = B[f1 * 4]; q.y = B[f1 * 4 + 1]; q.z = B[f1 * 4 + 2]; q.owner = o >= 0 ? view.players[o] : null;
+    view.throwIn = throwAt(fp, f1);
     return f1 === f0 ? 1 : fp - f0;
+  }
+  // touche (pour la 3D) : le moteur fait partir le ballon du sol comme une passe ; la 3D le montre dans les mains du tireur, puis lancé en cloche.
+  // id : le tireur ; r : temps (s) depuis le lâcher, négatif avant (−9 : lâcher pas encore calculé) ; fly : durée du vol jusqu'à ce que quelqu'un le prenne
+  function throwAt(fp, f1) {
+    const H = rec.H, B = rec.B, n = rec.n;
+    let fr = -1;
+    if (H[f1]) fr = f1;
+    else for (let f = f1 - 1; f >= Math.max(0, f1 - 20); f--) { if (H[f]) { fr = f; break; } if (B[f * 4 + 3] >= 0) break; }
+    if (fr < 0) return null;
+    const id = H[fr] - 1;
+    let rel = fr; while (rel + 1 < n && H[rel + 1] && rel - fr < 60) rel++;      // dernière image où il tient le ballon
+    if (rel + 1 >= n || H[rel + 1]) return { id, r: -9, fly: 0.8 };
+    let fo = rel + 1; while (fo < n && fo - rel < 17 && B[fo * 4 + 3] < 0) fo++;      // quelqu'un le prend avant qu'il retombe ?
+    return { id, r: (fp - rel - 1) * DT, fly: Math.min(0.8, (fo - rel - 1) * DT) };
   }
 
   function lineupAt(f) { const Ls = rec.lineups; let k = Ls.length - 1; while (k > 0 && Ls[k].f > f) k--; return Ls[k]; }
@@ -708,6 +725,7 @@
   const stopReplay = () => { rpResume = false; endReplay(); };
   $('rpSkip').onclick = endReplay;
   // pour les essais (tools/replay.js) : une image fixe du replay du but n° k, à « dt » secondes du tir, avec la caméra « cam »
+  window.throwIns = () => { const out = []; for (let f = 1; f < rec.n; f++) if (rec.H[f - 1] && !rec.H[f]) out.push({ t: f * DT, id: rec.H[f - 1] - 1, y: rec.B[f * 4 + 1] }); return out; };      // pour les essais : les touches jouées (instant du lâcher, tireur, côté)
   window.replayStill = (k, dt, cam, focus, abs, touches) => { const e = rec.events.filter(x => x.kind === 'goal')[k], c = goalClip(e); if (touches) c.touches = touches; $('replay').hidden = false; $('rpLoad').hidden = true; if (!rp) rp = RP3.create($('replayCv'), R, { small: PHONE }); sizeReplay(); rp.still(c, abs ? dt : (c.shotT != null ? c.shotT : c.goalT) + dt, cam, focus); return { shotT: c.shotT, goalT: c.goalT, t0: c.t0, touches: c.touches, keeper: c.keeper }; };
   $('log').addEventListener('click', ev => { const b = ev.target.closest('.rpBtn'); if (b) replay(rec.events.find(e => e.kind === 'goal' && String(e.t) === b.dataset.t), false); });
 
@@ -1022,16 +1040,27 @@
     $('tip').hidden = true; hoverNode = -1; stKey = '';
   }
 
-  function frame(ts) {
-    const dt = Math.min(0.1, (ts - last) / 1000 || 0); last = ts;
+  // Le match continue quand la page est cachée ou recouverte par une autre fenêtre (remarque de Frédéric, n° 142) : le navigateur
+  // n'anime plus la page, un minuteur prend alors le relais (calcul et lecture, sans dessin ni replay). Le minuteur vit dans un petit
+  // « travailleur » du navigateur, que le navigateur ralentit moins qu'un minuteur ordinaire quand la page est cachée.
+  let lastFrame = 0;
+  function frame(ts) { lastFrame = performance.now(); work(ts, false); requestAnimationFrame(frame); }
+  // seulement quand le navigateur dit la page cachée (autre onglet, fenêtre réduite ou recouverte). Pas quand elle est juste lente :
+  // un appareil lent peut mettre une seconde à dessiner une image 3D, ou plusieurs à préparer le replay (il ne faut pas l'arrêter).
+  function bgTick() { if (document.hidden && performance.now() - lastFrame > 300) work(performance.now(), true); }
+  try { const w = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 250)'], { type: 'text/javascript' }))); w.onmessage = bgTick; }
+  catch (e) { setInterval(bgTick, 250); }
+  function work(ts, bg) {
+    const dt = Math.min(bg ? 30 : 0.1, (ts - last) / 1000 || 0); last = ts;
     if (CUP && !pending && !cupOf && !forfeited && ts - beat > 3000) { beat = ts; try { localStorage.setItem('coupe-en-cours', JSON.stringify({ id: CUP.id, t: Date.now() })); } catch (e) {} }      // coupe : « match en cours » (abandon = défaite)
     if (job && !job.done && !pending && !series) {      // calcul en arrière-plan, quelques millisecondes par image
-      const J = job; advance(J, target(J), PHONE ? 6 : 10);
+      const J = job; advance(J, target(J), bg ? 250 : PHONE ? 6 : 10);
       if (J.done || performance.now() - J.hlAt > 600) refresh(J);
     }
     if (rec) {
       const fc = Math.min(Math.floor(cur / DT), rec.n - 1), weak = !pending && $('hl').checked && rec.hl && !rec.hl.on[fc];
       if (rpOn && playing) stopReplay();                               // lecture relancée pendant un replay : on revient au match
+      if (rpOn && bg) endReplay();                                     // page cachée : le replay (dessiné à chaque image) ne bloque pas le match
       if (playing && !pending && !scrub && !series && $('busy').hidden) {
         if (halfStop) halfEnd();                                       // le match a repris (« Reprendre », lecture, « Valider » au téléphone)
         const dead = $('skip').checked && rec.D[fc];
@@ -1040,13 +1069,14 @@
         const was = cur, h = rec.events.find(e => e.kind === 'half');
         cur = Math.min(end, cur + dt * rate); if (cur >= end) { playing = false; nextHud = 0; }
         if (h && was < h.t && cur >= h.t && h.t >= live - 1e-6) { cur = h.t; halfTime(h); }      // première fois qu'on arrive à la mi-temps : vestiaire
-        else if ($('rpAuto').checked && tab === 'match') for (const e of rec.events) if (e.kind === 'goal' && was < e.t + RP_AFTER && cur >= e.t + RP_AFTER && e.t + RP_AFTER >= live - 1e-6 && e.t + RP_AFTER <= (rec.n - 1) * DT) { cur = e.t + RP_AFTER; replay(e, true); break; }      // premier passage après un but : replay
+        else if (!bg && $('rpAuto').checked && tab === 'match') for (const e of rec.events) if (e.kind === 'goal' && was < e.t + RP_AFTER && cur >= e.t + RP_AFTER && e.t + RP_AFTER >= live - 1e-6 && e.t + RP_AFTER <= (rec.n - 1) * DT) { cur = e.t + RP_AFTER; replay(e, true); break; }      // premier passage après un but : replay
         if (job && !job.done) cur = Math.min(cur, (rec.n - 1) * DT); }      // pas plus loin que ce qui est calculé
       else rate = speed;
       $('ff').hidden = !(weak && playing && tab === 'match');
       if (!pending && cur > live) live = cur;                        // le direct avance avec la lecture
       if (tab !== 'match') $('pitch3d').hidden = $('clock3d').hidden = $('label3d').hidden = true;
-      if (tab === 'stats') drawStats(ts);
+      if (bg) ;                                                        // page cachée : rien à dessiner
+      else if (tab === 'stats') drawStats(ts);
       else {
       const stopped = !!rec.D[Math.min(Math.floor(cur / DT), rec.n - 1)];
       const clock = { time: mmss(cur), score: $('goals').textContent, teams: PHONE ? view.teams.map((t, k) => squad[k] && squad[k].court || short(t.club || t.name)) : null, dead: stopped && cur > 0 && cur < end };
@@ -1064,7 +1094,6 @@
       }
       if (ts >= nextHud) { hud(); nextHud = ts + 150; }
     }
-    requestAnimationFrame(frame);
   }
 
   // mi-temps : pause, écran Tactique, cadre « Mi-temps » (ce qu'on valide se fait au coup d'envoi de la seconde période)

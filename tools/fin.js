@@ -30,10 +30,12 @@ const secs = s => { const m = /^(\d+):(\d+)/.exec(s); return 60 * +m[1] + +m[2];
   await page.click('[data-speed="1"]');
   const pace = async want => {
     await page.waitForFunction(w => document.getElementById('ff').hidden === !w && !document.querySelector('.stage').classList.contains('x'), want, { timeout: 60000 });
-    await page.waitForTimeout(700);
+    await page.waitForTimeout(400);
     if (await page.isHidden('#ff') === want) return null;
-    const a = secs(await page.textContent('#clock')), D0 = await page.evaluate(() => 0); await page.waitForTimeout(2000);
-    return (secs(await page.textContent('#clock')) - a) / 2;
+    // position exacte sur la barre de temps (le chrono n'affiche que les secondes), sur 1 s : une période calme peut être courte
+    const at = () => page.evaluate(() => +document.getElementById('time').value);
+    const a = await at(); await page.waitForTimeout(1000);
+    return Math.round((await at() - a) * 10) / 10;
   };
   const weak = await pace(true);
   check(weak != null && weak >= 5, 'temps faible : la lecture va environ 10 fois plus vite, et le repère « ⏩ » s\'affiche', weak + ' s de match par seconde');

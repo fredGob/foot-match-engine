@@ -10,7 +10,7 @@ if (!fs.existsSync(LIBF)) { fs.mkdirSync(path.dirname(LIBF), { recursive: true }
 const P3 = require(path.join(ROOT, 'players3d.js')), P3F = P3.LIBS.concat(P3.MODEL).map(u => [u, path.join(path.dirname(LIBF), path.basename(u))]);
 for (const [u, f] of P3F) if (!fs.existsSync(f)) execFileSync('curl', ['-sS', '-o', f, u]);
 let fails = 0; const check = (ok, what, info) => { if (!ok) fails++; console.log((ok ? '  ok    ' : '  ÉCHEC ') + what + (info ? ' — ' + info : '')); };
-const SEED = 16;      // équipes standard, 10 minutes : un but à 1:21 (le n° 22 n'avait plus de but depuis le n° 134)
+const SEED = 26;      // équipes standard, 10 minutes : un but à 1:47 (cherché dans la page avec « Résultat direct » ; le n° 16 n'avait plus de but tôt depuis le n° 142)
 
 (async () => {
   const browser = await pw.chromium.launch({ args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });

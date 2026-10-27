@@ -405,7 +405,7 @@ function create(canvas, R2, opt) {
      les gestes au sol (tacle glissé, plongeon) on bascule tout le corps. r : temps depuis la touche (négatif avant). Rotation des os :
      cuisse x > 0 = jambe en arrière, x < 0 = jambe en avant ; genou x > 0 = genou plié ; buste x > 0 = penché en avant ;
      bras gauche z > 0 (droit z < 0) = bras levé. Corps entier : pitch > 0 = basculé en arrière, roll = sur le côté. */
-  const WIN = { pass: [-0.34, 0.36], lob: [-0.46, 0.5], clear: [-0.46, 0.5], shot: [-0.5, 0.6], punt: [-0.55, 0.55], throw: [-0.9, 0.4], ctrl: [-0.28, 0.32],
+  const WIN = { pass: [-0.34, 0.36], lob: [-0.46, 0.5], clear: [-0.46, 0.5], shot: [-0.5, 0.6], punt: [-0.55, 0.55], throw: [-2.5, 0.6], ctrl: [-0.28, 0.32],
     head: [-0.45, 0.5], block: [-0.3, 0.5], tackle: [-0.32, 1.0], miss: [-0.32, 1.0], save: [-0.25, 1.4], catch: [-0.3, 0.8] };
   const env = (r, w) => smooth(w[0], w[0] + 0.14, r) * (1 - smooth(w[1] - 0.22, w[1], r));
   const legBones = (B, leg) => leg === 0 ? [B.rUp, B.rLeg, B.lUp, B.lLeg] : [B.lUp, B.lLeg, B.rUp, B.rLeg];
@@ -440,13 +440,6 @@ function create(canvas, R2, opt) {
     B.spine.rotation.x += (r < 0 ? lerp(-0.4, 0.5, smooth(-0.3, 0, r)) : 0.5) * w;      // il se cambre, puis donne le coup de tête
     B.lLeg.rotation.x += 0.7 * w * (jump > 0.1 ? 1 : 0.3); B.rLeg.rotation.x += 0.9 * w * (jump > 0.1 ? 1 : 0.3);
     B.lArm.rotation.z += 1.0 * w; B.rArm.rotation.z -= 1.0 * w;
-  }
-  function throwIn(B, r, w) {
-    const up = smooth(-0.85, -0.35, r), fwd = smooth(-0.12, 0.1, r);
-    const arm = lerp(2.7, 1.9, fwd) * up;
-    B.lArm.rotation.z += arm * w; B.rArm.rotation.z -= arm * w;
-    B.lFore.rotation.z += 0.9 * up * (1 - fwd) * w; B.rFore.rotation.z -= 0.9 * up * (1 - fwd) * w;      // coudes pliés derrière la tête, puis bras tendus
-    B.spine.rotation.x += lerp(-0.45 * up, 0.35, fwd) * w;
   }
   function blockGest(B, r, leg, w) {
     const [up, kn, , kn2] = legBones(B, leg);
@@ -501,7 +494,7 @@ function create(canvas, R2, opt) {
       case 'lob': case 'clear': strike(B, r, g.leg, w, 0.85, 0.3); break;
       case 'shot': strike(B, r, g.leg, w, 1, 0.2); break;
       case 'punt': strike(B, r, g.leg, w, 1, 0.35); break;
-      case 'throw': throwIn(B, r, w); break;
+      case 'throw': P3().throwPose({ userData: u }, r, w); break;      // touche : même geste que dans la vue du match (n° 142)
       case 'ctrl': control(B, r, g.leg, w, g.z); break;
       case 'head': headGest(u, B, r, w, g.z); break;
       case 'block': blockGest(B, r, g.leg, w); break;
@@ -513,6 +506,7 @@ function create(canvas, R2, opt) {
   // prépare les gestes de l'action : la jambe (côté du ballon), le tacle glissé ou non, le plongeon du gardien
   function prepareGestures(c) {
     for (const k in gest) delete gest[k];
+    throws.length = 0;
     if (!c.touches) return false;
     for (const [t, i, k, z] of c.touches) {
       if (t < c.t0 - 1 || t > c.t1 || !c.players[i]) continue;
@@ -525,10 +519,12 @@ function create(canvas, R2, opt) {
         g.dir = Math.sign(dy || 1); g.side = g.dir * side; g.reach = clamp(Math.abs(dy) - 0.6, 0, 1.8); g.amt = clamp(Math.abs(dy) / 1.6, 0.35, 1);
       }
       (gest[i] || (gest[i] = [])).push(g);
+      if (k === 'throw') { const nx = c.touches.find(x => x[0] > t + 0.05); throws.push({ t, i, fly: Math.min(0.8, nx ? nx[0] - t : 0.8) }); }      // le ballon vole jusqu'à la touche suivante
     }
     return true;
   }
   const P3 = () => (typeof self !== 'undefined' && self.Players3D && self.Players3D.ready()) ? self.Players3D : null;
+  const throws = [];      // touches de l'action : le ballon dans les mains du tireur, puis lancé en cloche (n° 142)
   function setup(c) {
     for (const f of figs) scene.remove(f); figs.length = 0;
     c.players.forEach((q, i) => {
@@ -628,6 +624,12 @@ function create(canvas, R2, opt) {
     });
     // le ballon : dans le but, il s'arrête dans le filet, qui se creuse
     let bx = S.ball.x, by = Math.max(0, S.ball.z), bz = S.ball.y;
+    const th = hasGest && throws.find(g => tt > g.t - 2.5 && tt < g.t + g.fly && figs[g.i] && figs[g.i].userData.rigged);
+    if (th) {      // touche : dans les mains au-dessus de la tête, puis lancé ; il retombe là où le moteur le fait rouler
+      const h = P3().handsAt(figs[th.i]);
+      if (tt < th.t) { bx = h.x; by = h.y + 0.04 - BR; bz = h.z; }
+      else { const u = (tt - th.t) / th.fly; by += (2.15 - BR) * (1 - u) * (1 + 1.2 * u); }
+    }
     const N = nets.find(n => n.d === Math.sign(bx));
     if (N && Math.abs(bx) > HL && Math.abs(bz) < GW + 0.2 && by < GH) {
       const push = clamp(Math.abs(bx) - (HL + GD - 0.3), 0, 0.7);
