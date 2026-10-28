@@ -207,8 +207,12 @@ function create(canvas, R2, opt) {
       let v = p.v != null ? p.v : (u.x === null || !gdt ? 0 : Math.hypot(x - u.x, z - u.z) / gdt);
       if (jump || u.x === null) u.sp = v; else u.sp += (Math.min(v, 10) - u.sp) * Math.min(1, gdt * 10);
       u.x = x; u.z = z;
-      if (u.rigged) P3().animate(f, u.sp, gdt); else pose(u, u.sp, gdt);
-      f.position.set(x, 0, z); f.rotation.y = -p.face; f.scale.setScalar((u.rigged ? 1.05 : 1.15) * big);
+      let face = p.face;
+      if (u.rigged) {      // course arrière, pas chassés, ou il se retourne pour courir (n° 143)
+        const dx = p.x - p.px, dz = p.y - p.py, dd = Math.hypot(dx, dz), H = P3().heading(f, p.face, dd > 1e-4 ? dx / dd * u.sp : 0, dd > 1e-4 ? dz / dd * u.sp : 0, jump ? 0 : gdt);
+        face = H.face; P3().animate(f, u.sp, gdt, { dir: H.dir });
+      } else pose(u, u.sp, gdt);
+      f.position.set(x, 0, z); f.rotation.y = -face; f.scale.setScalar((u.rigged ? 1.05 : 1.15) * big);
       if (TI && TI.id === p.id) {
         holdK = TI.r > -0.7 ? 1 : Math.max(0, Math.min(1, (2.2 - Math.hypot(x - ebx, z - ebz)) / 0.8));      // il prend le ballon une fois arrivé dessus
         if (u.rigged) { P3().throwPose(f, TI.r, holdK); hands = P3().handsAt(f); }

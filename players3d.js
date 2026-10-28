@@ -28,9 +28,52 @@ function load(cb) {
   (THREE.GLTFLoader ? Promise.resolve() : script(LIBS[0]))
     .then(() => THREE.SkeletonUtils ? null : script(LIBS[1]))
     .then(() => new Promise((ok, ko) => new THREE.GLTFLoader().load(MODEL, ok, undefined, () => ko(new Error('mannequin 3D introuvable')))))
-    .then(g => { try { g.built = swapBody(g.scene); } catch (e) { console.warn('corps de footballeur : ' + e.message); } gltf = g; done(null); }, e => done(e));
+    .then(g => { try { g.built = swapBody(g.scene); } catch (e) { console.warn('corps de footballeur : ' + e.message); } try { moves = buildMoves(g); } catch (e) { console.warn('mouvements filmés : ' + e.message); } gltf = g; done(null); }, e => done(e));
 }
 const ready = () => !!gltf;
+
+/* Les mouvements filmés (n° 143, mouvements.js, fabriqué par tools/mouvements.js) : frappes (tir, frappe longue, passe), saut, course arrière et
+   pas chassés de vrais acteurs (base de l'université Carnegie Mellon). Ils deviennent des clips three.js, joués par le même mélangeur que la
+   marche et la course du mannequin. Chaque mouvement existe aussi en miroir (gauche ↔ droite) : frappe du pied gauche, pas chassés vers la gauche.
+   Un miroir : on échange les os gauches et droits, et on retourne chaque rotation (x, −y, −z, w) ; le bassin passe de l'autre côté (−x). */
+let moves = null;
+function decode(str) {      // entiers sur 16 bits en base 64 (petit-boutiste)
+  const b = atob(str), a = new Int16Array(b.length >> 1);
+  for (let i = 0; i < a.length; i++) a[i] = (b.charCodeAt(2 * i) | (b.charCodeAt(2 * i + 1) << 8)) << 16 >> 16;
+  return a;
+}
+function buildMoves(g) {
+  const D = typeof self !== 'undefined' && self.Mouvements3D; if (!D) return null;
+  const hipsTrack = g.animations[0].tracks.find(t => /Hips\.position$/.test(t.name));
+  const pre = hipsTrack ? hipsTrack.name.replace(/Hips\.position$/, '') : 'mixamorig';      // nom des os dans les pistes (« mixamorig »)
+  const swap = n => /^Left/.test(n) ? 'Right' + n.slice(4) : /^Right/.test(n) ? 'Left' + n.slice(5) : n;
+  const out = {}, NB = D.bones.length;
+  for (const name in D.clips) {
+    const c = D.clips[name], q = decode(c.q), h = decode(c.hips), n = c.n, nk = n + (c.loop ? 1 : 0);      // boucle : la première image recopiée à la fin
+    const times = new Float32Array(nk); for (let i = 0; i < nk; i++) times[i] = i / c.fps;
+    const pair = [false, true].map(mir => {
+      const tracks = D.bones.map((bn, k) => {
+        const src = mir ? D.bones.indexOf(swap(bn)) : k, v = new Float32Array(nk * 4);
+        for (let i = 0; i < nk; i++) { const o = ((i % n) * NB + src) * 4; v[i * 4] = q[o] / 32767; v[i * 4 + 1] = (mir ? -1 : 1) * q[o + 1] / 32767; v[i * 4 + 2] = (mir ? -1 : 1) * q[o + 2] / 32767; v[i * 4 + 3] = q[o + 3] / 32767; }
+        return new THREE.QuaternionKeyframeTrack(pre + bn + '.quaternion', times, v);
+      });
+      const hp = new Float32Array(nk * 3);      // le bassin, en centimètres comme le squelette
+      for (let i = 0; i < nk; i++) { const o = (i % n) * 3; hp[i * 3] = (mir ? -1 : 1) * h[o] / 10; hp[i * 3 + 1] = h[o + 1] / 10; hp[i * 3 + 2] = h[o + 2] / 10; }
+      tracks.push(new THREE.VectorKeyframeTrack(pre + 'Hips.position', times, hp));
+      return new THREE.AnimationClip(name + (mir ? '-miroir' : ''), (nk - 1) / c.fps, tracks);
+    });
+    const m = { clips: pair, fps: c.fps, n, loop: !!c.loop, duration: (n - 1) / c.fps, speed: c.speed, dir: c.dir, contact: c.contact, foot: c.foot, head: c.head };
+    if (c.path) { const p = decode(c.path); m.path = Array.from(p, v => v / 1000); }      // chemin du bassin au sol (m), image par image : x vers sa gauche, z vers l'avant
+    out[name] = m;
+  }
+  return out;
+}
+// où est le bassin (au sol) dans une frappe filmée, à l'instant t du clip (s) : [x vers sa gauche, z vers l'avant], par rapport au contact
+function pathAt(name, t, left) {
+  const m = moves && moves[name]; if (!m || !m.path) return [0, 0];
+  const x = clamp(t * m.fps, 0, m.n - 1), i = Math.min(m.n - 2, Math.floor(x)), a = x - i, P = m.path;
+  return [(left ? -1 : 1) * (P[i * 2] + (P[i * 2 + 2] - P[i * 2]) * a), P[i * 2 + 1] + (P[i * 2 + 3] - P[i * 2 + 1]) * a];
+}
 
 /* Le corps de footballeur (n° 131, demande de Frédéric : « on dirait des filles avec des tailles très fines », il veut « la qualité de PES6 »).
    Le mannequin téléchargé ne sert plus que pour son squelette et ses mouvements enregistrés : son corps (taille de guêpe, hanches larges,
@@ -269,21 +312,57 @@ function make(kit, opts) {
   const A = { idle: mixer.clipAction(clip('idle')), walk: mixer.clipAction(clip('walk')), run: mixer.clipAction(clip('run')) };
   for (const k in A) { A[k].play(); A[k].setEffectiveWeight(0); }
   A.walk.time = Math.random() * A.walk.getClip().duration; A.run.time = Math.random() * A.run.getClip().duration;
+  const M = {};      // mouvements filmés : [droite, miroir] ; les frappes ne défilent pas d'elles-mêmes (le replay fixe leur instant)
+  if (moves) for (const k in moves) M[k] = moves[k].clips.map(c => { const a = mixer.clipAction(c); a.play(); a.setEffectiveWeight(0); if (!moves[k].loop) a.timeScale = 0; else a.time = Math.random() * c.duration; return a; });
   const bone = n => body.getObjectByName('mixamorig' + n) || body.getObjectByName('mixamorig:' + n);
-  g.userData = { rigged: true, body, mixer, A, sp: 0, bones: { hips: bone('Hips'), spine: bone('Spine1'), lUp: bone('LeftUpLeg'), rUp: bone('RightUpLeg'), lLeg: bone('LeftLeg'), rLeg: bone('RightLeg'), lArm: bone('LeftArm'), rArm: bone('RightArm'), lFore: bone('LeftForeArm'), rFore: bone('RightForeArm'), head: bone('Head'), lHand: bone('LeftHand'), rHand: bone('RightHand') } };
+  g.userData = { rigged: true, body, mixer, A, M, sp: 0, turn: 0, bones: { hips: bone('Hips'), spine: bone('Spine1'), lUp: bone('LeftUpLeg'), rUp: bone('RightUpLeg'), lLeg: bone('LeftLeg'), rLeg: bone('RightLeg'), lArm: bone('LeftArm'), rArm: bone('RightArm'), lFore: bone('LeftForeArm'), rFore: bone('RightForeArm'), head: bone('Head'), lHand: bone('LeftHand'), rHand: bone('RightHand') } };
   return g;
 }
-// la course suit la vitesse v (m/s) du joueur dans le match ; dt : temps de jeu écoulé (0 en pause, petit au ralenti)
-function animate(g, v, dt) {
-  const u = g.userData, A = u.A;
+/* la course suit la vitesse v (m/s) du joueur dans le match ; dt : temps de jeu écoulé (0 en pause, petit au ralenti).
+   o (facultatif, n° 143) : { dir : direction du déplacement par rapport au regard (rad ; 0 en avant, > 0 vers sa gauche, ±π en arrière),
+   move : { name, t, w, left } : un geste filmé (frappe, saut) à l'instant t du clip, de poids w (0 à 1), du pied gauche ou non }.
+   En avant : marche et course du mannequin ; en arrière : la course arrière filmée ; de côté : les pas chassés filmés. */
+function animate(g, v, dt, o) {
+  const u = g.userData, A = u.A, M = u.M || {};
+  o = o || {};
   // un geste posé par-dessus (touche) : on remet d'abord les os comme le mouvement les avait laissés. En pause, le mélangeur ne réécrit
   // pas un os dont la valeur n'a pas changé : sans cela, le geste s'ajouterait à lui-même à chaque image.
   if (u.posed) { for (const [b, q] of u.posed) b.quaternion.copy(q); u.posed = null; }
   const idle = clamp(1 - v / 0.7, 0, 1), run = clamp((v - 2.2) / 1.8, 0, 1), walk = Math.max(0, 1 - idle - run);
-  A.idle.setEffectiveWeight(idle); A.walk.setEffectiveWeight(walk); A.run.setEffectiveWeight(run);
+  let fw = 1, bk = 0, sd = 0;
+  if (o.dir != null && M.recul && M.cote) { const a = Math.abs(o.dir); bk = smooth(1.95, 2.45, a); fw = 1 - smooth(0.8, 1.3, a); sd = Math.max(0, 1 - fw - bk); }
+  const mv = o.move && M[o.move.name] ? o.move : null, gw = mv ? clamp(mv.w, 0, 1) : 0, keep = 1 - gw;
+  A.idle.setEffectiveWeight(idle * keep); A.walk.setEffectiveWeight(walk * fw * keep); A.run.setEffectiveWeight(run * fw * keep);
   A.walk.setEffectiveTimeScale(clamp(v / 1.4, 0.6, 1.9));
   A.run.setEffectiveTimeScale(clamp(v / 4.6, 0.75, 1.55));
+  if (M.recul) {
+    const mvW = (walk + run) * keep;
+    M.recul[0].setEffectiveWeight(mvW * bk); M.recul[0].setEffectiveTimeScale(clamp(v / moves.recul.speed, 0.6, 2.4));
+    const right = o.dir != null && o.dir < 0;      // pas chassés vers la droite (prise filmée) ou vers la gauche (miroir)
+    M.cote[0].setEffectiveWeight(right ? mvW * sd : 0); M.cote[1].setEffectiveWeight(right ? 0 : mvW * sd);
+    M.cote[0].setEffectiveTimeScale(clamp(v / moves.cote.speed, 0.45, 1.5)); M.cote[1].setEffectiveTimeScale(clamp(v / moves.cote.speed, 0.45, 1.5));
+    M.recul[1].setEffectiveWeight(0);
+  }
+  for (const k in M) {
+    if (moves[k].loop) continue;
+    M[k].forEach((a, i) => {
+      const on = mv && mv.name === k && !!mv.left === (i === 1);
+      a.setEffectiveWeight(on ? gw : 0);
+      if (on) a.time = clamp(mv.t, 0, moves[k].duration - 1e-3);
+    });
+  }
   u.mixer.update(Math.max(0, dt));
+}
+/* Le cap affiché et la direction du déplacement (n° 143). face : regard du joueur dans le moteur (rad, même convention que le moteur) ;
+   vx, vz : sa vitesse (m/s, x et y du moteur). Le moteur tourne le joueur dans le sens de sa course dès 1,4 m/s, sauf celui qui presse :
+   il regarde le ballon et peut reculer ou se déplacer de côté. Lent, il garde ce regard (course arrière, pas chassés) ; vite (plus de 3,5 m/s),
+   il se retourne et court face à sa course, comme un vrai défenseur. Renvoie { face : cap affiché, dir : direction pour animate }. */
+function heading(g, face, vx, vz, dt) {
+  const u = g.userData, v = Math.hypot(vx, vz), c = Math.cos(face), s = Math.sin(face);
+  const rel = v > 0.4 ? Math.atan2(-(c * vz - s * vx), c * vx + s * vz) : 0;      // > 0 : vers sa gauche
+  const k = smooth(3.0, 3.8, v) * smooth(0.8, 1.2, Math.abs(rel));
+  u.turn = dt > 0 ? u.turn + (k - u.turn) * Math.min(1, dt * 5) : k;
+  return { face: face - rel * u.turn, dir: rel * (1 - u.turn) };
 }
 
 /* La touche (remarque de Frédéric : « en 3D, les touches sont faites au pied ») : le tireur tient le ballon à deux mains au-dessus de la tête,
@@ -308,5 +387,5 @@ function handsAt(g) {
   return a.add(b).multiplyScalar(0.5);
 }
 
-return { load, ready, make, animate, throwPose, handsAt, LIBS, MODEL };
+return { load, ready, make, animate, heading, throwPose, handsAt, pathAt, moves: () => moves, LIBS, MODEL };
 });

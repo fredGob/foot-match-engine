@@ -479,15 +479,19 @@ function create(canvas, R2, opt) {
   function pick(i, tt) {
     const L = gest[i]; if (!L) return null;
     let g = null, best = 9;
-    for (const x of L) { const r = tt - x.t, w = WIN[x.k]; if (r >= w[0] && r <= w[1] && Math.abs(r) < best) { best = Math.abs(r); g = x; } }
+    for (const x of L) { const r = tt - x.t, w = x.win || WIN[x.k]; if (r >= w[0] && r <= w[1] && Math.abs(r) < best) { best = Math.abs(r); g = x; } }
     return g;
   }
   // pendant une frappe ou un contrôle, la foulée ralentit (le pied d'appui se pose) : on joue la course d'un joueur plus lent
   const CALM = { pass: 0.65, lob: 0.75, clear: 0.75, shot: 0.75, punt: 0.9, throw: 1, ctrl: 0.55, head: 0.6, block: 0.6, tackle: 0.5, miss: 0.5, save: 0.9, catch: 0.9 };
-  function calmSpeed(g, tt, v) { return g ? v * (1 - CALM[g.k] * env(tt - g.t, WIN[g.k])) : v; }
+  function calmSpeed(g, tt, v) { return g && !g.mv ? v * (1 - CALM[g.k] * env(tt - g.t, WIN[g.k])) : v; }
   function gesture(g, u, tt) {
     const T = { pitch: 0, roll: 0, lift: 0, fwd: 0, lat: 0, kmag: 0, kdir: 0 };      // kmag, kdir : plongeon du gardien (ampleur, côté du ballon)
     if (!g) return T;
+    if (g.mv) {      // geste filmé (n° 143) : joué par le mélangeur, voir render ; pour une tête, on ajoute le coup de tête (le buste se cambre puis frappe)
+      if (g.mv.name === 'saut') { const r = tt - g.t, w = filmW(g, r) / g.mv.amt, B = u.bones; B.spine.rotation.x += (r < 0 ? lerp(-0.3, 0.35, smooth(-0.25, 0, r)) : 0.35) * w; B.head.rotation.x += (r < 0 ? lerp(-0.25, 0.3, smooth(-0.2, 0, r)) : 0.3) * w; }
+      return T;
+    }
     const r = tt - g.t, w = env(r, WIN[g.k]), B = u.bones;
     switch (g.k) {
       case 'pass': sidefoot(B, r, g.leg, w); break;
@@ -518,12 +522,48 @@ function create(canvas, R2, opt) {
         g.dive = Math.abs(dy) > 0.85 || (k === 'save' && Math.abs(dy) > 0.5);
         g.dir = Math.sign(dy || 1); g.side = g.dir * side; g.reach = clamp(Math.abs(dy) - 0.6, 0, 1.8); g.amt = clamp(Math.abs(dy) / 1.6, 0.35, 1);
       }
+      filmed(c, g, i, S, p);
       (gest[i] || (gest[i] = [])).push(g);
       if (k === 'throw') { const nx = c.touches.find(x => x[0] > t + 0.05); throws.push({ t, i, fly: Math.min(0.8, nx ? nx[0] - t : 0.8) }); }      // le ballon vole jusqu'à la touche suivante
     }
     return true;
   }
   const P3 = () => (typeof self !== 'undefined' && self.Players3D && self.Players3D.ready()) ? self.Players3D : null;
+  /* Les frappes filmées (n° 143) : tir, frappe longue (long ballon, dégagement, centre) et passe sont jouées par de vrais acteurs (mouvements.js).
+     Le joueur suit le chemin de l'acteur, pied d'appui planté, ancré pour que son pied frappe le ballon à l'instant du contact, et il se tourne
+     vers là où part le ballon (dans le moteur, il ne regarde pas toujours dans cette direction : jusqu'à 60° d'écart sur un tir).
+     Fenêtre : 0,6 s avant le contact (élan) à 0,6 s après, raccourcie s'il a touché le ballon juste avant (contrôle puis passe). */
+  const FILMED = { shot: 'tir', lob: 'frappe', clear: 'frappe', punt: 'frappe', pass: 'passe', head: 'saut' };
+  function filmed(c, g, i, S, p) {
+    const M = P3() && P3().moves(), name = FILMED[g.k]; if (!M || !M[name]) return;
+    if (name === 'saut' && g.z < 1.6) return;      // tête basse : pas de saut (geste fait main)
+    // le moteur note la touche au pas où le ballon part : à l'image d'avant (0,05 s plus tôt), il est encore au pied. C'est l'instant du contact.
+    g.t = Math.round((g.t - 0.05) * 100) / 100; S = c.at(g.t); p = S.players[i];
+    const m = M[name], B1 = c.at(g.t + 0.1).ball, dx = B1.x - S.ball.x, dy = B1.y - S.ball.y;
+    const F = Math.hypot(dx, dy) > 0.05 ? Math.atan2(dy, dx) : p.face, left = g.leg === 1;
+    // le pied (repère du joueur : x vers sa gauche, z vers l'avant) juste derrière le ballon, dans la direction de la frappe ;
+    // pour une tête, le front au sommet du saut, juste derrière le ballon (saut plus ou moins franc selon la hauteur du ballon)
+    const jump = name === 'saut', at = jump ? m.head : m.foot, fx = (left ? -1 : 1) * at[0], fz = jump ? at[2] : at[1], back = jump ? 0.12 : 0.13;
+    const bx = S.ball.x - Math.cos(F) * back, by = S.ball.y - Math.sin(F) * back;
+    const prev = (gest[i] || []).reduce((a, x) => Math.max(a, x.t), -1e9);
+    // une passe : l'acteur accompagne haut (jambe à la taille) ; le joueur, lui, raccourcit le geste après le ballon
+    g.mv = { name, left: jump ? false : left, F, contact: m.contact, post: name === 'passe' ? 0.55 : 1, out: name === 'passe' ? [0.12, 0.34] : [0.32, 0.6], amt: jump ? clamp((g.z - 1.55) / 0.45, 0.35, 1) : 1, ax: bx - (fz * Math.cos(F) + fx * Math.sin(F)), ay: by - (fz * Math.sin(F) - fx * Math.cos(F)) };
+    g.win = [Math.max(-0.62, Math.min(-0.3, prev - g.t + 0.12)), 0.62];
+    // au début de l'élan, l'écart entre le joueur du moteur et le chemin de l'acteur : il se résorbe peu à peu jusqu'au contact
+    const P0 = c.at(g.t + g.win[0]).players[i], M0 = filmPos(g, g.win[0]);
+    g.mv.dx = P0.x - M0[0]; g.mv.dy = P0.y - M0[1]; g.mv.df = Math.atan2(Math.sin(P0.face - F), Math.cos(P0.face - F));
+  }
+  // où est le joueur sur le chemin de l'acteur, r secondes après le contact
+  function filmPos(g, r) {
+    const M = g.mv, pa = P3().pathAt(M.name, filmT(g, r), M.left);
+    return [M.ax + pa[1] * Math.cos(M.F) + pa[0] * Math.sin(M.F), M.ay + pa[1] * Math.sin(M.F) - pa[0] * Math.cos(M.F)];
+  }
+  // le poids d'une frappe filmée à l'instant r (s depuis le contact) : entrée en 0,2 s, sortie de 0,32 à 0,6 s
+  const filmW = (g, r) => g.mv.amt * smooth(g.win[0], g.win[0] + 0.2, r) * (1 - smooth(g.mv.out[0], g.mv.out[1], r));
+  const filmT = (g, r) => g.mv.contact + (r > 0 ? r * g.mv.post : r);      // instant du clip
+  // la part de l'écart de départ qui reste (1 au début de l'élan, 0 au contact)
+  const filmDrift = (g, r) => 1 - smooth(g.win[0], -0.03, r);
+  const lerpA = (a, b, k) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * k;
   const throws = [];      // touches de l'action : le ballon dans les mains du tireur, puis lancé en cloche (n° 142)
   function setup(c) {
     for (const f of figs) scene.remove(f); figs.length = 0;
@@ -585,13 +625,24 @@ function create(canvas, R2, opt) {
     render(t, cam ? gdt : 0, dt, s);
   }
   function render(tt, gdt, dt, s) {
-    const c = clip, S = c.at(tt);
+    const c = clip, S = c.at(tt), S0 = c.at(tt - 0.1);
     S.players.forEach((p, i) => {
       const f = figs[i], u = f.userData;
       if (!gdt) u.sp = p.v; else u.sp += (Math.min(p.v, 10) - u.sp) * Math.min(1, gdt * 10);
       const g = u.rigged && hasGest ? pick(i, tt) : null;
-      if (u.rigged) { u.body.position.y = 0; P3().animate(f, calmSpeed(g, tt, u.sp), gdt); } else gait(u, u.sp, gdt);
-      let x = p.x, z = p.y, roll = 0, lift = 0, pitch = 0, kmag = 0, kdir = 0;
+      let x = p.x, z = p.y, roll = 0, lift = 0, pitch = 0, kmag = 0, kdir = 0, face = p.face;
+      if (u.rigged) {
+        u.body.position.y = 0;
+        // course arrière, pas chassés, ou il se retourne pour courir (n° 143)
+        const q0 = S0.players[i], H = P3().heading(f, p.face, (p.x - q0.x) / 0.1, (p.y - q0.y) / 0.1, gdt);
+        const o = { dir: H.dir }; face = H.face;
+        if (g && g.mv) {      // frappe filmée : le joueur suit le chemin de l'acteur, pied sur le ballon au contact
+          const r = tt - g.t, M = g.mv, w = filmW(g, r), d = filmDrift(g, r), fp = filmPos(g, r), back = r > 0 ? w / M.amt : 1;
+          x += (fp[0] + M.dx * d - x) * back; z += (fp[1] + M.dy * d - z) * back;      // avant le contact : chemin de l'acteur ; après : retour au moteur
+          face = lerpA(face, M.F + M.df * d, back); o.move = { name: M.name, t: filmT(g, r), w, left: M.left };
+        }
+        P3().animate(f, calmSpeed(g, tt, u.sp), gdt, o);
+      } else gait(u, u.sp, gdt);
       if (u.rigged && hasGest) {      // les gestes de toute l'action (n° 133)
         const G = gesture(g, u, tt);
         roll = G.roll; lift = G.lift; pitch = G.pitch; z += G.lat; kmag = G.kmag; kdir = G.kdir;
@@ -612,7 +663,7 @@ function create(canvas, R2, opt) {
       }
       // plongeon (n° 140, remarque de Frédéric : « un salto arrière ») : dans le moteur, le gardien regarde dans le sens où il se déplace,
       // donc le long de sa ligne quand il se jette. On le tourne face au jeu, puis il bascule sur le côté du ballon, 83° au plus.
-      let yaw = -p.face;
+      let yaw = -face;
       if (kmag > 0.01) {
         const F = p.x > 0 ? Math.PI : 0, a = Math.min(1, kmag / 0.5), dA = Math.atan2(Math.sin(F - p.face), Math.cos(F - p.face));
         yaw = -(p.face + dA * a);
@@ -654,8 +705,8 @@ function create(canvas, R2, opt) {
     const c = clip, gx = c.side * HL, k = cam ? 1 - Math.exp(-dt * (kind === 'buteur' ? 5 : 3)) : 1;
     let pos, look, fov;
     if (kind === 'pres') {      // gros plan de côté sur un joueur (essais et captures des gestes)
-      const p = S.players[c.focus], sx = -Math.sin(p.face), sz = Math.cos(p.face);
-      pos = [p.x + sx * 4.2 + Math.cos(p.face) * 1.6, 1.5, p.y + sz * 4.2 + Math.sin(p.face) * 1.6]; look = [p.x, 0.75, p.y]; fov = 38;
+      const F = figs[c.focus].position, fa = -figs[c.focus].rotation.y, p = { x: F.x, y: F.z }, sx = -Math.sin(fa), sz = Math.cos(fa);      // le joueur tel qu'il est affiché
+      pos = [p.x + sx * 4.2 + Math.cos(fa) * 1.6, 1.5, p.y + sz * 4.2 + Math.sin(fa) * 1.6]; look = [p.x, 0.75, p.y]; fov = 38;
     } else if (kind === 'buteur') {
       const p = S.players[c.scorer], dx = gx - p.x, dy = -p.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
       const after = smooth(c.shotT - 0.1, c.shotT + 0.4, t);
