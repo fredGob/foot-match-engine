@@ -78,7 +78,7 @@ Les tests de la page demandent une installation, une seule fois : `cd tools && n
 | `index.html` | L'accueil (racine du site). |
 | `page-match.html` | La page de match, avant assemblage. |
 | `equipes.json` | Les quatre équipes de niveaux différents et les dix clubs de Ligue 1. |
-| `mouvements.js` | Les mouvements filmés des joueurs 3D (frappes, saut, course arrière, pas chassés), fabriqués par `tools/mouvements.js`. |
+| `mouvements.js` | Les mouvements filmés des joueurs 3D (frappes, passe, penalty, saut, touche, gardien, tacle, célébrations, course arrière, pas chassés), fabriqués par `tools/mouvements.js`. |
 | `sim.js`, `check.js`, `tools/` | Simulations, vérifications et outils de mesure. |
 | `CLAUDE.md` | Le carnet du projet : fonctionnement du moteur, mesures, journal des essais, défauts connus. |
 
@@ -102,6 +102,6 @@ Ce qui ne va pas encore :
 
 Le détail des mesures, des essais ratés et des défauts est dans `CLAUDE.md`.
 
-Crédits : les mouvements filmés des joueurs 3D viennent de la base de capture de mouvement de l'université Carnegie Mellon (mocap.cs.cmu.edu), créée grâce au financement NSF EIA-0196217.
+Crédits : les mouvements filmés des joueurs 3D viennent de la base de capture de mouvement de l'université Carnegie Mellon (mocap.cs.cmu.edu), créée grâce au financement NSF EIA-0196217, et du « Free mocap pack 05: Soccer » d'Anderson Rohr (linktr.ee/andersonrohr). Les fichiers d'origine de ce pack ne sont pas dans ce dépôt.
 
 Ce qui n'existe pas : d'autres formations que le 4-4-2, les remplacements, les cartons, la mi-temps, les consignes par joueur.

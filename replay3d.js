@@ -369,7 +369,7 @@ function create(canvas, R2, opt) {
   // ---------- le replay ----------
   const figs = [];
   const gest = {};      // les gestes de chaque joueur (index → liste), préparés pour l'action en cours
-  let clip = null, hooks = null, segs = [], si = 0, t = 0, raf = 0, last = 0, cam = null, ballLast = null, hasGest = false, keeperTouchedLast = false, kickLeg = 0, diveSide = 0, diveDir = 0, diveReach = 0, diveAmt = 0, W = 1, H = 1;
+  let clip = null, hooks = null, segs = [], si = 0, t = 0, raf = 0, last = 0, cam = null, ballLast = null, hasGest = false, keeperTouchedLast = false, keeperFilmed = false, kickLeg = 0, diveSide = 0, diveDir = 0, diveReach = 0, diveAmt = 0, W = 1, H = 1;
   function resize(w, h) {
     W = w; H = h; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
     if (post) { const v = renderer.getDrawingBufferSize(new THREE.Vector2()); post.size(v.x, v.y); }
@@ -529,27 +529,60 @@ function create(canvas, R2, opt) {
     return true;
   }
   const P3 = () => (typeof self !== 'undefined' && self.Players3D && self.Players3D.ready()) ? self.Players3D : null;
-  /* Les frappes filmées (n° 143) : tir, frappe longue (long ballon, dégagement, centre) et passe sont jouées par de vrais acteurs (mouvements.js).
-     Le joueur suit le chemin de l'acteur, pied d'appui planté, ancré pour que son pied frappe le ballon à l'instant du contact, et il se tourne
-     vers là où part le ballon (dans le moteur, il ne regarde pas toujours dans cette direction : jusqu'à 60° d'écart sur un tir).
-     Fenêtre : 0,6 s avant le contact (élan) à 0,6 s après, raccourcie s'il a touché le ballon juste avant (contrôle puis passe). */
-  const FILMED = { shot: 'tir', lob: 'frappe', clear: 'frappe', punt: 'frappe', pass: 'passe', head: 'saut' };
+  /* Les gestes filmés (n° 143, 144) : tir, frappe longue (long ballon, dégagement, centre), passe, penalty, tête haute, touche, tacle debout,
+     arrêts du gardien et célébration du buteur sont joués par de vrais acteurs (mouvements.js). Le joueur suit le chemin de l'acteur
+     (pied d'appui planté), ancré pour que son pied, son front ou ses mains arrivent sur le ballon à l'instant du contact, et il se tourne
+     vers là où part le ballon (frappes), vers le ballon (tacle) ou face au ballon qui arrive (gardien). L'écart avec la place du joueur
+     dans le moteur se résorbe peu à peu jusqu'au contact. g.win : fenêtre du geste (s autour du contact) ; mv.out : sortie ; mv.inT : entrée. */
+  const FILMED = { shot: 'tir', lob: 'frappe', clear: 'frappe', punt: 'frappe', pass: 'passe', head: 'saut', throw: 'touche', tackle: 'tacle', miss: 'tacle', save: 'gardien', catch: 'gardien' };
+  const KICKS = { tir: 1, frappe: 1, passe: 1, penalty: 1 };
+  // fenêtre de chaque geste : [début, fin] autour du contact, sortie, entrée
+  const FWIN = { touche: [-2.5, 0.85, 0.45, 0.3], tacle: [-0.55, 0.9, 0.5, 0.2], plongeon: [-0.8, 1.6, 1.1, 0.25], arret: [-0.7, 1.0, 0.6, 0.25], sol: [-0.9, 1.5, 1.0, 0.25],
+    fete1: [0, 3.2, 3.0, 0.3], fete2: [0, 3.2, 3.0, 0.3], fete3: [0, 2.9, 2.7, 0.3] };
   function filmed(c, g, i, S, p) {
-    const M = P3() && P3().moves(), name = FILMED[g.k]; if (!M || !M[name]) return;
+    const M = P3() && P3().moves(); if (!M) return;
+    let name = FILMED[g.k]; if (!name) return;
+    if (name === 'tir' && c.sp === 'penalty' && c.shotT != null && Math.abs(g.t - c.shotT) < 0.15) name = 'penalty';
     if (name === 'saut' && g.z < 1.6) return;      // tête basse : pas de saut (geste fait main)
+    if (name === 'tacle' && g.slide) return;      // tacle glissé : fait main (le pack n'en a pas)
+    if (name === 'gardien') name = 'arret';      // précisé plus bas (plongeon, ballon capté, arrêt au sol), selon le ballon
+    if (!M[name]) return;
     // le moteur note la touche au pas où le ballon part : à l'image d'avant (0,05 s plus tôt), il est encore au pied. C'est l'instant du contact.
-    g.t = Math.round((g.t - 0.05) * 100) / 100; S = c.at(g.t); p = S.players[i];
-    const m = M[name], B1 = c.at(g.t + 0.1).ball, dx = B1.x - S.ball.x, dy = B1.y - S.ball.y;
-    const F = Math.hypot(dx, dy) > 0.05 ? Math.atan2(dy, dx) : p.face, left = g.leg === 1;
-    // le pied (repère du joueur : x vers sa gauche, z vers l'avant) juste derrière le ballon, dans la direction de la frappe ;
-    // pour une tête, le front au sommet du saut, juste derrière le ballon (saut plus ou moins franc selon la hauteur du ballon)
-    const jump = name === 'saut', at = jump ? m.head : m.foot, fx = (left ? -1 : 1) * at[0], fz = jump ? at[2] : at[1], back = jump ? 0.12 : 0.13;
-    const bx = S.ball.x - Math.cos(F) * back, by = S.ball.y - Math.sin(F) * back;
-    const prev = (gest[i] || []).reduce((a, x) => Math.max(a, x.t), -1e9);
+    // (pas pour la touche : le ballon quitte les mains à l'instant noté, comme le dessine le replay)
+    if (name !== 'touche') { g.t = Math.round((g.t - 0.05) * 100) / 100; S = c.at(g.t); p = S.players[i]; }
+    let m = M[name]; const B = S.ball, B1 = c.at(g.t + 0.1).ball, B0 = c.at(g.t - 0.1).ball, moving = Math.hypot(B1.x - B.x, B1.y - B.y) > 0.05;
+    let F = p.face, left = false, at = null, bk = 0;
+    if (KICKS[name] || name === 'saut') { if (moving) F = Math.atan2(B1.y - B.y, B1.x - B.x); left = name !== 'saut' && g.leg === 1; at = name === 'saut' ? [m.head[0], m.head[2]] : m.foot; bk = name === 'saut' ? 0.12 : 0.13; }
+    else if (name === 'tacle') { F = Math.atan2(B.y - p.y, B.x - p.x); left = g.leg === 1; at = m.foot; bk = 0.13; }
+    else if (name === 'touche') { if (moving) F = Math.atan2(B1.y - B.y, B1.x - B.x); }
+    else {      // gardien : face au ballon qui arrive
+      const vx = B.x - B0.x, vy = B.y - B0.y; if (Math.hypot(vx, vy) > 0.05) F = Math.atan2(-vy, -vx);
+      const kp = keeperMove(M, F, B.x - p.x, B.y - p.y, B.z, g.dive); name = kp.name; left = kp.left; m = M[name]; at = [m.hands[0], m.hands[2]];
+    }
+    film(c, g, i, name, F, left, at ? [at[0], at[1], B.x - Math.cos(F) * bk, B.y - Math.sin(F) * bk] : [0, 0, p.x, p.y]);
+    if (m.hands && name !== 'touche') g.mv.lift = name === 'sol' ? 0 : clamp(B.z - m.hands[1], -0.6, 0.35);      // le gardien monte ou descend un peu vers le ballon
+    if (name === 'saut') g.mv.amt = clamp((g.z - 1.55) / 0.45, 0.35, 1);      // saut plus ou moins franc selon la hauteur du ballon
+  }
+  /* le geste du gardien selon le ballon : au ras du sol (moins de 0,55 m), l'arrêt au sol, ou le plongeon s'il est loin sur le côté ;
+     plus haut, le plongeon si le ballon est loin de lui, sinon le ballon capté. Le geste filmé part d'un côté (ses mains au contact) :
+     retourné en miroir si le ballon est de l'autre côté. dx, dy : ballon moins gardien ; F : son regard */
+  function keeperMove(M, F, dx, dy, z, dive) {
+    const lat = dx * Math.sin(F) - dy * Math.cos(F);      // > 0 : à sa gauche
+    const name = z < 0.55 ? (Math.abs(lat) < 2.2 ? 'sol' : 'plongeon') : dive || Math.abs(lat) > 0.85 ? 'plongeon' : 'arret';
+    const hx = M[name].hands[0];
+    return { name, left: Math.abs(hx) > 0.05 && Math.sign(hx) !== Math.sign(lat || 1) };
+  }
+  /* prépare un geste filmé : name (mouvement), F (direction du regard au contact), left (miroir), pin = [x, z du point du corps qui doit arriver
+     sur la cible (repère de l'acteur : x vers sa gauche, z vers l'avant), cible x, cible y (repère du terrain)] */
+  function film(c, g, i, name, F, left, pin) {
+    const m = P3().moves()[name], fx = (left ? -1 : 1) * pin[0], fz = pin[1], w = FWIN[name];
+    const prev = (gest[i] || []).reduce((a, x) => x !== g && x.t < g.t ? Math.max(a, x.t) : a, -1e9);
     // une passe : l'acteur accompagne haut (jambe à la taille) ; le joueur, lui, raccourcit le geste après le ballon
-    g.mv = { name, left: jump ? false : left, F, contact: m.contact, post: name === 'passe' ? 0.55 : 1, out: name === 'passe' ? [0.12, 0.34] : [0.32, 0.6], amt: jump ? clamp((g.z - 1.55) / 0.45, 0.35, 1) : 1, ax: bx - (fz * Math.cos(F) + fx * Math.sin(F)), ay: by - (fz * Math.sin(F) - fx * Math.cos(F)) };
-    g.win = [Math.max(-0.62, Math.min(-0.3, prev - g.t + 0.12)), 0.62];
-    // au début de l'élan, l'écart entre le joueur du moteur et le chemin de l'acteur : il se résorbe peu à peu jusqu'au contact
+    g.mv = { name, left, F, contact: m.contact, post: name === 'passe' ? 0.55 : 1, out: w ? [w[2], w[1]] : name === 'passe' ? [0.12, 0.34] : [0.32, 0.6], inT: w ? w[3] : 0.2, amt: 1, lift: 0,
+      ax: pin[2] - (fz * Math.cos(F) + fx * Math.sin(F)), ay: pin[3] - (fz * Math.sin(F) - fx * Math.cos(F)) };
+    g.win = w ? [Math.max(w[0], Math.min(-0.3, prev - g.t + 0.12)), w[1]] : [Math.max(-0.62, Math.min(-0.3, prev - g.t + 0.12)), 0.62];
+    if (w && w[0] === 0) g.win[0] = 0;      // célébration : elle commence à l'instant donné
+    // au début du geste, l'écart entre le joueur du moteur et le chemin de l'acteur : il se résorbe peu à peu jusqu'au contact
     const P0 = c.at(g.t + g.win[0]).players[i], M0 = filmPos(g, g.win[0]);
     g.mv.dx = P0.x - M0[0]; g.mv.dy = P0.y - M0[1]; g.mv.df = Math.atan2(Math.sin(P0.face - F), Math.cos(P0.face - F));
   }
@@ -558,11 +591,34 @@ function create(canvas, R2, opt) {
     const M = g.mv, pa = P3().pathAt(M.name, filmT(g, r), M.left);
     return [M.ax + pa[1] * Math.cos(M.F) + pa[0] * Math.sin(M.F), M.ay + pa[1] * Math.sin(M.F) - pa[0] * Math.cos(M.F)];
   }
-  // le poids d'une frappe filmée à l'instant r (s depuis le contact) : entrée en 0,2 s, sortie de 0,32 à 0,6 s
-  const filmW = (g, r) => g.mv.amt * smooth(g.win[0], g.win[0] + 0.2, r) * (1 - smooth(g.mv.out[0], g.mv.out[1], r));
+  // le poids d'un geste filmé à l'instant r (s depuis le contact) : entrée en mv.inT, sortie selon mv.out
+  const filmW = (g, r) => g.mv.amt * smooth(g.win[0], g.win[0] + g.mv.inT, r) * (1 - smooth(g.mv.out[0], g.mv.out[1], r));
   const filmT = (g, r) => g.mv.contact + (r > 0 ? r * g.mv.post : r);      // instant du clip
-  // la part de l'écart de départ qui reste (1 au début de l'élan, 0 au contact)
-  const filmDrift = (g, r) => 1 - smooth(g.win[0], -0.03, r);
+  // la part de l'écart de départ qui reste (1 au début du geste, 0 au contact)
+  const filmDrift = (g, r) => g.win[0] >= 0 ? 0 : 1 - smooth(g.win[0], -0.03, r);
+  // le gardien qui monte ou descend vers le ballon : autour du contact seulement
+  const filmLift = (g, r) => g.mv.lift * smooth(-0.45, -0.1, r) * (1 - smooth(0.25, 0.7, r));
+  /* Deux gestes ajoutés par le replay lui-même (n° 144) : le gardien battu plonge quand même (vers l'endroit où le ballon passe la ligne,
+     ses mains n'y arrivent que si c'est à sa portée), et le buteur célèbre son but. */
+  function extraGestures(c) {
+    const M = P3() && P3().moves(); if (!M || c.shotT == null) return false;
+    let diving = false;
+    if (c.keeper >= 0 && !keeperTouchedLast && M.plongeon) {
+      const te = Math.min(c.goalT, c.shotT + clamp((c.goalT - c.shotT) * 0.75, 0.25, 0.9)), S = c.at(te), K = S.players[c.keeper], T = c.at(c.goalT).ball;
+      const sh = c.scorer >= 0 ? c.at(c.shotT).players[c.scorer] : null, F = sh ? Math.atan2(sh.y - K.y, sh.x - K.x) : K.face;
+      const dx = T.x - K.x, dy = T.y - K.y, d = Math.hypot(dx, dy) || 1, reach = Math.min(1, 1.9 / d);      // ses mains vont vers le ballon, 1,9 m au plus
+      const kp = keeperMove(M, F, dx, dy, T.z, true), g = { t: te, k: 'dive', z: T.z, extra: true }, m = M[kp.name];
+      film(c, g, c.keeper, kp.name, F, kp.left, [m.hands[0], m.hands[2], K.x + dx * reach, K.y + dy * reach]);
+      g.mv.lift = kp.name === 'sol' ? 0 : clamp(T.z - m.hands[1], -0.6, 0.35);
+      (gest[c.keeper] || (gest[c.keeper] = [])).push(g); diving = true;
+    }
+    if (c.scorer >= 0 && !c.own && M.fete1) {
+      const name = ['fete1', 'fete2', 'fete3'][Math.abs(Math.round(c.goalT * 10) + c.scorer) % 3], te = c.goalT + 0.35, P = c.at(te).players[c.scorer], g = { t: te, k: 'fete', z: 0, extra: true };
+      film(c, g, c.scorer, name, P.face, false, [0, 0, P.x, P.y]);
+      (gest[c.scorer] || (gest[c.scorer] = [])).push(g);
+    }
+    return diving;
+  }
   const lerpA = (a, b, k) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * k;
   const throws = [];      // touches de l'action : le ballon dans les mains du tireur, puis lancé en cloche (n° 142)
   function setup(c) {
@@ -587,6 +643,7 @@ function create(canvas, R2, opt) {
     // les gestes de toute l'action (n° 133) ; le gardien qui n'a pas touché le dernier tir plonge quand même (ci-dessous)
     hasGest = prepareGestures(c);
     if (hasGest && c.keeper >= 0) keeperTouchedLast = (gest[c.keeper] || []).some(g => c.shotT != null && g.t >= c.shotT - 0.05);
+    keeperFilmed = hasGest && extraGestures(c);      // plongeon filmé du gardien battu, célébration du buteur (n° 144)
     for (const N of nets) { N.s = 0; N.vs = 0; updateNet(N); }
     stade.dress(c.teams);
     while (blobs.length < c.players.length) { const b = new THREE.Mesh(blobG, blobM); b.renderOrder = 2; scene.add(b); blobs.push(b); }
@@ -630,7 +687,7 @@ function create(canvas, R2, opt) {
       const f = figs[i], u = f.userData;
       if (!gdt) u.sp = p.v; else u.sp += (Math.min(p.v, 10) - u.sp) * Math.min(1, gdt * 10);
       const g = u.rigged && hasGest ? pick(i, tt) : null;
-      let x = p.x, z = p.y, roll = 0, lift = 0, pitch = 0, kmag = 0, kdir = 0, face = p.face;
+      let x = p.x, z = p.y, roll = 0, lift = 0, pitch = 0, kmag = 0, kdir = 0, face = p.face, filmY = 0;
       if (u.rigged) {
         u.body.position.y = 0;
         // course arrière, pas chassés, ou il se retourne pour courir (n° 143)
@@ -640,6 +697,7 @@ function create(canvas, R2, opt) {
           const r = tt - g.t, M = g.mv, w = filmW(g, r), d = filmDrift(g, r), fp = filmPos(g, r), back = r > 0 ? w / M.amt : 1;
           x += (fp[0] + M.dx * d - x) * back; z += (fp[1] + M.dy * d - z) * back;      // avant le contact : chemin de l'acteur ; après : retour au moteur
           face = lerpA(face, M.F + M.df * d, back); o.move = { name: M.name, t: filmT(g, r), w, left: M.left };
+          if (M.lift) filmY = filmLift(g, r);
         }
         P3().animate(f, calmSpeed(g, tt, u.sp), gdt, o);
       } else gait(u, u.sp, gdt);
@@ -647,7 +705,7 @@ function create(canvas, R2, opt) {
         const G = gesture(g, u, tt);
         roll = G.roll; lift = G.lift; pitch = G.pitch; z += G.lat; kmag = G.kmag; kdir = G.kdir;
         x += Math.cos(p.face) * G.fwd; z += Math.sin(p.face) * G.fwd;
-        if (i === c.keeper && c.shotT != null && !keeperTouchedLast) {      // le but : il plonge sans toucher le ballon
+        if (i === c.keeper && c.shotT != null && !keeperTouchedLast && !keeperFilmed) {      // le but : il plonge sans toucher le ballon (fait main, sans mouvements filmés)
           const k = smooth(c.shotT + 0.06, c.shotT + 0.06 + Math.max(0.3, (c.goalT - c.shotT) * 0.9), tt) * (1 - smooth(c.goalT + 1.4, c.goalT + 2.2, tt));
           diveR(u, k);
           const m = 1.3 * diveAmt * k; if (m > kmag) { kmag = m; kdir = diveDir; }      // le plus ample des deux plongeons, jamais leur somme (n° 140)
@@ -669,7 +727,7 @@ function create(canvas, R2, opt) {
         yaw = -(p.face + dA * a);
         roll += kdir * Math.sign(Math.cos(F)) * Math.min(1.45, kmag);
       }
-      f.position.set(x, lift, z); f.rotation.set(roll, yaw, pitch); f.scale.setScalar(u.rigged ? 1.03 : 1.12);
+      f.position.set(x, lift + filmY, z); f.rotation.set(roll, yaw, pitch); f.scale.setScalar(u.rigged ? 1.03 : 1.12);
       const bl = blobs[i], spread = 1 + 0.6 * Math.min(1, Math.abs(roll) + Math.abs(pitch));      // couché (plongeon, tacle) : l'ombre s'étale
       bl.position.set(x, 0.01, z); bl.scale.setScalar(spread * (1 + lift));
     });

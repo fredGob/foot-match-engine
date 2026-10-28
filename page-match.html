@@ -694,7 +694,7 @@
       };
     };
     return { t0, t1: Math.min(last, g + 2.2), shotT: e.shotT != null ? e.shotT : null, goalT: g, side: Math.sign(B[Math.min(tickOf(g), rec.n - 1) * 4]) || T[e.team].dir, scorer: by, keeper,
-      own: by >= 0 && view.players[by].team !== e.team, head: !!e.head, touches: e.touches || null, teams: T.map(t => ({ color: t.color })), players, at };
+      own: by >= 0 && view.players[by].team !== e.team, head: !!e.head, sp: e.sp || null, touches: e.touches || null, teams: T.map(t => ({ color: t.color })), players, at };
   }
   function replay(e, auto) {
     if (rpOn || !e || !rec) return;
@@ -727,7 +727,7 @@
   $('rpSkip').onclick = endReplay;
   // pour les essais (tools/replay.js) : une image fixe du replay du but n° k, à « dt » secondes du tir, avec la caméra « cam »
   window.throwIns = () => { const out = []; for (let f = 1; f < rec.n; f++) if (rec.H[f - 1] && !rec.H[f]) out.push({ t: f * DT, id: rec.H[f - 1] - 1, y: rec.B[f * 4 + 1] }); return out; };      // pour les essais : les touches jouées (instant du lâcher, tireur, côté)
-  window.replayStill = (k, dt, cam, focus, abs, touches) => { const e = rec.events.filter(x => x.kind === 'goal')[k], c = goalClip(e); if (touches) c.touches = touches; $('replay').hidden = false; $('rpLoad').hidden = true; if (!rp) rp = RP3.create($('replayCv'), R, { small: PHONE }); sizeReplay(); rp.still(c, abs ? dt : (c.shotT != null ? c.shotT : c.goalT) + dt, cam, focus); return { shotT: c.shotT, goalT: c.goalT, t0: c.t0, touches: c.touches, keeper: c.keeper }; };
+  window.replayStill = (k, dt, cam, focus, abs, touches) => { const e = rec.events.filter(x => x.kind === 'goal')[k], c = goalClip(e); if (touches) c.touches = touches; $('replay').hidden = false; $('rpLoad').hidden = true; if (!rp) rp = RP3.create($('replayCv'), R, { small: PHONE }); sizeReplay(); rp.still(c, abs ? dt : (c.shotT != null ? c.shotT : c.goalT) + dt, cam, focus); return { shotT: c.shotT, goalT: c.goalT, t0: c.t0, touches: c.touches, keeper: c.keeper, scorer: c.scorer, sp: c.sp }; };
   $('log').addEventListener('click', ev => { const b = ev.target.closest('.rpBtn'); if (b) replay(rec.events.find(e => e.kind === 'goal' && String(e.t) === b.dataset.t), false); });
 
   const ATTRS = [['pace', 'Vitesse'], ['passing', 'Passe'], ['firstTouch', 'Prise de balle'], ['vision', 'Vision du jeu'], ['dribbling', 'Dribble'], ['finishing', 'Finition'], ['tackling', 'Tacle'], ['positioning', 'Placement'], ['decisions', 'Lucidité'], ['workRate', 'Volume de course'], ['heading', 'Jeu de tête'], ['longShots', 'Frappe de loin']];

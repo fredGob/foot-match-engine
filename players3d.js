@@ -62,7 +62,7 @@ function buildMoves(g) {
       tracks.push(new THREE.VectorKeyframeTrack(pre + 'Hips.position', times, hp));
       return new THREE.AnimationClip(name + (mir ? '-miroir' : ''), (nk - 1) / c.fps, tracks);
     });
-    const m = { clips: pair, fps: c.fps, n, loop: !!c.loop, duration: (n - 1) / c.fps, speed: c.speed, dir: c.dir, contact: c.contact, foot: c.foot, head: c.head };
+    const m = { clips: pair, fps: c.fps, n, loop: !!c.loop, duration: (n - 1) / c.fps, speed: c.speed, dir: c.dir, contact: c.contact, foot: c.foot, head: c.head, hands: c.hands };
     if (c.path) { const p = decode(c.path); m.path = Array.from(p, v => v / 1000); }      // chemin du bassin au sol (m), image par image : x vers sa gauche, z vers l'avant
     out[name] = m;
   }
