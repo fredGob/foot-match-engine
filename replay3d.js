@@ -625,11 +625,12 @@ function create(canvas, R2, opt) {
     for (const f of figs) scene.remove(f); figs.length = 0;
     c.players.forEach((q, i) => {
       const k = (q.num * 7 + q.team * 3 + i) >>> 0, gk = q.role === 'GK', shirt = gk ? KEEPER[q.team] : c.teams[q.team].color;
+      const sk = k % SKIN.length, hl = sk === 2 || sk === 4 ? [0, 3, 5] : [0, 1, 2, 3, 4, 5], hair = HAIR[hl[(k >> 2) % hl.length]];      // cheveux foncés pour une peau foncée
       const shorts = q.team === 0 ? '#f2f4f7' : '#1b1f24', socks = gk ? shirt : q.team === 0 ? '#2f6fdf' : '#d8423a';
       if (P3()) {      // vrais mouvements (n° 129)
-        const f = P3().make({ shirt: lin(shirt), shorts: lin(shorts), socks: lin(socks), skin: lin(SKIN[k % SKIN.length]), hair: lin(HAIR[(k >> 2) % HAIR.length]), boots: lin('#141619'), hands: lin(gk ? '#f2f2f2' : SKIN[k % SKIN.length]) }, { num: q.num, name: q.name, ink: gk ? '#11151a' : '#ffffff', shadow: !opt.small });
+        const f = P3().make({ shirt: lin(shirt), shorts: lin(shorts), socks: lin(socks), skin: lin(SKIN[sk]), hair: lin(hair), boots: lin('#141619'), hands: lin(gk ? '#f2f2f2' : SKIN[sk]) }, { num: q.num, name: q.name, ink: gk ? '#11151a' : '#ffffff', shadow: !opt.small, real: true, coupe: [0, 1, 0, 1, 2][(k >> 3) % 5], sleeves: gk });      // corps réaliste (n° 145) : deux coupes courtes, parfois ras
         f.rotation.order = 'YXZ'; f.userData.sp = 0; scene.add(f); figs.push(f);
-      } else figs.push(makePlayer(q, shirt, shorts, socks, SKIN[k % SKIN.length], HAIR[(k >> 2) % HAIR.length], gk));
+      } else figs.push(makePlayer(q, shirt, shorts, socks, SKIN[sk], hair, gk));
     });
     // la jambe qui frappe : celle du côté du ballon au moment du tir
     const S = c.at(c.shotT), sc = S.players[c.scorer];
@@ -785,6 +786,11 @@ function create(canvas, R2, opt) {
     if (camera.fov !== fov) { camera.fov = fov; camera.updateProjectionMatrix(); }
     camera.position.set(cam.pos[0], cam.pos[1], cam.pos[2]); camera.lookAt(cam.look[0], cam.look[1], cam.look[2]);
     figs.forEach((f, i) => { f.visible = i === c.scorer || (kind === 'pres' && i === c.focus) || Math.hypot(f.position.x - cam.pos[0], f.position.z - cam.pos[2]) > 3; if (blobs[i]) blobs[i].visible = f.visible; });      // pas de joueur collé à l'objectif
+    // corps réaliste (n° 145) : la finesse de chaque joueur selon sa taille à l'écran (pixels de haut)
+    if (P3()) {
+      const px = renderer.domElement.height / (2 * Math.tan(camera.fov * Math.PI / 360));
+      figs.forEach(f => { if (f.userData.real) P3().detail(f, 1.8 / Math.max(0.5, Math.hypot(f.position.x - cam.pos[0], 1 - cam.pos[1], f.position.z - cam.pos[2])) * px); });
+    }
     sun.position.set(cam.look[0] - 30, 55, cam.look[2] + 38); sun.target.position.set(cam.look[0], 0, cam.look[2]);
     // le flou de profondeur : net sur l'action (le ballon pour la caméra du buteur, qui fait le point du tireur vers le but)
     const fx = kind === 'buteur' ? bx : cam.look[0], fy = kind === 'buteur' ? by + 0.3 : cam.look[1], fz = kind === 'buteur' ? bz : cam.look[2];

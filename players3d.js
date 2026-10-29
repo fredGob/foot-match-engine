@@ -28,7 +28,11 @@ function load(cb) {
   (THREE.GLTFLoader ? Promise.resolve() : script(LIBS[0]))
     .then(() => THREE.SkeletonUtils ? null : script(LIBS[1]))
     .then(() => new Promise((ok, ko) => new THREE.GLTFLoader().load(MODEL, ok, undefined, () => ko(new Error('mannequin 3D introuvable')))))
-    .then(g => { try { g.built = swapBody(g.scene); } catch (e) { console.warn('corps de footballeur : ' + e.message); } try { moves = buildMoves(g); } catch (e) { console.warn('mouvements filmés : ' + e.message); } gltf = g; done(null); }, e => done(e));
+    .then(g => {
+      try { g.built = swapBody(g.scene); } catch (e) { console.warn('corps de footballeur : ' + e.message); }
+      try { moves = buildMoves(g); } catch (e) { console.warn('mouvements filmés : ' + e.message); }
+      return unpack().then(D => { real = D && buildReal(g, D); }).catch(e => { real = null; console.warn('corps réaliste : ' + e.message); }).then(() => { gltf = g; done(null); });
+    }, e => done(e));
 }
 const ready = () => !!gltf;
 
@@ -223,15 +227,121 @@ function swapBody(scene) {
   return { tris: [hi, lo].map(m => m.geometry.index.count / 3) };
 }
 
+/* Le corps réaliste des ralentis (n° 145 ; Frédéric : « ce qui me gêne, c'est l'aspect Playmobil des joueurs sur le ralenti »). corps.js
+   (fabriqué par tools/corps.js) donne un vrai corps d'homme sportif fait avec MakeHuman (libre, CC0) : corps, yeux, sourcils, deux coupes
+   de cheveux, maillot, short ample et chaussures basses, chacun avec ses points, ses os et ses poids, et deux jeux de triangles plus légers
+   (téléphone, joueurs lointains). Le squelette est celui du mannequin des mouvements (mêmes os, mêmes rotations), mais ses articulations sont placées
+   comme celles de MakeHuman : on recopie le mannequin, on déplace ses os, et on lie le corps dans sa pose d'origine (bras le long du corps).
+   Les mouvements du mannequin ne gardent que leurs rotations (et la position du bassin) : sans cela, ils remettraient les os à leur place. */
+let real = null;
+function bytes(str) { const b = atob(str), a = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+// les données sont compressées (gzip) : le navigateur les décompresse (DecompressionStream ; sans lui, on garde le corps de footballeur fait main)
+function unpack() {
+  const D = typeof self !== 'undefined' && self.Corps3D; if (!D) return Promise.resolve(null);
+  if (D.bin) return Promise.resolve(D);
+  if (typeof DecompressionStream === 'undefined' || typeof Response === 'undefined') return Promise.reject(new Error('navigateur sans décompression'));
+  return new Response(new Blob([bytes(D.gz)]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer().then(b => { D.bin = b; return D; });
+}
+// les pièces assemblées : mêmes points pour les trois finesses (ordinateur, téléphone, de loin), trois jeux de triangles
+const FIN = [['Ordi', 'idx', 'tris'], ['Tel', 'tel', 'trisTel'], ['Loin', 'loin', 'trisLoin']];
+function realGeometry(D, names) {
+  const P = names.map(k => D.pieces[k]), B = D.bin;
+  let n = 0; const T = FIN.map(() => 0); P.forEach(p => { n += p.n; FIN.forEach((f, j) => { T[j] += (p[f[2]] || p.tris) * 3; }); });
+  const IA = n > 65535 ? Uint32Array : Uint16Array;
+  const pos = new Float32Array(n * 3), si = new Uint16Array(n * 4), sw = new Float32Array(n * 4), part = new Float32Array(n), edge = new Float32Array(n), ix = T.map(t => new IA(t)), at = FIN.map(() => 0);
+  let o = 0;
+  for (const p of P) {
+    const q = new Int16Array(B, p.pos[0], p.pos[1] / 2), sk = new Uint8Array(B, p.skin[0], p.skin[1]), pt = new Uint8Array(B, p.part[0], p.part[1]), ed = new Uint8Array(B, p.edge[0], p.edge[1]), b = p.box;
+    for (let i = 0; i < p.n; i++) {
+      for (let a = 0; a < 3; a++) pos[(o + i) * 3 + a] = b[a] + (q[i * 3 + a] + 32768) / 65535 * (b[a + 3] - b[a]);
+      for (let k = 0; k < 4; k++) { si[(o + i) * 4 + k] = sk[i * 8 + k]; sw[(o + i) * 4 + k] = sk[i * 8 + 4 + k] / 255; }
+      part[o + i] = pt[i]; edge[o + i] = ed[i];
+    }
+    FIN.forEach((f, j) => { const r = p[f[1]] || p.idx, I = new Uint16Array(B, r[0], r[1] / 2); for (let k = 0; k < I.length; k++) ix[j][at[j] + k] = I[k] + o; at[j] += I.length; });
+    o += p.n;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
+  g.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4));
+  g.setAttribute('part', new THREE.BufferAttribute(part, 1));
+  g.setAttribute('edge', new THREE.BufferAttribute(edge, 1));
+  g.setIndex(new THREE.BufferAttribute(ix[0], 1)); g.computeVertexNormals(); g.computeBoundingSphere();
+  return ix.map((I, j) => {
+    if (!j) return g;
+    const h = new THREE.BufferGeometry();
+    for (const k of ['position', 'normal', 'skinIndex', 'skinWeight', 'part', 'edge']) h.setAttribute(k, g.getAttribute(k));
+    h.setIndex(new THREE.BufferAttribute(I, 1)); h.boundingSphere = g.boundingSphere;
+    return h;
+  });
+}
+function buildReal(g, D) {
+  const scene = THREE.SkeletonUtils.clone(g.scene), old = [], by = {};
+  scene.traverse(o => { if (o.isSkinnedMesh) old.push(o); if (o.isBone) by[o.name.replace(/^mixamorig:?/, '')] = o; });
+  old.forEach(o => o.parent.remove(o));
+  const bones = D.bones.map(n => { if (!by[n]) throw new Error('os absent : ' + n); return by[n]; });
+  // les os à la place des articulations de MakeHuman (le squelette est en centimètres), dans la pose de liaison
+  bones.forEach((b, i) => { b.position.fromArray(D.rest[i]).multiplyScalar(100); b.quaternion.fromArray(D.bind[i]); });
+  scene.updateMatrixWorld(true);
+  const inv = bones.map(b => b.matrixWorld.clone().invert());
+  const mk = (name, geo) => {
+    const m = new THREE.SkinnedMesh(geo, new THREE.MeshStandardMaterial({ skinning: true }));
+    m.name = name; scene.add(m); m.updateMatrixWorld(true);
+    m.bind(new THREE.Skeleton(bones, inv.map(x => x.clone())), m.matrixWorld);
+  };
+  const all = (name, names) => realGeometry(D, names).forEach((geo, j) => mk(name + FIN[j][0], geo));
+  all('Corps', D.tenue);
+  D.coupes.forEach((k, i) => all('Coupe' + (i + 1), [k]));
+  // au repos : debout, bras à l'horizontale (comme le mannequin) ; doigts un peu fléchis (les gestes filmés ne bougent pas les doigts)
+  bones.forEach(b => b.quaternion.set(0, 0, 0, 1));
+  const Z = new THREE.Vector3(0, 0, 1);
+  D.bones.forEach((n, i) => { const m = /^(Left|Right)Hand(Index|Middle|Ring|Pinky)[123]$/.exec(n); if (m) bones[i].quaternion.setFromAxisAngle(Z, (m[1] === 'Left' ? -1 : 1) * 0.32); });
+  const anims = g.animations.map(c => new THREE.AnimationClip(c.name, c.duration, c.tracks.filter(t => !/\.(position|scale)$/.test(t.name) || /Hips\.position$/.test(t.name))));
+  return { scene, anims, plate: D.plate, sock: D.chaussette };
+}
+
 /* La tenue du corps de footballeur : chaque point porte sa pièce (attribut « part ») ; le col et les poignets prennent la couleur du short,
    ou une couleur plus sombre du maillot si le short est de la même couleur. La peau est un peu plus brillante que le tissu. */
-function bodyMaterial(kit) {
-  const m = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0, skinning: true });
+/* o.real (n° 145) : corps réaliste, parties en plus : iris et blanc des yeux, bras (manches longues du gardien : o.sleeves), sourcils,
+   crâne (cheveux ras : o.buzz) ; les deux faces des pièces sont dessinées (on voit l'intérieur du maillot par la manche). */
+function bodyMaterial(kit, o) {
+  o = o || {};
+  const m = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0, skinning: true, side: o.real ? THREE.DoubleSide : THREE.FrontSide });
   const trim = kit.shorts.clone(); if (Math.abs(trim.r - kit.shirt.r) + Math.abs(trim.g - kit.shirt.g) + Math.abs(trim.b - kit.shirt.b) < 0.15) trim.copy(kit.shirt).multiplyScalar(0.55);
   const U = { k_trim: { value: trim }, k_eyes: { value: new THREE.Color(0x15110e) }, k_rim: { value: new THREE.Color(0.30, 0.27, 0.22).multiplyScalar(kit.rim != null ? kit.rim : 0.5) } };      // k_rim : liseré de lumière sur les bords (n° 141)
   for (const k of ['shirt', 'shorts', 'socks', 'skin', 'hair', 'boots', 'hands']) U['k_' + k] = { value: kit[k].clone() };
   if (kit.hands.equals(kit.skin)) U.k_hands.value.multiplyScalar(0.82);
   U.k_skin.value.multiplyScalar(0.82);      // peau un peu plus mate : sous le soleil, elle paraissait blanche (n° 141)
+  U.k_arms = { value: o.sleeves ? U.k_shirt.value.clone() : U.k_skin.value.clone() };
+  U.k_scalp = { value: U.k_skin.value.clone().lerp(U.k_hair.value, o.buzz ? 0.8 : 0.55) };      // sous les cheveux, un crâne foncé (pas de peau claire entre les mèches)
+  U.k_sockY = { value: o.sock || 0.45 };
+  if (o.real) {      // couleur et rugosité calculées par point : entre deux pièces, la couleur passe de l'une à l'autre (sans rayures)
+    m.onBeforeCompile = sh => {
+      Object.assign(sh.uniforms, U);
+      sh.vertexShader = 'attribute float part, edge;\nvarying vec3 vCol;\nvarying float vRough, vEdge, vShirt, vLeg, vBindY;\nuniform vec3 k_shirt, k_shorts, k_socks, k_skin, k_hair, k_boots, k_hands, k_trim, k_eyes, k_arms, k_scalp;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        int pt = int(part + 0.5);
+        vEdge = edge; vShirt = pt == 1 ? 1.0 : 0.0; vLeg = (pt == 0 || pt == 3) && position.y < 0.62 ? 1.0 : 0.0; vBindY = position.y;
+        vCol = pt == 1 ? k_shirt : pt == 2 ? k_shorts : pt == 3 ? k_socks : pt == 4 ? k_boots : pt == 5 ? k_hair : pt == 6 ? k_hands : pt == 7 ? k_trim : pt == 8 ? k_eyes
+          : pt == 9 ? vec3(0.62, 0.6, 0.57) : pt == 10 ? k_arms : pt == 11 ? k_hair * 0.6 : pt == 12 ? k_scalp : k_skin;
+        vRough = pt == 0 || pt == 6 || pt == 12 ? 0.55 : pt == 4 ? 0.35 : pt == 5 || pt == 11 ? 0.9 : pt == 8 || pt == 9 ? 0.2 : pt == 10 ? ${o.sleeves ? '0.78' : '0.55'} : 0.78;`);
+      sh.fragmentShader = 'varying vec3 vCol;\nvarying float vRough, vEdge, vShirt, vLeg, vBindY;\nuniform vec3 k_rim, k_shirt, k_trim, k_socks, k_skin;\nuniform float k_sockY;\n' + sh.fragmentShader
+        // col et poignets (à moins de 15 mm du bord) et haut des chaussettes : tracés au pixel près (pas de dents de scie)
+        .replace('#include <color_fragment>', `#include <color_fragment>
+      vec3 col = vCol; float rough = vRough;
+      if (vShirt > 0.5) col = vEdge < 15.0 ? k_trim : k_shirt;
+      if (vLeg > 0.5) { bool sock = vBindY < k_sockY; col = sock ? k_socks : k_skin; rough = sock ? 0.78 : 0.55; }
+      diffuseColor.rgb = col;`)
+        // la normale est retournée seulement si elle fuit la caméra (intérieur du maillot vu par la manche), pas selon le sens du triangle :
+        // la version légère a quelques triangles retournés, qui seraient sinon tout noirs
+        .replace('#include <normal_fragment_begin>', 'float faceDirection = 1.0;\n      vec3 normal = normalize(vNormal);\n      if (dot(normal, vViewPosition) < 0.0) { normal = -normal; faceDirection = -1.0; }\n      vec3 geometryNormal = normal;')
+        .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        float rimF = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0);
+        totalEmissiveRadiance += k_rim * rimF * rimF * rimF;`)
+        .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n      roughnessFactor = rough;');
+    };
+    m.customProgramCacheKey = () => 'corps-reel' + (o.sleeves ? 'm' : '');
+    return m;
+  }
   m.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, U);
     sh.vertexShader = 'attribute float part, hairy;\nvarying float vPart, vHairy;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vPart = part; vHairy = hairy;');
@@ -289,11 +399,21 @@ function backTexture(name, num, ink) {
    Renvoie un groupe à poser au sol, qui regarde vers +x (comme les joueurs faits main) ; joueurs3d.animate(g, vitesse, dt) le fait courir. */
 function make(kit, opts) {
   opts = opts || {};
-  const body = THREE.SkeletonUtils.clone(gltf.scene);
+  const R = opts.real && real ? real : null;      // corps réaliste (n° 145) : opts.real, opts.coupe (0, 1 : cheveux courts ; 2 : ras), opts.sleeves (gardien)
+  const body = THREE.SkeletonUtils.clone(R ? R.scene : gltf.scene);
   const small = opts.small != null ? opts.small : opts.shadow === false, drop = [];
+  const cut = R ? ((opts.coupe | 0) % 3 + 3) % 3 : 0, rmat = R ? bodyMaterial(kit, { real: true, buzz: cut === 2, sleeves: !!opts.sleeves, sock: R.sock }) : null, lod = small ? 'Tel' : 'Ordi';
+  const lods = { Ordi: [], Tel: [], Loin: [] }, keep = [];      // corps réaliste : les trois finesses (mêmes points), pour detail()
   body.traverse(o => {
     if (!o.isSkinnedMesh) return;
-    if (/^Footballeur/.test(o.name)) { if (o.name !== 'Footballeur' + (small ? 10 : 18)) { drop.push(o); return; } o.material = bodyMaterial(kit); }
+    if (R) {
+      const m = /^(Corps|Coupe(\d))(Ordi|Tel|Loin)$/.exec(o.name);
+      if (!m || (m[2] && +m[2] !== cut + 1)) { drop.push(o); return; }
+      lods[m[3]][m[2] ? 1 : 0] = o.geometry;
+      if (m[3] !== lod) { drop.push(o); return; }
+      keep[m[2] ? 1 : 0] = o; o.material = rmat;
+    }
+    else if (/^Footballeur/.test(o.name)) { if (o.name !== 'Footballeur' + (small ? 10 : 18)) { drop.push(o); return; } o.material = bodyMaterial(kit); }
     else o.material = kitMaterial(kit, /Joints/.test(o.name) ? 0.82 : 1);
     o.castShadow = opts.shadow !== false; o.receiveShadow = false; o.frustumCulled = false;
   });
@@ -304,19 +424,31 @@ function make(kit, opts) {
   const spine = body.getObjectByName('mixamorigSpine2') || body.getObjectByName('mixamorig:Spine2');
   if (spine && opts.num != null) {
     const plate = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshBasicMaterial({ map: backTexture(opts.name, opts.num, opts.ink || '#ffffff'), transparent: true, depthWrite: false }));
-    if (gltf.built) { plate.scale.setScalar(0.85); plate.position.set(0, 3, -10.2); }      // collé au dos du corps de footballeur
+    if (R) { plate.scale.setScalar(0.8); plate.position.fromArray(R.plate); }      // sur le dos du maillot du corps réaliste
+    else if (gltf.built) { plate.scale.setScalar(0.85); plate.position.set(0, 3, -10.2); }      // collé au dos du corps de footballeur
     else plate.position.set(0, 6, -14.5);
     plate.rotation.y = Math.PI; spine.add(plate);      // le squelette est en centimètres
   }
-  const mixer = new THREE.AnimationMixer(body), clip = n => gltf.animations.find(a => a.name === n);
+  const mixer = new THREE.AnimationMixer(body), clip = n => (R ? R.anims : gltf.animations).find(a => a.name === n);
   const A = { idle: mixer.clipAction(clip('idle')), walk: mixer.clipAction(clip('walk')), run: mixer.clipAction(clip('run')) };
   for (const k in A) { A[k].play(); A[k].setEffectiveWeight(0); }
   A.walk.time = Math.random() * A.walk.getClip().duration; A.run.time = Math.random() * A.run.getClip().duration;
   const M = {};      // mouvements filmés : [droite, miroir] ; les frappes ne défilent pas d'elles-mêmes (le replay fixe leur instant)
   if (moves) for (const k in moves) M[k] = moves[k].clips.map(c => { const a = mixer.clipAction(c); a.play(); a.setEffectiveWeight(0); if (!moves[k].loop) a.timeScale = 0; else a.time = Math.random() * c.duration; return a; });
   const bone = n => body.getObjectByName('mixamorig' + n) || body.getObjectByName('mixamorig:' + n);
-  g.userData = { rigged: true, body, mixer, A, M, sp: 0, turn: 0, bones: { hips: bone('Hips'), spine: bone('Spine1'), lUp: bone('LeftUpLeg'), rUp: bone('RightUpLeg'), lLeg: bone('LeftLeg'), rLeg: bone('RightLeg'), lArm: bone('LeftArm'), rArm: bone('RightArm'), lFore: bone('LeftForeArm'), rFore: bone('RightForeArm'), head: bone('Head'), lHand: bone('LeftHand'), rHand: bone('RightHand') } };
+  g.userData = { rigged: true, body, mixer, A, M, sp: 0, turn: 0, real: R ? { keep, lods, now: lod, fixed: small } : null, bones: { hips: bone('Hips'), spine: bone('Spine1'), lUp: bone('LeftUpLeg'), rUp: bone('RightUpLeg'), lLeg: bone('LeftLeg'), rLeg: bone('RightLeg'), lArm: bone('LeftArm'), rArm: bone('RightArm'), lFore: bone('LeftForeArm'), rFore: bone('RightForeArm'), head: bone('Head'), lHand: bone('LeftHand'), rHand: bone('RightHand') } };
   return g;
+}
+/* Finesse du corps réaliste (n° 145), selon la taille du joueur à l'écran (h : pixels de haut) : pleine finesse au-dessus de 130 pixels
+   (sur ordinateur seulement), version légère au-dessus de 55, version « de loin » en dessous. Les trois ont les mêmes points : on change
+   seulement de jeu de triangles. Un petit écart évite de passer sans cesse de l'une à l'autre. */
+function detail(g, h) {
+  const r = g.userData.real; if (!r) return;
+  const up = { Ordi: 0, Tel: 1, Loin: 2 }[r.now], lim = (x, k) => h > x * (k < up ? 1.12 : 0.9);
+  let k = !r.fixed && lim(130, 0) ? 'Ordi' : lim(55, 1) ? 'Tel' : 'Loin';
+  if (r.now === k) return;
+  r.keep.forEach((m, i) => { if (m && r.lods[k][i]) m.geometry = r.lods[k][i]; });
+  r.now = k;
 }
 /* la course suit la vitesse v (m/s) du joueur dans le match ; dt : temps de jeu écoulé (0 en pause, petit au ralenti).
    o (facultatif, n° 143) : { dir : direction du déplacement par rapport au regard (rad ; 0 en avant, > 0 vers sa gauche, ±π en arrière),
@@ -387,5 +519,5 @@ function handsAt(g) {
   return a.add(b).multiplyScalar(0.5);
 }
 
-return { load, ready, make, animate, heading, throwPose, handsAt, pathAt, moves: () => moves, LIBS, MODEL };
+return { load, ready, make, animate, detail, heading, throwPose, handsAt, pathAt, moves: () => moves, hasReal: () => !!real, LIBS, MODEL };
 });

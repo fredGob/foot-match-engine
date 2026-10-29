@@ -79,6 +79,7 @@ Les tests de la page demandent une installation, une seule fois : `cd tools && n
 | `page-match.html` | La page de match, avant assemblage. |
 | `equipes.json` | Les quatre équipes de niveaux différents et les dix clubs de Ligue 1. |
 | `mouvements.js` | Les mouvements filmés des joueurs 3D (frappes, passe, penalty, saut, touche, gardien, tacle, célébrations, course arrière, pas chassés), fabriqués par `tools/mouvements.js`. |
+| `corps.js` | Le corps réaliste des joueurs des ralentis (corps, yeux, sourcils, cheveux, maillot, short, chaussures), fabriqué par `tools/corps.js` à partir de MakeHuman. |
 | `sim.js`, `check.js`, `tools/` | Simulations, vérifications et outils de mesure. |
 | `CLAUDE.md` | Le carnet du projet : fonctionnement du moteur, mesures, journal des essais, défauts connus. |
 
@@ -102,6 +103,6 @@ Ce qui ne va pas encore :
 
 Le détail des mesures, des essais ratés et des défauts est dans `CLAUDE.md`.
 
-Crédits : les mouvements filmés des joueurs 3D viennent de la base de capture de mouvement de l'université Carnegie Mellon (mocap.cs.cmu.edu), créée grâce au financement NSF EIA-0196217, et du « Free mocap pack 05: Soccer » d'Anderson Rohr (linktr.ee/andersonrohr). Les fichiers d'origine de ce pack ne sont pas dans ce dépôt.
+Crédits : les mouvements filmés des joueurs 3D viennent de la base de capture de mouvement de l'université Carnegie Mellon (mocap.cs.cmu.edu), créée grâce au financement NSF EIA-0196217, et du « Free mocap pack 05: Soccer » d'Anderson Rohr (linktr.ee/andersonrohr). Les fichiers d'origine de ce pack ne sont pas dans ce dépôt. Le corps réaliste des joueurs des ralentis est fait avec MakeHuman (makehumancommunity.org : corps de base, extension MPFB et « makehuman_system_assets »), sous licence CC0.
 
 Ce qui n'existe pas : d'autres formations que le 4-4-2, les remplacements, les cartons, la mi-temps, les consignes par joueur.
